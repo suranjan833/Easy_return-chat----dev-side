@@ -1,0 +1,47 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Environment files
+# Ignore env files from all directories
+# *.env
+# .env
+# **/.env
+
+*.local
+
+# Dependency directories
+node_modules/
+mera_push.sh
+
+# Build output
+dist/
+dist-ssr/
+
+# Vite cache (optional)
+.vite/
+
+# Editor files
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS junk
+Thumbs.db
+ehthumbs.db
+*.bak
+*.tmp
+ddev.sh
+package-lock.json
+bun.lock

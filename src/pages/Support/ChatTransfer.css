@@ -1,0 +1,122 @@
+/* .chat-transfer-container {
+  margin-bottom: 1rem;
+} */
+
+.custom-modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5); /* Semi-transparent backdrop */
+  z-index: 1040; /* Below modal but above other content */
+}
+
+.custom-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1050; /* Above backdrop */
+  width: 100%;
+  max-width: 500px; /* Max width for modal */
+  outline: none;
+}
+
+.custom-modal-content {
+  background: #fff;
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+}
+
+.custom-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  border-bottom: 1px solid #dee2e6;
+}
+
+.custom-modal-header h5 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 500;
+}
+
+.custom-modal-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  color: #000;
+}
+
+.custom-modal-close:hover {
+  color: #dc3545; /* Red on hover */
+}
+
+.custom-modal-body {
+  padding: 1rem;
+}
+
+.custom-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 1rem;
+  border-top: 1px solid #dee2e6;
+}
+
+.custom-modal-footer .btn {
+  margin-left: 0.5rem;
+}
+
+.form-label {
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+}
+
+.form-control,
+.form-select {
+  border-radius: 0.25rem;
+}
+
+.form-check {
+  margin-top: 1rem;
+}
+
+.btn-primary,
+.btn-secondary {
+  border-radius: 0.25rem;
+  padding: 0.5rem 1rem;
+}
+
+.agent-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  max-height: 200px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+}
+
+.agent-dropdown-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.agent-dropdown-item:hover {
+  background-color: #f8f9fa;
+}
+
+.agent-dropdown-item.disabled {
+  cursor: not-allowed;
+  color: #6c757d;
+}

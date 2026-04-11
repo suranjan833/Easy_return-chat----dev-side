@@ -1,0 +1,18 @@
+.icon-header:hover {
+    background-color: #dbd7d7;
+    color: #000;
+    padding: 8px;
+    border-radius: 50%;
+    transition: all .2s ease-in-out;
+    box-sizing: border-box;
+}
+
+.icon-header-bi:hover {
+    background-color: #dbd7d7;
+    color: #000;
+    padding: 8px;
+    border-radius: 50%;
+    transition: all .2s ease-in-out;
+    box-sizing: border-box;
+    font-size: 23px;
+}

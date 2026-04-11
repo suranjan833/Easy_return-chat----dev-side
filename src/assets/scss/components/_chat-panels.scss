@@ -1,0 +1,261 @@
+// // Chat Panels - Equal Dimensions and Responsive Layout
+// // =====================================================
+
+// // Variables
+// $panel-width: 500px;
+// $panel-height: 600px;
+// $panel-border-radius: 12px;
+// $panel-border: 2px solid #e0e0e0;
+// $panel-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+// $panel-transition: all 0.3s ease;
+
+// $sidebar-width: 290px;
+// $header-height: 80px;
+// $panel-margin: 20px;
+
+// // Base Panel Styles
+// .chat-panel,
+// .group-chat-popup,
+// .chat-popup {
+//   width: $panel-width !important;
+//   height: $panel-height !important;
+//   background: #fff !important;
+//   border: $panel-border !important;
+//   border-radius: $panel-border-radius !important;
+//   box-shadow: $panel-shadow !important;
+//   overflow: hidden !important;
+//   position: fixed !important;
+//   z-index: 1000 !important;
+//   display: flex !important;
+//   flex-direction: column !important;
+//   transition: $panel-transition !important;
+  
+//   // Header
+//   .chat-header,
+//   .group-chat-header {
+//     background: #007bff !important;
+//     color: #fff !important;
+//     padding: 16px !important;
+//     display: flex !important;
+//     justify-content: space-between !important;
+//     align-items: center !important;
+//     border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+//     flex-shrink: 0 !important;
+//     cursor: move !important;
+//     transition: background-color 0.3s ease !important;
+    
+//     &:hover {
+//       background: #0056b3 !important;
+//     }
+    
+//     h5, .chat-title {
+//       margin: 0 !important;
+//       font-size: 16px !important;
+//       font-weight: 600 !important;
+//       color: #fff !important;
+//       flex-grow: 1 !important;
+//     }
+    
+//     .chat-close,
+//     button[onClick*="onClose"] {
+//       background: none !important;
+//       border: none !important;
+//       color: #fff !important;
+//       font-size: 18px !important;
+//       cursor: pointer !important;
+//       padding: 4px !important;
+//       border-radius: 50% !important;
+//       width: 32px !important;
+//       height: 32px !important;
+//       display: flex !important;
+//       align-items: center !important;
+//       justify-content: center !important;
+//       transition: all 0.3s ease !important;
+      
+//       &:hover {
+//         color: #ff4d4d !important;
+//         background: rgba(255, 255, 255, 0.1) !important;
+//       }
+//     }
+//   }
+  
+//   // Body/Content
+//   .chat-body,
+//   .group-chat-messages,
+//   .flex-grow-1 {
+//     flex: 1 !important;
+//     overflow-y: auto !important;
+//     padding: 16px !important;
+//     background: #f8f9fa !important;
+//     min-height: 0 !important;
+    
+//     // Scrollbar styling
+//     &::-webkit-scrollbar {
+//       width: 6px !important;
+//     }
+    
+//     &::-webkit-scrollbar-track {
+//       background: #f1f1f1 !important;
+//       border-radius: 3px !important;
+//     }
+    
+//     &::-webkit-scrollbar-thumb {
+//       background: #c1c1c1 !important;
+//       border-radius: 3px !important;
+      
+//       &:hover {
+//         background: #a8a8a8 !important;
+//       }
+//     }
+//   }
+  
+//   // Footer/Input
+//   .chat-footer,
+//   .group-chat-input {
+//     padding: 16px !important;
+//     background: #fff !important;
+//     border-top: 1px solid #dee2e6 !important;
+//     flex-shrink: 0 !important;
+    
+//     .form-control,
+//     input[type="text"] {
+//       border-radius: 20px 0 0 20px !important;
+//       border: 1px solid #dee2e6 !important;
+//       padding: 12px 16px !important;
+      
+//       &:focus {
+//         border-color: #007bff !important;
+//         box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25) !important;
+//       }
+//     }
+    
+//     .btn {
+//       border-radius: 0 20px 20px 0 !important;
+//       padding: 12px 16px !important;
+//       background: #007bff !important;
+//       border: 1px solid #007bff !important;
+//       transition: all 0.3s ease !important;
+      
+//       &:hover:not(:disabled) {
+//         background: #0056b3 !important;
+//         border-color: #0056b3 !important;
+//       }
+      
+//       &:disabled {
+//         opacity: 0.6 !important;
+//         cursor: not-allowed !important;
+//       }
+//     }
+//   }
+// }
+
+// // Panel Layout Classes
+// .chat-panel-single {
+//   width: 800px !important;
+//   height: 600px !important;
+// }
+
+// .chat-panel-double {
+//   width: 600px !important;
+//   height: 600px !important;
+// }
+
+// .chat-panel-grid {
+//   width: 500px !important;
+//   height: 500px !important;
+// }
+
+// // Responsive Design
+// @include media-breakpoint-down(xl) {
+//   .chat-panel,
+//   .group-chat-popup,
+//   .chat-popup {
+//     width: 450px !important;
+//     height: 550px !important;
+//   }
+  
+//   .chat-panel-single {
+//     width: 700px !important;
+//     height: 550px !important;
+//   }
+  
+//   .chat-panel-double {
+//     width: 550px !important;
+//     height: 550px !important;
+//   }
+// }
+
+// @include media-breakpoint-down(md) {
+//   .chat-panel,
+//   .group-chat-popup,
+//   .chat-popup {
+//     width: 100vw !important;
+//     height: 100vh !important;
+//     border-radius: 0 !important;
+//     left: 0 !important;
+//     top: 0 !important;
+//   }
+  
+//   .chat-panel-single,
+//   .chat-panel-double,
+//   .chat-panel-grid {
+//     width: 100vw !important;
+//     height: 100vh !important;
+//     border-radius: 0 !important;
+//   }
+  
+//   .chat-body,
+//   .group-chat-messages,
+//   .flex-grow-1 {
+//     height: calc(100vh - 140px) !important;
+//   }
+// }
+
+// // Sidebar Responsive Adjustments
+// body.sidebar-hidden {
+//   .chat-panel,
+//   .group-chat-popup,
+//   .chat-popup {
+//     left: $panel-margin !important;
+//   }
+// }
+
+// body:not(.sidebar-hidden) {
+//   .chat-panel,
+//   .group-chat-popup,
+//   .chat-popup {
+//     left: $sidebar-width + $panel-margin !important;
+//   }
+// }
+
+// // Animation Classes
+// .panel-fade-in {
+//   animation: fadeIn 0.3s ease-in;
+// }
+
+// .panel-slide-in {
+//   animation: slideIn 0.3s ease-out;
+// }
+
+// @keyframes fadeIn {
+//   from {
+//     opacity: 0;
+//     transform: scale(0.95);
+//   }
+//   to {
+//     opacity: 1;
+//     transform: scale(1);
+//   }
+// }
+
+// @keyframes slideIn {
+//   from {
+//     opacity: 0;
+//     transform: translateY(20px);
+//   }
+//   to {
+//     opacity: 1;
+//     transform: translateY(0);
+//   }
+// }
+

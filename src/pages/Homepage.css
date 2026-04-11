@@ -1,0 +1,48 @@
+/* Light mode hover effect */
+.group-item-hover-effect:hover {
+  background-color: #f1f3f5 !important; /* Light grey background on hover */
+}
+
+.group-item-hover-effect:hover .text-dark {
+  color: #212529 !important; /* Dark text for light background */
+}
+
+.group-item-hover-effect:hover .text-primary {
+  color: #0056b3 !important; /* Darker primary for light background */
+}
+
+.group-item-hover-effect:hover .text-muted {
+  color: #6c757d !important; /* Darker muted for light background */
+}
+
+/* Dark mode hover effect */
+body.dark-mode .group-item-hover-effect:hover,
+.dark-mode .group-item-hover-effect:hover {
+  background-color: #343a40 !important; /* Darker background on hover in dark mode */
+}
+
+body.dark-mode .group-item-hover-effect:hover .text-dark,
+.dark-mode .group-item-hover-effect:hover .text-dark {
+  color: #f8f9fa !important; /* Light text for dark background */
+}
+
+body.dark-mode .group-item-hover-effect:hover .text-primary,
+.dark-mode .group-item-hover-effect:hover .text-primary {
+  color: #9ec5fe !important; /* Lighter primary for dark background */
+}
+
+body.dark-mode .group-item-hover-effect:hover .text-muted,
+.dark-mode .group-item-hover-effect:hover .text-muted {
+  color: #ced4da !important; /* Lighter muted for dark background */
+}
+
+/* Header title text */
+.header-title-text {
+  color: #1a1a1a; /* Default dark text for light mode */
+}
+
+/* Dark mode header title text */
+body.dark-mode .header-title-text,
+.dark-mode .header-title-text {
+  color: #f8f9fa; /* Light text for dark mode */
+}

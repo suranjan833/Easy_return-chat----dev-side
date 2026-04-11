@@ -1,0 +1,32 @@
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Widget Test</title>
+</head>
+
+<body>
+    <h1>FSK Widget Test</h1>
+    <p>Click the chat button to test the emoji picker.</p>
+
+    <!-- Load the widget script -->
+    <script src="./fsk-widget.js"></script>
+
+    <script>
+        // Initialize the widget with dummy data
+        window.initChatWidget({
+          departments: "https://chatsupport.fskindia.com/agents/departments",
+          support: "https://supportdesk.fskindia.com/support/initiate-support-request",
+          verify: "https://chatsupport.fskindia.com/sites/verify?api_key=RjyJYYbP_GJTolqXHzQTxZWOG9bLlg3H",
+          key: "RjyJYYbP_GJTolqXHzQTxZWOG9bLlg3H",
+           userDetails: {
+                name: "Test User",
+                email: "test@example.com",
+                mobile: "1234567890"
+            },
+          color: "#6576ff",
+          logo: "/logo.png"
+        });
+    </script>
+</body>
+
+</html>

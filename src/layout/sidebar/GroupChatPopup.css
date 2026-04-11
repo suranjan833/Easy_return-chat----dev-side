@@ -1,0 +1,98 @@
+.group-chat-popup {
+  /* Existing styles */
+}
+
+.group-chat-header {
+  /* Existing styles */
+}
+
+.group-chat-messages {
+  /* Existing styles */
+}
+
+.group-chat-input {
+  /* Existing styles */
+}
+
+/* Mention List Styling */
+.mention-list-container {
+  position: absolute;
+  bottom: 80px; /* Adjust based on input area height */
+  left: 16px;
+  right: 16px;
+  background-color: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 10;
+  padding: 8px 0;
+}
+
+.mention-list-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.mention-list-item:hover {
+  background-color: #f1f3f5;
+}
+
+.mention-list-item.no-results {
+  color: #6c757d;
+  font-style: italic;
+}
+
+.mention-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+  margin-right: 8px;
+}
+
+.mention-avatar-initials {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background-color: #007bff;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: bold;
+  margin-right: 8px;
+}
+
+/* Dark Mode Adjustments */
+body.dark-mode .mention-list-container,
+.dark-mode .mention-list-container {
+  background-color: #212529;
+  border-color: #343a40;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+
+body.dark-mode .mention-list-item:hover,
+.dark-mode .mention-list-item:hover {
+  background-color: #343a40;
+}
+
+body.dark-mode .mention-list-item,
+.dark-mode .mention-list-item {
+  color: #f8f9fa;
+}
+
+body.dark-mode .mention-list-item.no-results,
+.dark-mode .mention-list-item.no-results {
+  color: #ced4da;
+}
+
+body.dark-mode .mention-avatar-initials,
+.dark-mode .mention-avatar-initials {
+  background-color: #6c757d; /* Adjust for dark mode if primary is too bright */
+}

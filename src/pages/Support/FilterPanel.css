@@ -1,0 +1,30 @@
+/* Custom styles for FilterPanel buttons */
+.filter-panel .btn-apply-filters {
+  background-color: #495057; /* Dark grey */
+  border-color: #495057;
+  color: #fff;
+  height: 45px;
+  font-size: 1rem;
+  font-weight: 600; /* Make text a bit bolder */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Subtle shadow */
+}
+
+.filter-panel .btn-apply-filters:hover {
+  background-color: #343a40; /* Slightly darker on hover */
+  border-color: #343a40;
+}
+
+.filter-panel .btn-clear-filters {
+  background-color: #6c757d; /* Lighter grey */
+  border-color: #6c757d;
+  color: #fff;
+  height: 45px;
+  font-size: 1rem;
+  font-weight: 600; /* Make text a bit bolder */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Subtle shadow */
+}
+
+.filter-panel .btn-clear-filters:hover {
+  background-color: #5a6268; /* Slightly darker on hover */
+  border-color: #5a6268;
+}

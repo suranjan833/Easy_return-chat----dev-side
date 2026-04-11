@@ -1,0 +1,43 @@
+.bg-pink{
+    background-color: rgb(216, 173, 180) !important;
+    opacity: .8;
+}
+.nk-sidebar-overlay {
+       z-index: 1000 !important;
+       pointer-events: auto !important;
+     }
+.nk-sidebar-head {
+  background-color: rgb(216, 214, 223);
+}
+
+.modal.show:nth-child(1) .modal-dialog {
+  transform: translate(0, 0);
+}
+.modal.show:nth-child(2) .modal-dialog {
+  transform: translate(20px, 20px);
+}
+.modal.show:nth-child(3) .modal-dialog {
+  transform: translate(40px, 40px);
+}
+.modal.show:nth-child(4) .modal-dialog {
+  transform: translate(60px, 60px);
+}
+
+.bg-darkk{
+  background-color: #101924 !important;
+}
+
+
+@media (min-width: 1200px) {
+  .nk-sidebar {
+    transform: none !important;
+    visibility: visible !important; 
+    opacity: 1 !important; 
+  }
+
+
+  .nk-nav-toggle,
+  .nk-nav-compact {
+    display: none !important; 
+  }
+}

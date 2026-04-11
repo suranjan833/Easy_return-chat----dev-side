@@ -1,0 +1,90 @@
+/* Custom styling for CreateRole */
+.preview-card {
+    border-radius: 0.75rem;
+    transition: all 0.3s ease;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.preview-card:hover {
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.05);
+}
+
+.table {
+    font-size: 0.9rem;
+}
+
+.table thead th {
+    border-bottom: none;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.5px;
+    color: #6c757d;
+    background-color: #f8f9fa !important;
+}
+
+.table tbody tr {
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.table tbody tr:last-child {
+    border-bottom: none;
+}
+
+.btn {
+    border-radius: 0.5rem;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.form-icon {
+    color: #6c757d;
+}
+
+.form-control {
+    border-radius: 0.5rem;
+    transition: all 0.2s ease;
+}
+
+.form-control:focus {
+    box-shadow: none;
+    border-color: #86b7fe;
+}
+
+.alert {
+    border-radius: 0.5rem;
+}
+
+.badge-sm {
+    font-size: 0.65rem;
+    font-weight: 500;
+    padding: 0.25rem 0.5rem;
+}
+
+/* Custom scrollbar for table */
+.table-responsive::-webkit-scrollbar {
+    height: 6px;
+}
+
+.table-responsive::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 10px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 10px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* Hover effects */
+.table-hover tbody tr:hover {
+    background-color: rgba(13, 110, 253, 0.03);
+}
+
+.btn-light:hover {
+    background-color: #f8f9fa;
+}

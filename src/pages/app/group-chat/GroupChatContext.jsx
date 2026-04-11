@@ -1,0 +1,851 @@
+import { getGroupMessages, getGroups } from "@/Services/api";
+import {
+  createContext,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import { toast } from "react-toastify";
+import groupChatService from "../../../Services/GroupChatService";
+
+export const GroupChatContext = createContext(null);
+
+export function GroupChatProvider({ children }) {
+  const [groups, setGroups] = useState([]);
+  const [filteredGroups, setFilteredGroups] = useState([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [activeGroupId, setActiveGroupId] = useState(null);
+  const activeGroup = useMemo(
+    () => groups.find((g) => g.id === activeGroupId) || null,
+    [groups, activeGroupId],
+  );
+  const [messages, setMessages] = useState([]);
+  const [connectionStatus, setConnectionStatus] = useState("disconnected");
+  const [typingUsers, setTypingUsers] = useState([]);
+  const [editMessageId, setEditMessageId] = useState(null);
+  const [inputText, setInputText] = useState("");
+  const [attachment, setAttachment] = useState(null);
+  const [attachmentPreview, setAttachmentPreview] = useState(null);
+  // Added: Reply and edit states
+  const [replyingTo, setReplyingTo] = useState(null);
+  const [editingReply, setEditingReply] = useState(null);
+  const [deleteModal, setDeleteModal] = useState({
+    isOpen: false,
+    messageId: null,
+    messageType: null,
+  });
+  const token = useMemo(() => localStorage.getItem("accessToken"), []);
+  const userId = useMemo(
+    () => Number(localStorage.getItem("userId")) || null,
+    [],
+  );
+
+  const normalizeId = (value) =>
+    value == null || value === "" ? null : Number(value);
+
+  // Load groups
+  useEffect(() => {
+    getGroups()
+      .then((data) => {
+        setGroups(data);
+        setFilteredGroups(data);
+      })
+      .catch(() => {});
+  }, []);
+
+  // Filter groups
+  useEffect(() => {
+    if (!searchTerm) {
+      setFilteredGroups(groups);
+    } else {
+      const st = searchTerm.toLowerCase();
+      setFilteredGroups(
+        groups.filter((g) => (g.name || "").toLowerCase().includes(st)),
+      );
+    }
+  }, [groups, searchTerm]);
+
+  // Load messages when switching groups
+  useEffect(() => {
+    if (!activeGroup || !token || !userId) return;
+
+    // Clear messages when switching groups to prevent stale data
+    setMessages([]);
+    setReplyingTo(null);
+    setEditingReply(null);
+    setEditMessageId(null);
+
+    // Load messages for the active group
+    getGroupMessages(activeGroup.id).then((serverMessages) => {
+      const normalized = serverMessages.map((msg) => ({
+        id: msg.id,
+        type: msg.type, // "message" or "reply"
+
+        group_id: msg.group_id,
+
+        // ✅ backend changed → use content
+        message: msg.message || msg.content || "",
+
+        attachment: msg.attachment || null,
+
+        created_at: msg.created_at,
+        updated_at: msg.updated_at,
+
+        // ✅ sender instead of user
+        user: {
+          id: normalizeId(msg.sender?.id || msg.sender_id),
+          first_name: msg.sender?.first_name,
+          last_name: msg.sender?.last_name,
+          profile_picture: msg.sender?.profile_picture,
+        },
+
+        sender_id: normalizeId(msg.sender_id || msg.sender?.id),
+
+        // ✅ reply support
+        original_message_id: msg.original_message_id || null,
+        parentMsg: msg.parentMsg || null,
+
+        is_deleted: msg.is_deleted,
+        is_edited: msg.is_edited || false,
+        is_forwarded: msg.is_forwarded || false,
+        forwarded_from_message_id: msg.forwarded_from_message_id || null,
+        forwarded_from_group_id: msg.forwarded_from_group_id || null,
+      }));
+
+      setMessages(
+        normalized.sort(
+          (a, b) => new Date(a.created_at) - new Date(b.created_at),
+        ),
+      );
+
+      // Mark the latest message as read
+      const lastMsg = normalized[normalized.length - 1];
+      if (lastMsg) {
+        // Defer until WS is open — retry until connected
+        const tryMarkRead = (attempts = 0) => {
+          console.log(`[ReadReceipt] tryMarkRead attempt ${attempts} — wsState:${groupChatService.ws?.readyState} msgId:${lastMsg.id}`);
+          if (groupChatService.ws?.readyState === WebSocket.OPEN) {
+            if (lastMsg.type === "reply" || lastMsg.type === "group_message_reply") {
+              groupChatService.markReplyRead(activeGroup.id, lastMsg.id);
+            } else {
+              groupChatService.markMessageRead(activeGroup.id, lastMsg.id);
+            }
+          } else if (attempts < 10) {
+            setTimeout(() => tryMarkRead(attempts + 1), 300);
+          } else {
+            console.warn("[ReadReceipt] WS never opened after 10 attempts, giving up");
+          }
+        };
+        tryMarkRead();
+      }
+    });
+  }, [activeGroupId, token, userId]);
+
+  // Subscribe to GroupChatService events
+  useEffect(() => {
+    if (!activeGroup) return;
+
+    const handleNewMessage = (data) => {
+      if (data.groupId !== activeGroup.id) return;
+
+      const m = data.message || data;
+
+      // ✅ NORMAL MESSAGE
+      const newMsg = {
+        id: m.id,
+        type: m.type || "message",
+        group_id: m.group_id,
+        message:
+          m.message || m.content || m.reply_message || m.reply_content || "",
+        attachment: m.attachment || null,
+        created_at: m.created_at,
+        updated_at: m.updated_at,
+        user: {
+          id: normalizeId(m.sender?.id || m.sender_id),
+          first_name: m.sender?.first_name,
+          last_name: m.sender?.last_name,
+          profile_picture: m.sender?.profile_picture,
+        },
+        sender_id: normalizeId(m.sender_id || m.sender?.id),
+        parentMsg: m.parentMsg || null,
+        original_message_id: m.original_message_id || null,
+        is_deleted: m.is_deleted,
+        is_edited: m.is_edited,
+        is_forwarded: m.is_forwarded || false,
+        forwarded_from_message_id: m.forwarded_from_message_id || null,
+        forwarded_from_group_id: m.forwarded_from_group_id || null,
+      };
+
+      setMessages((prev) => {
+        const exists = prev.find((msg) => msg.id === newMsg.id);
+
+        if (exists) {
+          return prev.map((msg) =>
+            msg.id === newMsg.id ? { ...msg, ...newMsg } : msg,
+          );
+        }
+
+        // Mark as read if it's from another user
+        if (newMsg.sender_id !== userId) {
+          console.log(`[ReadReceipt] New message from other user, marking read — msgId:${newMsg.id}`);
+          groupChatService.markMessageRead(activeGroup.id, newMsg.id);
+        }
+
+        return [...prev, newMsg].sort(
+          (a, b) => new Date(a.created_at) - new Date(b.created_at),
+        );
+      });
+    };
+    const handleGroupReply = (data) => {
+      if ((data.group_id || data.groupId) !== activeGroup.id) return;
+
+      const m = data;
+
+      // Skip invalid events
+      if (!m.id || !m.sender_id) {
+        console.warn("[GroupChat] Skipping invalid reply event:", m);
+        return;
+      }
+
+      setMessages((prev) => {
+        const replyMsg = {
+          id: m.id,
+          type: m.type,
+          group_id: m.group_id || m.groupId,
+
+          message:
+            m.message || m.content || m.reply_message || m.reply_content || "",
+
+          attachment: m.attachment || null,
+
+          created_at: m.created_at || new Date().toISOString(),
+          updated_at: m.updated_at,
+
+          user: {
+            id: normalizeId(m.sender?.id || m.sender_id),
+            first_name: m.sender?.first_name,
+            last_name: m.sender?.last_name,
+            profile_picture: m.sender?.profile_picture,
+          },
+
+          sender_id: normalizeId(m.sender_id || m.sender?.id),
+
+          original_message_id: m.original_message_id || m.parent_reply_id,
+
+          // 🔥 MOST IMPORTANT FIX
+          parentMsg:
+            m.parentMsg ||
+            prev.find(
+              (msg) => msg.id === (m.original_message_id || m.parent_reply_id),
+            ),
+
+          is_deleted: m.is_deleted || false,
+          is_edited: m.is_edited || false,
+        };
+
+        // Remove optimistic reply if exists
+        const optimisticIndex = prev.findIndex(
+          (msg) =>
+            msg.isOptimistic &&
+            msg.original_message_id === replyMsg.original_message_id &&
+            msg.sender_id === replyMsg.sender_id,
+        );
+        let updated = prev;
+        if (optimisticIndex !== -1) {
+          console.log(
+            "[GroupChat] Removing optimistic reply at index:",
+            optimisticIndex,
+          );
+          updated = [...prev];
+          updated.splice(optimisticIndex, 1);
+        }
+
+        const exists = updated.find((msg) => msg.id === replyMsg.id);
+        if (exists) {
+          return updated.map((msg) =>
+            msg.id === replyMsg.id ? { ...msg, ...replyMsg } : msg,
+          );
+        }
+
+        return [...updated, replyMsg].sort(
+          (a, b) =>
+            new Date(a.created_at || Date.now()) -
+            new Date(b.created_at || Date.now()),
+        );
+      });
+    };
+    const handleMessageEdit = (data) => {
+      if (data.groupId !== activeGroup.id) return;
+
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === data.messageId
+            ? { ...m, data, message: data.newContent }
+            : m,
+        ),
+      );
+    };
+
+    const handleMessageDelete = (data) => {
+      if (data.groupId !== activeGroup.id) return;
+
+      setMessages((prev) =>
+        prev.map((m) => {
+          if (m.id !== data.message_id) return m;
+
+          const isMe = m.sender_id === userId;
+
+          return {
+            ...m,
+            message: isMe
+              ? "You deleted this message"
+              : "This message was deleted",
+            is_deleted: true,
+            attachment: null,
+          };
+        }),
+      );
+    };
+
+    const handleReplyEdit = (data) => {
+      if (data.groupId !== activeGroup.id) return;
+
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === data?.reply?.id
+            ? {
+                ...msg,
+                data,
+                message: data?.reply?.reply_message,
+                updated_at: new Date().toISOString(),
+              }
+            : msg,
+        ),
+      );
+    };
+
+    const handleReplyDelete = (data) => {
+      if (data.group_id !== activeGroup.id) return;
+
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === data.replyId
+            ? {
+                ...msg,
+                message: "Reply deleted",
+                is_deleted: true,
+                attachment: null,
+              }
+            : msg,
+        ),
+      );
+    };
+
+    const handleTyping = (data) => {
+      if (data.groupId !== activeGroup.id) return;
+
+      if (data.senderId !== userId && data.status === "started") {
+        setTypingUsers((prev) => {
+          if (prev.some((u) => u.id === data.senderId)) return prev;
+
+          // Try to resolve name from already-loaded messages
+          const knownMsg = messages.find(
+            (m) => (m.sender_id || m.user?.id || m.sender?.id) === data.senderId
+          );
+          const resolvedName =
+            data.user?.first_name
+              ? `${data.user.first_name} ${data.user.last_name || ""}`.trim()
+              : knownMsg?.user?.first_name
+              ? `${knownMsg.user.first_name} ${knownMsg.user.last_name || ""}`.trim()
+              : knownMsg?.sender?.first_name
+              ? `${knownMsg.sender.first_name} ${knownMsg.sender.last_name || ""}`.trim()
+              : null;
+
+          if (resolvedName) {
+            return [...prev, { id: data.senderId, name: resolvedName }];
+          }
+
+          // Fetch name from API as last resort, add placeholder first
+          const token = localStorage.getItem("accessToken");
+          fetch(`https://chatsupport.fskindia.com/users/${data.senderId}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          })
+            .then((r) => r.json())
+            .then((u) => {
+              const name = u?.first_name
+                ? `${u.first_name} ${u.last_name || ""}`.trim()
+                : `User ${data.senderId}`;
+              setTypingUsers((p) =>
+                p.map((t) => (t.id === data.senderId ? { ...t, name } : t))
+              );
+            })
+            .catch(() => {});
+
+          return [...prev, { id: data.senderId, name: `User ${data.senderId}` }];
+        });
+        setTimeout(() => {
+          setTypingUsers((prev) => prev.filter((u) => u.id !== data.senderId));
+        }, 2000);
+      } else if (data.status === "stopped") {
+        setTypingUsers((prev) => prev.filter((u) => u.id !== data.senderId));
+      }
+    };
+
+    const handleConnection = (data) => {
+      setConnectionStatus(data.status);
+    };
+
+    const handleGroupMessageRead = (data) => {
+      console.log("[ReadReceipt] handleGroupMessageRead fired →", data);
+      if (data.group_id !== activeGroup.id) {
+        console.log(`[ReadReceipt] Ignoring — data.group_id:${data.group_id} !== activeGroup.id:${activeGroup.id}`);
+        return;
+      }
+      setMessages((prev) =>
+        prev.map((m) => {
+          if (m.id !== data.message_id) return m;
+          const receipts = m.read_receipts || [];
+          const alreadyExists = receipts.some((r) => r.reader_id === data.reader_id);
+          if (alreadyExists) return m;
+          console.log(`[ReadReceipt] Updating read_receipts for msgId:${m.id}`, data);
+          return { ...m, read_receipts: [...receipts, { reader_id: data.reader_id, reader: data.reader, read_at: data.read_at, is_read: true }] };
+        })
+      );
+    };
+
+    // Subscribe to GroupChatService events
+    groupChatService.subscribe("new_group_message", handleNewMessage);
+    groupChatService.subscribe("group_message_edit", handleMessageEdit);
+    groupChatService.subscribe("delete_group_message", handleMessageDelete);
+    groupChatService.subscribe("group_message_reply", handleGroupReply);
+    groupChatService.subscribe("reply_on_reply", handleGroupReply);
+    groupChatService.subscribe("group_reply_edit", handleReplyEdit);
+    groupChatService.subscribe("group_reply_delete", handleReplyDelete);
+    groupChatService.subscribe("group_typing", handleTyping);
+    groupChatService.subscribe("connection", handleConnection);
+    groupChatService.subscribe("group_message_read", handleGroupMessageRead);
+
+    // Set initial connection status
+    setConnectionStatus(groupChatService.getConnectionStatus());
+
+    return () => {
+      groupChatService.unsubscribe("new_group_message", handleNewMessage);
+      groupChatService.unsubscribe("group_message_edit", handleMessageEdit);
+      groupChatService.unsubscribe("delete_group_message", handleMessageDelete);
+      groupChatService.unsubscribe("group_message_reply", handleGroupReply);
+      groupChatService.unsubscribe("reply_on_reply", handleGroupReply);
+      groupChatService.unsubscribe("group_reply_edit", handleReplyEdit);
+      groupChatService.unsubscribe("group_reply_delete", handleReplyDelete);
+      groupChatService.unsubscribe("group_typing", handleTyping);
+      groupChatService.unsubscribe("connection", handleConnection);
+      groupChatService.unsubscribe("group_message_read", handleGroupMessageRead);
+    };
+  }, [activeGroup, userId]);
+
+  const selectGroup = useCallback((groupId) => setActiveGroupId(groupId), []);
+
+  const handleTyping = useCallback(() => {
+    if (!groupChatService.isInitialized() || !activeGroup) return;
+
+    groupChatService.sendTyping(activeGroup.id, "started");
+    setTimeout(() => {
+      groupChatService.sendTyping(activeGroup.id, "stopped");
+    }, 2000);
+  }, [activeGroup]);
+
+  const handleFileChange = useCallback((file) => {
+    if (!file) return;
+
+    // Check file size (5MB limit)
+    if (file.size > 5 * 1024 * 1024) {
+      alert("File size exceeds 5MB limit.");
+      return;
+    }
+
+    // Check file type
+    const allowedTypes = [
+      "image/png",
+      "image/jpeg",
+      "image/jpg",
+      "application/pdf",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ];
+    if (!allowedTypes.includes(file.type)) {
+      alert("Invalid file type. Allowed: PNG, JPEG, JPG, PDF, DOC, DOCX");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setAttachment({
+        base64: reader.result.split(",")[1],
+        type: file.type,
+        name: file.name,
+      });
+
+      // Set preview
+      if (file.type.startsWith("image/")) {
+        setAttachmentPreview({
+          url: reader.result,
+          type: "image",
+          name: file.name,
+        });
+      } else if (file.type === "application/pdf") {
+        setAttachmentPreview({ type: "pdf", name: file.name });
+      } else {
+        setAttachmentPreview({ type: "doc", name: file.name });
+      }
+    };
+    reader.readAsDataURL(file);
+  }, []);
+
+  const sendMessage = useCallback(() => {
+    const content = inputText.trim();
+    if (!content && !attachment) return;
+    if (!groupChatService.isInitialized() || !activeGroup) return;
+
+    if (editMessageId) {
+      const payload = {
+        type: "edit_group_message",
+        message_id: parseInt(editMessageId),
+        new_content: content,
+      };
+      console.log("[GroupChat] Sending edit message:", payload);
+      if (groupChatService.sendMessage(payload)) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === editMessageId
+              ? { ...m, message: content, updated_at: new Date().toISOString() }
+              : m,
+          ),
+        );
+        setEditMessageId(null);
+        setInputText("");
+        setAttachment(null);
+        setAttachmentPreview(null);
+      }
+      return;
+    }
+
+    if (editingReply) {
+      const payload = {
+        type: "edit_group_reply",
+        reply_id: parseInt(editingReply.id),
+        reply_message: content,
+      };
+
+      if (groupChatService.sendMessage(payload)) {
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === editingReply.id
+              ? {
+                  ...msg,
+                  message: content,
+                  updated_at: new Date().toISOString(),
+                }
+              : msg,
+          ),
+        );
+        setEditingReply(null);
+        setInputText("");
+        setAttachment(null);
+        setAttachmentPreview(null);
+      }
+      return;
+    }
+
+    if (replyingTo) {
+      const isReplyingToReply = replyingTo.type === "group_message_reply";
+      const parentId = replyingTo.isOptimistic
+        ? Number(replyingTo.original_message_id)
+        : Number(replyingTo.id);
+      if (isNaN(parentId)) {
+        console.error(
+          "[GroupChat] Invalid parent ID:",
+          replyingTo.id,
+          "Cannot send reply",
+        );
+        return;
+      }
+
+      const payload = isReplyingToReply
+        ? {
+            type: "reply_on_reply",
+            group_id: activeGroup.id,
+            parent_reply_id: parentId,
+            reply_content: content,
+            sender_id: userId,
+          }
+        : {
+            type: "group_message_reply",
+            group_id: activeGroup.id,
+            original_message_id: parentId,
+            reply_message: content,
+            sender_id: userId,
+          };
+      console.log("[GroupChat] Sending reply:", payload);
+      if (groupChatService.sendMessage(payload)) {
+        // Commented out optimistic reply addition
+        /*
+        // Add optimistic reply
+        const optimisticReply = {
+          id: `optimistic-${Date.now()}`,
+          isOptimistic: true,
+          type: "group_message_reply",
+          group_id: activeGroup.id,
+          message: content,
+          attachment: attachment,
+          created_at: new Date().toISOString(),
+          user: {
+            id: userId,
+            first_name: localStorage.getItem("firstName") || "You",
+            last_name: localStorage.getItem("lastName") || "",
+            profile_picture: localStorage.getItem("profilePicture") || null,
+          },
+          sender_id: userId,
+          original_message_id: parentId,
+          parentMsg: replyingTo,
+          is_edited: false,
+          is_deleted: false,
+        };
+        console.log("[GroupChat] Adding optimistic reply:", optimisticReply);
+        setMessages((prev) => {
+          const updated = [...prev, optimisticReply];
+          return updated.sort(
+            (a, b) => new Date(a.created_at) - new Date(b.created_at),
+          );
+        });
+        */
+        setReplyingTo(null);
+        setInputText("");
+        setAttachment(null);
+        setAttachmentPreview(null);
+      }
+      return;
+    }
+
+    const payload = {
+      type: "message",
+      group_id: activeGroup.id,
+      content,
+    };
+
+    if (attachment) {
+      if (!content) {
+        toast.error("Please add a message to go with your attachment.");
+        return;
+      }
+      payload.attachment = {
+        base64: attachment.base64,
+        name: attachment.name,
+      };
+    }
+
+    if (groupChatService.sendMessage(payload)) {
+      setInputText("");
+      setAttachment(null);
+      setAttachmentPreview(null);
+    }
+  }, [
+    activeGroup,
+    inputText,
+    attachment,
+    editMessageId,
+    editingReply,
+    replyingTo,
+    userId,
+  ]);
+
+  // Forward a root message to a group
+  const forwardMessageToGroup = useCallback((message, targetGroupId) => {
+    if (!groupChatService.isInitialized()) return;
+    const isReply = message.type === "group_message_reply" || message.type === "reply";
+    if (isReply) {
+      const payload = {
+        type: "forward_reply",
+        source_reply_id: message.id,
+        target_group_id: targetGroupId,
+        is_reply: false,
+        original_message_id: null,
+        parent_reply_id: null,
+      };
+      console.log("[Forward] forward_reply payload →", JSON.stringify(payload, null, 2));
+      groupChatService.sendMessage(payload);
+    } else {
+      const payload = {
+        type: "forward_message",
+        source_message_id: message.id,
+        target_group_id: targetGroupId,
+      };
+      console.log("[Forward] forward_message payload →", JSON.stringify(payload, null, 2));
+      console.log("[Forward] message object →", JSON.stringify(message, null, 2));
+      groupChatService.sendMessage(payload);
+    }
+  }, []);
+
+  // Forward a group message to a DM user (via direct chat service)
+  const forwardMessageToUser = useCallback((message, recipientId) => {
+    if (!groupChatService.isInitialized()) return;
+    import("../../../Services/ChatService").then(({ default: chatService }) => {
+      const payload = {
+        type: "forward_message",
+        message_id: message.id,
+        recipient_id: recipientId,
+      };
+      console.log("[Forward] forward to DM user payload →", JSON.stringify(payload, null, 2));
+      console.log("[Forward] message object →", JSON.stringify(message, null, 2));
+      chatService.sendMessage(payload);
+    });
+  }, []);
+
+  const deleteMessage = useCallback((messageId) => {
+    if (!groupChatService.isInitialized()) return;
+
+    const payload = {
+      type: "delete_group_message",
+      message_id: parseInt(messageId),
+    };
+
+    if (groupChatService.sendMessage(payload)) {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === messageId
+            ? { ...m, message: "Message deleted", is_deleted: true, attachment: null }
+            : m,
+        ),
+      );
+    }
+  }, []);
+
+  const deleteReply = useCallback((replyId) => {
+    if (!groupChatService.isInitialized()) return;
+
+    const payload = {
+      type: "delete_group_reply",
+      reply_id: parseInt(replyId),
+    };
+
+    if (groupChatService.sendMessage(payload)) {
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === parseInt(replyId)
+            ? {
+                ...msg,
+                message: "Reply deleted",
+                is_deleted: true,
+                attachment: null,
+              }
+            : msg,
+        ),
+      );
+    }
+  }, []);
+
+  const startEditing = useCallback((message) => {
+    setEditMessageId(message.id);
+    setInputText(message.message || "");
+    setReplyingTo(null);
+    setEditingReply(null);
+  }, []);
+
+  const startEditingReply = useCallback((reply, originalMessageId) => {
+    setEditingReply({ id: reply.id, original_message_id: originalMessageId });
+    setInputText(reply.message || reply.reply_message || "");
+    setReplyingTo(null);
+    setEditMessageId(null);
+  }, []);
+
+  const handleReply = useCallback((message) => {
+    setReplyingTo(message);
+    setEditingReply(null);
+    setEditMessageId(null);
+  }, []);
+
+  const cancelReply = useCallback(() => {
+    setReplyingTo(null);
+    setEditingReply(null);
+    setEditMessageId(null);
+    setInputText("");
+    setAttachment(null);
+    setAttachmentPreview(null);
+  }, []);
+
+  const value = useMemo(() => {
+    return {
+      groups,
+      filteredGroups,
+      searchTerm,
+      setSearchTerm,
+      activeGroup,
+      activeGroupId,
+      selectGroup,
+      connectionStatus,
+      typingUsers,
+      messages,
+      inputText,
+      setInputText,
+      handleTyping,
+      handleFileChange,
+      sendMessage,
+      deleteMessage,
+      deleteReply,
+      startEditing,
+      startEditingReply,
+      handleReply,
+      cancelReply,
+      replyingTo,
+      editingReply,
+      editMessageId,
+      deleteModal,
+      setDeleteModal,
+      attachment,
+      attachmentPreview,
+      setAttachment,
+      setAttachmentPreview,
+      forwardMessageToGroup,
+      forwardMessageToUser,
+      clearAttachment: () => {
+        setAttachment(null);
+        setAttachmentPreview(null);
+      },
+    };
+  }, [
+    groups,
+    filteredGroups,
+    searchTerm,
+    activeGroup,
+    activeGroupId,
+    selectGroup,
+    connectionStatus,
+    typingUsers,
+    messages,
+    inputText,
+    handleTyping,
+    handleFileChange,
+    sendMessage,
+    deleteMessage,
+    deleteReply,
+    startEditing,
+    startEditingReply,
+    handleReply,
+    cancelReply,
+    replyingTo,
+    editingReply,
+    editMessageId,
+    deleteModal,
+    attachment,
+    attachmentPreview,
+    forwardMessageToGroup,
+    forwardMessageToUser,
+  ]);
+
+  return (
+    <GroupChatContext.Provider value={value}>
+      {children}
+    </GroupChatContext.Provider>
+  );
+}
+
+export default GroupChatProvider;

@@ -1,0 +1,29 @@
+<IfModule mod_mime.c>
+  RemoveType .js
+  RemoveType .mjs
+  AddType text/javascript .js
+  AddType text/javascript .mjs
+  AddType text/css .css
+  AddType application/json .json
+  AddType application/wasm .wasm
+  AddType image/svg+xml .svg
+  AddType image/webp .webp
+</IfModule>
+
+
+<IfModule mod_headers.c>
+  <FilesMatch "\.(js|mjs)$">
+    Header set Content-Type "text/javascript; charset=UTF-8"
+  </FilesMatch>
+</IfModule>
+
+
+RewriteEngine On
+
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+RewriteRule ^(sw\.js|manifest\.webmanifest|favicon\.ico)$ - [L]
+
+RewriteRule . /index.html [L]

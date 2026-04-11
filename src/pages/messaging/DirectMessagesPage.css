@@ -1,0 +1,29 @@
+.typing-animation span {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  background-color: #1584e6;
+  border-radius: 50%;
+  margin: 0 2px;
+  animation: typing 1s infinite ease-in-out;
+  z-index: 100000;
+}
+
+.typing-animation span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.typing-animation span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+
+
+@keyframes typing {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
+}
