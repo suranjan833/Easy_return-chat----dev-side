@@ -12,8 +12,14 @@ const MessageInfoModal = ({ isOpen, message, onClose }) => {
   // Support both 1-to-1 (read_at / is_read) and group (read_receipts array)
   const receipts = message.read_receipts || [];
   const firstReceipt = receipts.find((r) => r.is_read && r.read_at);
+  // Only use updated_at as fallback if it looks like a real timestamp (not epoch/null)
+  const updatedAtFallback = (() => {
+    if (!message.is_read || !message.updated_at) return null;
+    const d = new Date(message.updated_at);
+    return d.getFullYear() > 2000 ? message.updated_at : null;
+  })();
   const readAt = message.read_at
-    || (message.is_read ? message.updated_at : null)
+    || updatedAtFallback
     || firstReceipt?.read_at
     || null;
 

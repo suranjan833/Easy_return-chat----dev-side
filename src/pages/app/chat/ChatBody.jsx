@@ -4,6 +4,7 @@ import React, { useContext, useEffect, useRef, useState } from "react";
 
 import { ChatContext } from "./ChatContext";
 import { DirectChatContext } from "./DirectChatContext";
+import { GroupChatContext } from "../group-chat/GroupChatContext";
 
 import AttachmentDisplay from "../../../components/custom/Attachment/AttachmentDisplay";
 import DeleteConfirmationModal from "../../../components/custom/DeleteConfirmationModal";
@@ -24,6 +25,7 @@ import { Icon } from "@/components/Component";
 const ChatBody = ({ id, mobileView, setMobileView, setSelectedId }) => {
   const { chatState } = useContext(ChatContext);
   const direct = useContext(DirectChatContext);
+  const groupChat = useContext(GroupChatContext);
 
   const [chat, setChat] = chatState;
   const [Uchat, setUchat] = useState({});
@@ -148,9 +150,24 @@ const ChatBody = ({ id, mobileView, setMobileView, setSelectedId }) => {
   // ── Group messages by date ───────────────────────────────────────────────────
   const groupMessagesByDate = (messages) => {
     if (!messages || messages.length === 0) return [];
+    
+    // Deduplicate messages by ID before grouping
+    const seen = new Set();
+    const deduped = messages.filter((msg) => {
+      // Keep meta messages and unread dividers (they don't have numeric IDs)
+      if (msg.meta || msg.type === "unread_divider") return true;
+      
+      // For regular messages, deduplicate by ID
+      if (seen.has(msg.id)) {
+        return false;
+      }
+      seen.add(msg.id);
+      return true;
+    });
+    
     const grouped = [];
     let currentDate = null;
-    messages.forEach((message) => {
+    deduped.forEach((message) => {
       if (!message.timestamp) { grouped.push(message); return; }
       const messageDate = new Date(message.timestamp).toDateString();
       if (messageDate !== currentDate) {
@@ -288,9 +305,12 @@ const ChatBody = ({ id, mobileView, setMobileView, setSelectedId }) => {
     const isSearchMatch = direct?.searchResults?.some((m) => m.id === message.id);
     const messageTime = new Date(message.timestamp).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
 
+    // Generate unique key - use ID if available, otherwise use index with prefix
+    const messageKey = message.id ? `msg-${message.id}` : `idx-${i}`;
+
     if (message?.type === "unread_divider") {
       return (
-        <motion.div key={message.id || i} id="unread-divider" ref={unreadDividerRef}
+        <motion.div key={messageKey} id="unread-divider" ref={unreadDividerRef}
           initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: "easeOut" }}
           style={{ display: "flex", alignItems: "center", justifyContent: "center", margin: "12px 0", width: "100%" }}>
           <div style={{ flex: 1, height: "1px", backgroundColor: "#e0e0e0" }} />
@@ -303,7 +323,7 @@ const ChatBody = ({ id, mobileView, setMobileView, setSelectedId }) => {
     }
 
     return !message?.meta ? (
-      <div key={message.id || i} ref={(el) => { if (el) messageRefs.current[`message-${message.id}`] = el; }}
+      <div key={messageKey} ref={(el) => { if (el) messageRefs.current[`message-${message.id}`] = el; }}
         className={`d-flex mb-2 ${isMe ? "justify-content-end" : "justify-content-start"}`}>
         <div className={`p-2 shadow-sm ${isMe ? "bg-primary text-white" : "bg-white"}`}
           style={{ borderRadius: 12, maxWidth: "70%", outline: isSearchMatch ? "2px solid #ffc107" : "none", backgroundColor: isSearchMatch ? "#fff3cd" : undefined }}>
@@ -404,7 +424,7 @@ const ChatBody = ({ id, mobileView, setMobileView, setSelectedId }) => {
         </div>
       </div>
     ) : (
-      <div key={i} className="d-flex justify-content-center">
+      <div key={`meta-${i}-${message?.metaText}`} className="d-flex justify-content-center">
         <span className="inline-flex items-center rounded-md bg-gray-400/10 px-2 py-1 text-xs font-medium text-gray-400 inset-ring inset-ring-gray-400/20">
           {message?.metaText}
         </span>
@@ -512,6 +532,9 @@ const ChatBody = ({ id, mobileView, setMobileView, setSelectedId }) => {
             recentForwardUsers={recentForwardUsers}
             allForwardUsers={allForwardUsers}
             onForward={direct.forwardMessage}
+            groups={groupChat?.groups || []}
+            onForwardToGroup={direct.forwardMessageToGroup}
+            currentGroupId={null}
           />
 
           <MessageInfoModal message={infoMessage} onClose={() => setInfoMessage(null)} />

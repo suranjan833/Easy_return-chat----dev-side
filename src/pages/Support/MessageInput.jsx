@@ -404,7 +404,11 @@ const MessageInput = ({
   const handleSendMessage = async () => {
     if (!messageText.trim() && !file) return;
     if (!socket || socket.readyState !== WebSocket.OPEN) {
-      toast.error("Connection not established. Please refresh the page.");
+      if (socket && socket.readyState === WebSocket.CONNECTING) {
+        toast.warn("Still connecting, please wait a moment and try again.");
+      } else {
+        toast.error("Connection not established. Please join the ticket first.");
+      }
       return;
     }
     if (selectedTicket?.status === "closed") {
@@ -471,18 +475,15 @@ const MessageInput = ({
 
         // Update local state immediately for edit
         setMessages((prev) =>
-          prev
-            .map((msg) =>
-              msg.id === editingMessageId
-                ? {
-                    ...msg,
-                    content: messageText.trim(),
-                    is_edited: true,
-                    timestamp: messageData.edited_at,
-                  }
-                : msg,
-            )
-            .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp)),
+          prev.map((msg) =>
+            msg.id === editingMessageId
+              ? {
+                  ...msg,
+                  content: messageText.trim(),
+                  is_edited: true,
+                }
+              : msg,
+          ),
         );
 
         setEditingMessageId(null);
@@ -845,11 +846,7 @@ const MessageInput = ({
               }
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !showShortcutSuggestions) {
-                  if (editingMessageId) {
-                    handleEditMessage(editingMessageId, messageText);
-                  } else {
-                    handleSendMessage();
-                  }
+                  handleSendMessage();
                 }
               }}
               ref={messageInputRef}
@@ -913,7 +910,8 @@ const MessageInput = ({
           </div>
         ) : (
           // Light Mode UI
-          <div className="input-group mb-3" style={{ position: "relative" }}>
+          <>
+          <div className="input-group mb-0" style={{ position: "relative" }}>
             {replyToMessageId && (
               <div className="reply-context w-100 mb-2">
                 <small className="text-muted">
@@ -988,11 +986,7 @@ const MessageInput = ({
               }
               onKeyDown={(e) => {
                 if (e.key === "Enter" && !showShortcutSuggestions) {
-                  if (editingMessageId) {
-                    handleEditMessage(editingMessageId, messageText);
-                  } else {
-                    handleSendMessage();
-                  }
+                  handleSendMessage();
                 }
               }}
               ref={messageInputRef}
@@ -1050,9 +1044,10 @@ const MessageInput = ({
             <label
               htmlFor="file-upload-input"
               className="btn btn-outline-secondary d-flex align-items-center"
+              title={file ? file.name : "Attach file"}
+              style={{ flexShrink: 0 }}
             >
-              <BiPaperclip className="me-2" />
-              {file ? file.name : "No file chosen"}
+              <BiPaperclip />
             </label>
             <input
               id="file-upload-input"
@@ -1088,6 +1083,19 @@ const MessageInput = ({
               <BiSend />
             </button>
           </div>
+          {file && (
+            <div style={{ fontSize: "11px", color: "#6366f1", marginTop: "4px", paddingLeft: "2px", display: "flex", alignItems: "center", gap: "4px" }}>
+              <BiPaperclip style={{ flexShrink: 0 }} />
+              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "260px" }}>{file.name}</span>
+              <button
+                type="button"
+                onClick={() => setFile(null)}
+                style={{ background: "none", border: "none", cursor: "pointer", color: "#ef4444", padding: "0 2px", lineHeight: 1, flexShrink: 0 }}
+                aria-label="Remove file"
+              >×</button>
+            </div>
+          )}
+          </>
         ))}
     </>
   );

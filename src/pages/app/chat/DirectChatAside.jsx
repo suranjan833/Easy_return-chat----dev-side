@@ -18,8 +18,9 @@ export default function DirectChatAside() {
     filteredUsers,
     setSearchTerm,
     recentChats,
-    totalUnreadCount, // KEEP: Using totalUnreadCount for the Messages badge
+    totalUnreadCount,
     activeUser,
+    activeConversationId,
     selectUser,
   } = useContext(DirectChatContext);
 
@@ -62,35 +63,53 @@ export default function DirectChatAside() {
                 (a, b) =>
                   new Date(b.last_message_timestamp) -
                   new Date(a.last_message_timestamp),
-              ) // Sort by timestamp, most recent first
+              )
+              .filter((chat, index, self) =>
+                index === self.findIndex((c) => c.recipient_id === chat.recipient_id)
+              )
               .map((chat) => {
-                // FIX: Changed user.find to filteredUsers.find to avoid error
-                const user =
-                  filteredUsers.find((u) => u.other_user?.id === chat.recipient_id)?.other_user || {};
-                const isActive = activeUser?.id === chat.recipient_id;
-                // REMOVE: Old per-user unread count logic causing errors
-                // const unread = unreadCounts[chat.recipient_id] || chat.unread_count || 0;
+                const conv = filteredUsers.find((u) => u.other_user?.id === chat.recipient_id);
+                const isAdminView = conv?.is_admin_view;
+                const user = conv?.other_user || {};
+                const senderUser = conv?.conv_sender;
+                const recipientUser = conv?.conv_recipient;
+
+                // For admin: display "Sender - Receiver", key by conversation_id
+                const displayName = isAdminView && senderUser && recipientUser
+                  ? `${senderUser.first_name} ${senderUser.last_name || ""} - ${recipientUser.first_name} ${recipientUser.last_name || ""}`
+                  : `${user.first_name || ""} ${user.last_name || ""}`.trim();
+
+                const avatarText = isAdminView && senderUser
+                  ? getInitials(senderUser.first_name, senderUser.last_name)
+                  : getInitials(user.first_name, user.last_name);
+
+                const itemKey = isAdminView && conv?.conversation_id
+                  ? conv.conversation_id
+                  : chat.recipient_id;
+
+                // Use conversation_id for active check to prevent multi-selection
+                const isActive = isAdminView && conv?.conversation_id
+                  ? activeConversationId === conv.conversation_id
+                  : activeUser?.id === chat.recipient_id;
+
                 return (
                   <li
-                    key={chat.id}
+                    key={itemKey}
                     className={isActive ? "active" : ""}
-                    onClick={() => selectUser(chat.recipient_id)}
+                    onClick={() => selectUser(chat.recipient_id, conv?.conversation_id || null)}
                   >
                     <div className="chat-item">
                       <div className="chat-media user-avatar">
                         {user.profile_picture ? (
                           <UserAvatar image={user.profile_picture}></UserAvatar>
                         ) : (
-                          <UserAvatar
-                            theme="secondary"
-                            text={getInitials(user.first_name, user.last_name)}
-                          ></UserAvatar>
+                          <UserAvatar theme="secondary" text={avatarText} />
                         )}
                       </div>
                       <div className="chat-info">
                         <div className="chat-from">
-                          <div className="name">
-                            {user.first_name || ""} {user.last_name || ""}
+                          <div className="name" style={{ fontSize: isAdminView ? "12px" : undefined }}>
+                            {displayName}
                           </div>
                           <span className="time">
                             {formatTime(chat.last_message_timestamp)}
@@ -100,12 +119,6 @@ export default function DirectChatAside() {
                           <div className="text">
                             {chat.last_message || "No messages yet"}
                           </div>
-                          {/* REMOVE: Old unread count badge causing errors */}
-                          {/* {unread > 0 && (
-                            <div className="status delivered">
-                              <span className="badge bg-primary rounded-pill">{unread}</span>
-                            </div>
-                          )} */}
                         </div>
                       </div>
                     </div>

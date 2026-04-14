@@ -10,7 +10,8 @@ import ReplyPreview from "../../../components/custom/GroupChatPreview/ReplyPrevi
 import { isOnlyEmojis } from "../../comman/helper";
 import "./GroupChatBody.css";
 import { GroupChatContext } from "./GroupChatContext";
-import GroupForwardModal from "./modals/GroupForwardModal";
+import ForwardMessageModal from "../chat/modals/ForwardMessageModal";
+import { DirectChatContext } from "../chat/DirectChatContext";
 import { GroupMeChat, GroupYouChat, MetaChat } from "./GroupChatPartials";
 
 const groupMessagesByDate = (list) => {
@@ -54,6 +55,7 @@ export default function GroupChatBody() {
   const [highlightedMessageId, setHighlightedMessageId] = useState(null);
   const [messageInfoModal, setMessageInfoModal] = useState({ isOpen: false, message: null });
   const [forwardModal, setForwardModal] = useState({ show: false, message: null });
+  const [forwardSearch, setForwardSearch] = useState("");
 
   const {
     activeGroup,
@@ -79,7 +81,10 @@ export default function GroupChatBody() {
     setAttachmentPreview,
     groups,
     forwardMessageToGroup,
+    forwardMessageToUser,
   } = useContext(GroupChatContext);
+
+  const directChat = useContext(DirectChatContext);
 
   // Debug logging
 
@@ -445,13 +450,31 @@ export default function GroupChatBody() {
         message={messageInfoModal.message}
         onClose={() => setMessageInfoModal({ isOpen: false, message: null })}
       />
-      <GroupForwardModal
+      <ForwardMessageModal
         show={forwardModal.show}
         message={forwardModal.message}
-        onClose={() => setForwardModal({ show: false, message: null })}
+        forwardMessage={forwardModal.message}
+        onClose={() => {
+          setForwardModal({ show: false, message: null });
+          setForwardSearch("");
+        }}
         groups={groups}
         currentGroupId={activeGroup?.id}
         onForwardToGroup={forwardMessageToGroup}
+        forwardSearch={forwardSearch}
+        setForwardSearch={setForwardSearch}
+        recentForwardUsers={directChat?.recentChats?.map(chat => {
+          const user = directChat.allUsers?.find(u => u.id === chat.recipient_id);
+          return user || null;
+        }).filter(Boolean) || []}
+        allForwardUsers={directChat?.allUsers?.filter(u => 
+          `${u.first_name} ${u.last_name}`.toLowerCase().includes(forwardSearch.toLowerCase())
+        ) || []}
+        onForward={(messageId, recipientId) => {
+          if (forwardMessageToUser) {
+            forwardMessageToUser(forwardModal.message, recipientId);
+          }
+        }}
       />
       <div className="nk-chat-editor">
         <div className="nk-chat-input-group d-flex align-items-center flex-grow-1 py-2 px-3">
@@ -511,7 +534,7 @@ export default function GroupChatBody() {
                 }
               }}
               onKeyDown={(e) => {
-                if (e.code === "Enter") {
+                if (e.code === "Enter" || e.code === "NumpadEnter") {
                   e.preventDefault();
                   sendMessage();
                 }

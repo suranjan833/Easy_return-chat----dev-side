@@ -32,34 +32,32 @@ const ChatTransfer = ({ticketNumber,selectedTicket, isAgentWithFallback,hasJoine
         return;
       }
 
-      try {
-        const departmentsUrl = "https://chatsupport.fskindia.com/agents/departments";
-        const apiKey = import.meta.env.VITE_API_KEY || "90N1TcGbz1Ia37BRjSVQAig_4S6eZ7q2"
+      // try {
+      //   const departmentsUrl = "https://chatsupport.fskindia.com/agents/departments";
+      //   const apiKey = import.meta.env.VITE_API_KEY || "90N1TcGbz1Ia37BRjSVQAig_4S6eZ7q2"
 
-        // console.log("[ChatTransfer] Fetching departments from:", departmentsUrl);
-        const response = await axios.get(departmentsUrl, {
-          headers: {
-            "x-api-key": apiKey,
-          },
-        });
+      //   const response = await axios.get(departmentsUrl, {
+      //     headers: {
+      //       "x-api-key": apiKey,
+      //     },
+      //   });
 
-        //console.log("[ChatTransfer] Departments data:", response.data);
-        if (!Array.isArray(response.data)) {
-          throw new Error("Invalid response: Expected an array of departments");
-        }
-        if (response.data.length === 0) {
-          toast.error("No departments available for this site.");
-          return;
-        }
-        setDepartments(response.data);
-      } catch (err) {
-        console.error("[ChatTransfer] Error fetching departments:", err);
-        toast.error(
-          err.message.includes("Site not found")
-            ? "This site is not registered. Please contact support."
-            : `Failed to load departments: ${err.message}`
-        );
-      }
+      //   if (!Array.isArray(response.data)) {
+      //     throw new Error("Invalid response: Expected an array of departments");
+      //   }
+      //   if (response.data.length === 0) {
+      //     toast.error("No departments available for this site.");
+      //     return;
+      //   }
+      //   setDepartments(response.data);
+      // } catch (err) {
+      //   console.error("[ChatTransfer] Error fetching departments:", err);
+      //   toast.error(
+      //     err.message.includes("Site not found")
+      //       ? "This site is not registered. Please contact support."
+      //       : `Failed to load departments: ${err.message}`
+      //   );
+      // }
     };
     fetchDepartments();
   }, [selectedTicket]);

@@ -23,6 +23,7 @@ export function DirectChatProvider({ children }) {
   const [activeUserIDs, setActiveUserIDs] = useState([]);
   const [totalUnreadCount, setTotalUnreadCount] = useState(0);
   const [activeUserId, setActiveUserId] = useState(null);
+  const [activeConversationId, setActiveConversationId] = useState(null);
   const [messageSearchTerm, setMessageSearchTerm] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [isSearchingMessages, setIsSearchingMessages] = useState(false);
@@ -194,21 +195,25 @@ export function DirectChatProvider({ children }) {
     const ME_ID_local = parseInt(localStorage.getItem("userId")) || -1;
     return convs.map((conv) => {
       if (!Array.isArray(conv.other_user)) return conv; // already flat
-      // Find the participant that is NOT the current user
-      let otherUser = null;
+      // Extract sender and recipient from the array
+      let sender = null;
+      let recipient = null;
       for (const entry of conv.other_user) {
-        const candidate = entry.sender || entry.recipient;
-        if (candidate && candidate.id !== ME_ID_local) {
-          otherUser = candidate;
-          break;
-        }
+        if (entry.sender) sender = entry.sender;
+        if (entry.recipient) recipient = entry.recipient;
       }
-      // Fallback: just take the first available participant
-      if (!otherUser) {
-        const first = conv.other_user[0];
-        otherUser = first?.sender || first?.recipient || {};
-      }
-      return { ...conv, other_user: otherUser };
+      // For admin: neither participant is ME — keep both, pick one as "other_user"
+      const otherUser = (sender?.id !== ME_ID_local ? sender : null)
+        || (recipient?.id !== ME_ID_local ? recipient : null)
+        || sender || recipient || {};
+      return {
+        ...conv,
+        other_user: otherUser,
+        // Preserve both for admin display
+        conv_sender: sender,
+        conv_recipient: recipient,
+        is_admin_view: sender?.id !== ME_ID_local && recipient?.id !== ME_ID_local,
+      };
     });
   }, []);
 
@@ -217,7 +222,11 @@ export function DirectChatProvider({ children }) {
     setUsers(normalized);
     setFilteredUsers(normalized);
     if (data.recentChats) {
-      setRecentChats(data.recentChats);
+      // Deduplicate by recipient_id, keep most recent
+      const deduped = data.recentChats
+        .sort((a, b) => new Date(b.last_message_timestamp) - new Date(a.last_message_timestamp))
+        .filter((c, i, arr) => arr.findIndex((x) => x.recipient_id === c.recipient_id) === i);
+      setRecentChats(deduped);
     }
     setTotalUnreadCount(data.totalUnreadCount || 0);
   }, [normalizeConversations]);
@@ -240,7 +249,27 @@ export function DirectChatProvider({ children }) {
       setRecentChats((prev) => {
         const next = [...prev];
         const idx = next.findIndex((c) => c.recipient_id === otherUserId);
-        const updated = {
+        
+        // Skip if already exists (prevents duplication from sendMessage optimistic update)
+        if (idx >= 0) {
+          const existing = next[idx];
+          // Only update if this message is newer than what we have
+          if (new Date(message.timestamp) > new Date(existing.last_message_timestamp)) {
+            next[idx] = {
+              ...existing,
+              id: message.id,
+              last_message:
+                message.content ||
+                (message.attachment ? `📎 ${message.attachment}` : ""),
+              last_message_timestamp: message.timestamp,
+              sender_id: senderId,
+            };
+          }
+          return next;
+        }
+        
+        // Only add new entry if not found
+        next.push({
           id: message.id,
           recipient_id: otherUserId,
           last_message:
@@ -248,13 +277,7 @@ export function DirectChatProvider({ children }) {
             (message.attachment ? `📎 ${message.attachment}` : ""),
           last_message_timestamp: message.timestamp,
           sender_id: senderId,
-        };
-
-        if (idx >= 0) {
-          next[idx] = { ...next[idx], ...updated };
-        } else {
-          next.push(updated);
-        }
+        });
         return next;
       });
 
@@ -312,11 +335,21 @@ export function DirectChatProvider({ children }) {
           }
         }
 
-        // 🔥 Always sort newest chat on top
-        return updated.sort((a, b) => {
+        // 🔥 Sort newest chat on top and deduplicate by other_user.id
+        const sorted = updated.sort((a, b) => {
           const t1 = new Date(a.latest_message?.timestamp || 0).getTime();
           const t2 = new Date(b.latest_message?.timestamp || 0).getTime();
           return t2 - t1;
+        });
+        
+        // Deduplicate: keep only the first occurrence of each other_user.id
+        const seen = new Set();
+        return sorted.filter((conv) => {
+          if (seen.has(conv.other_user.id)) {
+            return false;
+          }
+          seen.add(conv.other_user.id);
+          return true;
         });
       });
 
@@ -359,14 +392,16 @@ export function DirectChatProvider({ children }) {
       // set msg read true for that and all previous msgs, and store read_at
       const readAt = data.read_at || data.timestamp || new Date().toISOString();
       setMessages((prev) =>
-        prev.map((m) =>
-          m.id === data.message_id || m.id < data.message_id
-            ? { ...m, read: true, read_at: readAt }
-            : m,
-        ),
+        prev.map((m) => {
+          // Mark the specific message and all previous messages from the same sender as read
+          if (m.id === data.message_id || (m.id < data.message_id && m.sender_id === ME_ID)) {
+            return { ...m, read: true, read_at: readAt, delivered: true };
+          }
+          return m;
+        }),
       );
     },
-    [ME_ID, activeUser],
+    [ME_ID],
   );
 
   const handleTypingEvent = useCallback(
@@ -409,6 +444,7 @@ export function DirectChatProvider({ children }) {
               content: editContent,
               reply_content: editContent,
               edited: true,
+              is_edited: true,
               updated_at,
             }
           : m,
@@ -421,7 +457,12 @@ export function DirectChatProvider({ children }) {
     const deleteId = message_id || reply_id;
 
     setMessages((prev) =>
-      prev.map((m) => (m.id === deleteId ? { ...m, is_deleted: true } : m)),
+      prev.map((m) => (m.id === deleteId ? { ...m, is_deleted: true, content: "", reply_content: "" } : m)),
+    );
+    
+    // Also update hidden messages if the deleted message is there
+    setHiddenMessages((prev) =>
+      prev.map((m) => (m.id === deleteId ? { ...m, is_deleted: true, content: "", reply_content: "" } : m)),
     );
   }, []);
 
@@ -447,7 +488,12 @@ export function DirectChatProvider({ children }) {
           sender_id: chat.sender_id,
         }));
 
-        setRecentChats(chats);
+        // Deduplicate by recipient_id, keep most recent
+        const deduped = chats
+          .sort((a, b) => new Date(b.last_message_timestamp) - new Date(a.last_message_timestamp))
+          .filter((c, i, arr) => arr.findIndex((x) => x.recipient_id === c.recipient_id) === i);
+
+        setRecentChats(deduped);
 
         const unreadResponse = await axios.get(
           "https://chatsupport.fskindia.com/messaging/messages/user/unread/count",
@@ -737,7 +783,10 @@ export function DirectChatProvider({ children }) {
     }
   }, [activeUser, ME_ID, isLoadingMore, hasMore]);
 
-  const selectUser = useCallback((userId) => setActiveUserId(userId), []);
+  const selectUser = useCallback((userId, conversationId = null) => {
+    setActiveUserId(userId);
+    setActiveConversationId(conversationId);
+  }, []);
   const handleTyping = useCallback(() => {
     if (!activeUser || !ME_ID) return;
 
@@ -818,6 +867,39 @@ export function DirectChatProvider({ children }) {
     });
   }, []);
 
+  const forwardMessageToGroup = useCallback((message, targetGroupId) => {
+    if (!message || !targetGroupId) {
+      console.error("Invalid forward to group params");
+      return;
+    }
+
+    // Import GroupChatService dynamically to avoid circular dependencies
+    import("../../../Services/GroupChatService").then(({ default: groupChatService }) => {
+      const isReply = message.type === "message_reply" || message.reply_content;
+      
+      if (isReply) {
+        const payload = {
+          type: "forward_reply",
+          source_reply_id: message.id,
+          target_group_id: targetGroupId,
+          is_reply: false,
+          original_message_id: null,
+          parent_reply_id: null,
+        };
+        console.log("[Forward] DM reply → Group payload:", JSON.stringify(payload, null, 2));
+        groupChatService.sendMessage(payload);
+      } else {
+        const payload = {
+          type: "forward_message",
+          source_message_id: message.id,
+          target_group_id: targetGroupId,
+        };
+        console.log("[Forward] DM message → Group payload:", JSON.stringify(payload, null, 2));
+        groupChatService.sendMessage(payload);
+      }
+    });
+  }, []);
+
   const sendMessage = useCallback(
     (text) => {
       const incomingText = (text || "").trim();
@@ -840,19 +922,28 @@ export function DirectChatProvider({ children }) {
       }
 
       if (editingMessageId) {
-        chatService.sendMessage({
-          type: "edit_message",
-          message_id: editingMessageId,
-          content,
-          updated_at: new Date().toISOString(),
-        });
-
-        chatService.sendMessage({
-          type: "edit_reply",
-          reply_id: editingMessageId,
-          reply_content: content,
-          updated_at: new Date().toISOString(),
-        });
+        // Find the message to determine if it's a reply or regular message
+        const messageToEdit = messages.find((m) => m.id === editingMessageId);
+        
+        if (messageToEdit) {
+          if (messageToEdit.type === "message_reply" || messageToEdit.reply_content) {
+            // It's a reply, send edit_reply
+            chatService.sendMessage({
+              type: "edit_reply",
+              reply_id: editingMessageId,
+              reply_content: content,
+              updated_at: new Date().toISOString(),
+            });
+          } else {
+            // It's a regular message, send edit_message
+            chatService.sendMessage({
+              type: "edit_message",
+              message_id: editingMessageId,
+              content,
+              updated_at: new Date().toISOString(),
+            });
+          }
+        }
 
         setEditingMessageId(null);
         setEditContent("");
@@ -1096,15 +1187,20 @@ export function DirectChatProvider({ children }) {
     (messageId) => {
       if (!messageId) return;
 
-      if (deleteType === "delete_reply") {
-        chatService.sendMessage({ type: "delete_reply", reply_id: messageId });
-      } else {
-        chatService.sendMessage({ type: "delete_message", message_id: messageId });
+      // Find the message to determine if it's a reply or regular message
+      const messageToDelete = messages.find((m) => m.id === messageId);
+      
+      if (messageToDelete) {
+        if (deleteType === "delete_reply" || messageToDelete.type === "message_reply" || messageToDelete.reply_content) {
+          chatService.sendMessage({ type: "delete_reply", reply_id: messageId });
+        } else {
+          chatService.sendMessage({ type: "delete_message", message_id: messageId });
+        }
       }
 
       setDeleteType("");
     },
-    [deleteType],
+    [deleteType, messages],
   );
 
   // const deleteMessage = useCallback(
@@ -1228,12 +1324,14 @@ export function DirectChatProvider({ children }) {
       deleteReply,
       markMessageAsRead,
       setDeleteType,
+      forwardMessageToGroup,
     }),
     [
       users,
       activeUserIDs,
       allUsers,
       forwardMessage,
+      forwardMessageToGroup,
       filteredUsers,
       searchTerm,
       recentChats,

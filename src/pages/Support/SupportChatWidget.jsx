@@ -27,15 +27,18 @@ import FilterPanel from "./FilterPanel";
 import HistoricalTickets from "./HistoricalTickets";
 import MessageInput from "./MessageInput";
 import StatusCheckModal from "./StatusCheckModal";
+import DeleteConfirmationModal from "../../components/custom/DeleteConfirmationModal";
 import "./SupportChatWidget.css";
 import TransferHistory from "./TransferHistory";
-const SupportChatWidget = ({ isAgent, agentEmail, setMessageText }) => {
+const SupportChatWidget = ({ isAgent, agentEmail }) => {
   const [localIsAgent, setLocalIsAgent] = useState(isAgent ?? null);
-  const [theme, setTheme] = useState("light"); // Added theme state, default to 'light'
+  const [theme, setTheme] = useState("light");
+  const [messageText, setMessageText] = useState("");
+  const [messageToDelete, setMessageToDelete] = useState(null);
   // You might integrate a global theme context or user preference here if available.
   // Example: const { theme } = useThemeContext();
   const [localAgentEmail, setLocalAgentEmail] = useState(agentEmail ?? null);
-  const isAgentWithFallback = localIsAgent ?? true;
+  const isAgentWithFallback = localIsAgent ?? false;
   const { tickets, replaceTickets, updateTicketPartial } = useTickets();
   const dispatch = useDispatch();
   const { joinedTickets, activeJoinedTicket } = useSelector(
@@ -90,6 +93,8 @@ const SupportChatWidget = ({ isAgent, agentEmail, setMessageText }) => {
 
   // const joinAttemptedRef = useRef(null);
   const isConnectingRef = useRef(false);
+  const selectedTicketRef = useRef(selectedTicket);
+  useEffect(() => { selectedTicketRef.current = selectedTicket; }, [selectedTicket]);
   const memoizedSelectedTicket = useMemo(
     () => selectedTicket,
     [selectedTicket?.ticket_number],
@@ -696,47 +701,12 @@ const SupportChatWidget = ({ isAgent, agentEmail, setMessageText }) => {
   ]);
 
   useEffect(() => {
-    if (!memoizedSelectedTicket || !isAgentWithFallback || !localAgentEmail) {
-      // console.log("[SupportChatWidget] Skipping ticket selection setup:", {
-      //   selectedTicket: !!memoizedSelectedTicket,
-      //   isAgent: isAgentWithFallback,
-      //   agentEmail: localAgentEmail,
-      // });
-      return;
-    }
+    if (!memoizedSelectedTicket) return;
 
-    if (
-      memoizedSelectedTicket.status === "closed" ||
-      memoizedSelectedTicket.status === "resolved"
-    ) {
-      // console.log("[SupportChatWidget] Ticket is closed or resolved:", {
-      //   ticketNumber: memoizedSelectedTicket.ticket_number,
-      //   status: memoizedSelectedTicket.status,
-      // });
-      // toast.info('This ticket is closed or resolved. You can view chat history.');
-      // setWebsocketUrl(null);
-      // setToken(null);
-      // dispatch(leaveChat({ ticketNumber: memoizedSelectedTicket.ticket_number }));
-      // if (socket) {
-      //   socket.close();
-      //   setSocket(null);
-      // }
-      // return;
-    }
-    //added new file updated
-    // Fetch site details to determine bot_replies status
     const fetchSiteDetails = async () => {
       try {
         const siteIdStr = String(memoizedSelectedTicket.site_id);
-        // console.log(
-        //   "[SupportChatWidget] Fetching site details for site_id:",
-        //   siteIdStr
-        // );
         const siteData = await getSiteDetails(siteIdStr);
-        // console.log("[SupportChatWidget] Site details fetched:", {
-        //   site_id: siteIdStr,
-        //   bot_replies: siteData.bot_replies,
-        // });
         setBotRepliesEnabled(siteData.bot_replies || false);
       } catch (err) {
         console.error("[SupportChatWidget] Fetch site details error:", {
@@ -744,25 +714,27 @@ const SupportChatWidget = ({ isAgent, agentEmail, setMessageText }) => {
           status: err.response?.status,
           response: err.response?.data,
         });
-        toast.error(
-          "Failed to fetch site details: " + (err.message || "Unknown error"),
-        );
         setBotRepliesEnabled(false);
       }
     };
     fetchSiteDetails();
+  }, [memoizedSelectedTicket?.ticket_number]);
 
-    // Removed conditional logic that dispatches joinChat/leaveChat here
-    // as handleJoinOrRequestHuman is the primary entry point for joining.
-    // The joinedTickets state should be managed by the actions in handleJoinOrRequestHuman
-    // and the WebSocket callbacks.
-  }, [
-    memoizedSelectedTicket,
-    isAgentWithFallback,
-    localAgentEmail,
-    joinedTickets,
-    dispatch,
-  ]);
+  // Auto-join when a ticket is selected and botRepliesEnabled is resolved
+  useEffect(() => {
+    if (
+      botRepliesEnabled === null ||
+      !memoizedSelectedTicket ||
+      !isAgentWithFallback ||
+      !localAgentEmail ||
+      hasJoined ||
+      isConnectingRef.current ||
+      memoizedSelectedTicket.status === "closed" ||
+      memoizedSelectedTicket.status === "resolved"
+    ) return;
+
+    handleJoinOrRequestHuman();
+  }, [botRepliesEnabled, memoizedSelectedTicket?.ticket_number]);
 
   useEffect(() => {
     const handleVisibilityChange = () => {
@@ -800,72 +772,34 @@ const SupportChatWidget = ({ isAgent, agentEmail, setMessageText }) => {
     markMessagesAsRead,
   ]);
 
+  const fetchMessages = useCallback(async (tNumber) => {
+    const target = tNumber || ticketNumber;
+    if (!target) return;
+    setLoadingMessages(true);
+    try {
+      const data = await getMessages({ ticket_number: target });
+      setMessages(
+        data.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp)),
+      );
+      const unreadMessageIds = data
+        .filter((msg) => !msg.is_read && msg.sender_type !== "agent")
+        .map((msg) => msg.id)
+        .filter((id) => !id.toString().startsWith("temp-") && Number.isInteger(Number(id)));
+      if (unreadMessageIds.length > 0 && isChatTabOpen) {
+        await markMessagesAsRead(unreadMessageIds, target);
+      }
+    } catch (err) {
+      console.error("[SupportChatWidget] Fetch messages error:", err.message);
+    } finally {
+      setLoadingMessages(false);
+    }
+  }, [ticketNumber, isChatTabOpen, markMessagesAsRead]);
+
+  // Load messages whenever ticket changes
   useEffect(() => {
     if (!ticketNumber) return;
-
-    const fetchMessages = async () => {
-      setLoadingMessages(true);
-      try {
-        // console.log("[SupportChatWidget] Fetching messages for ticket:", ticketNumber);
-        const data = await getMessages({ ticket_number: ticketNumber });
-        // console.log("[SupportChatWidget] Messages fetched:", {
-        //     count: data.length,
-        //     senders: [...new Set(data.map((msg) => msg.sender_type))],
-        //     messages: data.map((msg) => ({
-        //         id: msg.id,
-        //         sender_type: msg.sender_type,
-        //         sender_email: msg.sender_email,
-        //         content: msg.content,
-        //         timestamp: msg.timestamp,
-        //     })),
-        // });
-        setMessages(
-          data.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp)),
-        );
-        const unreadMessageIds = data
-          .filter(
-            (msg) =>
-              !msg.is_read &&
-              msg.sender_type !==
-                (isAgentWithFallback || isHumanHandoff ? "agent" : "user"),
-          )
-          .map((msg) => msg.id)
-          .filter(
-            (id) =>
-              !id.toString().startsWith("temp-") &&
-              Number.isInteger(Number(id)),
-          );
-        if (unreadMessageIds.length > 0 && isChatTabOpen) {
-          await markMessagesAsRead(unreadMessageIds, ticketNumber);
-        }
-      } catch (err) {
-        console.error("[SupportChatWidget] Fetch messages error:", {
-          message: err.message,
-          status: err.status,
-          response: err.response?.data,
-        });
-        toast.error(err.message || "Failed to fetch messages.");
-      } finally {
-        setLoadingMessages(false);
-      }
-    };
-
-    if (
-      isAgentWithFallback &&
-      !joinedTickets.includes(ticketNumber) &&
-      selectedTicket?.status === "agent_engaged"
-    ) {
-      fetchMessages();
-    }
-  }, [
-    ticketNumber,
-    isAgentWithFallback,
-    joinedTickets,
-    isHumanHandoff,
-    isChatTabOpen,
-    selectedTicket,
-    markMessagesAsRead,
-  ]);
+    fetchMessages(ticketNumber);
+  }, [ticketNumber]);
 
   async function handleJoinOrRequestHuman() {
     if (!ticketNumber) {
@@ -983,12 +917,29 @@ const SupportChatWidget = ({ isAgent, agentEmail, setMessageText }) => {
         (message) => {
           console.log("log 1");
 
+          // Handle server-side errors (e.g. edit/delete rejected)
+          if (message.type === "error") {
+            toast.error(message.content || "Server error.");
+            // Revert any optimistic edit — restore original content from server
+            if (message.content?.toLowerCase().includes("edit")) {
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === editingMessageId
+                    ? { ...m, content: m._originalContent ?? m.content, is_edited: m._wasEdited ?? m.is_edited }
+                    : m
+                )
+              );
+              setEditingMessageId(null);
+            }
+            return;
+          }
+
           if (message.message_type === "ticket_closed") {
             // Prevent automatic closure if the ticket is still considered active
             if (
-              selectedTicket &&
-              selectedTicket.status !== "closed" &&
-              selectedTicket.status !== "resolved"
+              selectedTicketRef.current &&
+              selectedTicketRef.current.status !== "closed" &&
+              selectedTicketRef.current.status !== "resolved"
             ) {
               console.warn(
                 "[SupportChatWidget] Received ticket_closed message for an active ticket. Ignoring automatic closure.",
@@ -1168,7 +1119,6 @@ const SupportChatWidget = ({ isAgent, agentEmail, setMessageText }) => {
         },
         () => {
           isConnectingRef.current = false;
-          setSocket(newSocket);
           toast.success(
             botRepliesEnabled ? "Agent notified!" : "Joined chat successfully!",
             {
@@ -1211,9 +1161,11 @@ const SupportChatWidget = ({ isAgent, agentEmail, setMessageText }) => {
           };
         },
         (event) => {
+          // Socket closed — re-fetch messages to preserve history, don't clear
           setSocket(null);
           dispatch(leaveChat({ ticketNumber }));
           isConnectingRef.current = false;
+          fetchMessages(ticketNumber);
         },
         (error) => {
           console.error("[SupportChatWidget] WebSocket error:", error);
@@ -1221,9 +1173,12 @@ const SupportChatWidget = ({ isAgent, agentEmail, setMessageText }) => {
           dispatch(leaveChat({ ticketNumber }));
           isConnectingRef.current = false;
           toast.error("Connection lost. Please try joining again.");
+          fetchMessages(ticketNumber);
         },
         correctedWebsocketUrl,
       );
+      // Set socket immediately so MessageInput can check readyState without waiting for onOpen
+      if (newSocket) setSocket(newSocket);
     } catch (err) {
       console.error("[JoinOrRequestHuman] Error:", {
         message: err.message,
@@ -1297,37 +1252,21 @@ const SupportChatWidget = ({ isAgent, agentEmail, setMessageText }) => {
 
     const message = messages.find((msg) => msg.id === messageId);
     if (!message) {
-      console.error(
-        "[SupportChatWidget] Edit message failed: Message not found",
-        { messageId },
-      );
       toast.error("Message not found.");
       return;
     }
-    const senderType = isAgentWithFallback || isHumanHandoff ? "agent" : "user";
-    if (message.sender_type !== senderType) {
-      console.error(
-        "[SupportChatWidget] Edit message failed: Sender mismatch",
-        {
-          messageSender: message.sender_type,
-          currentSender: senderType,
-        },
-      );
+
+    // Check ownership by email — works regardless of role
+    const authData = JSON.parse(localStorage.getItem("auth") || "{}");
+    const myEmail = authData.user?.email || localAgentEmail || agentEmail;
+    if (myEmail && message.sender_email && message.sender_email !== myEmail) {
       toast.error("You can only edit your own messages.");
       return;
     }
 
     const messageTimestamp = new Date(message.timestamp).getTime();
-    const currentTime = new Date().getTime();
-    if (currentTime - messageTimestamp > 60 * 1000) {
-      console.error(
-        "[SupportChatWidget] Edit message failed: Edit window expired",
-        {
-          messageId,
-          timeElapsed: (currentTime - messageTimestamp) / 1000,
-        },
-      );
-      toast.error("Messages can only be edited within 60 seconds.");
+    if (new Date().getTime() - messageTimestamp > 1 * 60 * 1000) {
+      toast.error("Messages can only be edited within 1 minute.");
       return;
     }
 
@@ -1351,6 +1290,8 @@ const SupportChatWidget = ({ isAgent, agentEmail, setMessageText }) => {
           msg.id === messageId
             ? {
                 ...msg,
+                _originalContent: msg.content,   // save for potential revert
+                _wasEdited: msg.is_edited,
                 content: newContent,
                 is_edited: true,
                 timestamp: editMessage.timestamp,
@@ -1380,8 +1321,26 @@ const SupportChatWidget = ({ isAgent, agentEmail, setMessageText }) => {
       return;
     }
     setEditingMessageId(id);
-    setMessageText(content); // Set messageText state to populate input with content
+    setMessageText(content);
     messageInputRef.current.focus();
+  };
+
+  const handleDeleteMessage = (messageId) => {
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+      toast.error("Not connected. Please join the ticket first.");
+      return;
+    }
+    const payload = {
+      type: "delete",
+      message_id: messageId,
+      ticket_number: ticketNumber,
+    };
+    socket.send(JSON.stringify(payload));
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.id === messageId ? { ...m, content: "", is_deleted: true } : m,
+      ),
+    );
   };
   // Modified handleJoinOrRequestHuman to enforce single agent connection
 
@@ -2224,8 +2183,10 @@ const SupportChatWidget = ({ isAgent, agentEmail, setMessageText }) => {
                   handleReplyToMessage={handleReplyToMessage}
                   chatBodyRef={chatBodyRef}
                   onEditMessage={onEditMessage}
+                  handleDeleteMessage={handleDeleteMessage}
                   hasJoined={hasJoined}
                   localAgentEmail={localAgentEmail}
+                  setMessageToDelete={setMessageToDelete}
                 />
                 {/* selected ticket after closing */}
                 <div className="card-footer">
@@ -2233,6 +2194,12 @@ const SupportChatWidget = ({ isAgent, agentEmail, setMessageText }) => {
                   selectedTicket?.status !== "closed" &&
                   selectedTicket?.status !== "resolved" ? (
                     <>
+                      <DeleteConfirmationModal
+                        isOpen={!!messageToDelete}
+                        message={{ content: messageToDelete?.content, type: "message" }}
+                        onConfirm={() => { handleDeleteMessage(messageToDelete.id); setMessageToDelete(null); }}
+                        onCancel={() => setMessageToDelete(null)}
+                      />
                       <MessageInput
                         ticketNumber={ticketNumber}
                         selectedTicket={selectedTicket}
@@ -2257,28 +2224,35 @@ const SupportChatWidget = ({ isAgent, agentEmail, setMessageText }) => {
                         theme={theme} // Pass the theme prop
                       />
                       <div className="action-buttons">
-                        {console.log(
-                          "[SupportChatWidget] Action buttons condition check:",
-                          {
-                            isAgentWithFallback,
-                            hasJoined,
-                            selectedTicketStatus: selectedTicket?.status,
-                          },
-                        )}
-                        {(!isAgentWithFallback || hasJoined) &&
+                        {/* Join button — show when not yet connected */}
+                        {!hasJoined &&
+                          selectedTicket?.status !== "closed" &&
+                          selectedTicket?.status !== "resolved" && (
+                            <button
+                              className="btn btn-success"
+                              onClick={handleJoinOrRequestHuman}
+                              disabled={submitting}
+                              aria-label={botRepliesEnabled ? "Request Human" : "Join Ticket"}
+                            >
+                              <BiUserPlus />{" "}
+                              {submitting
+                                ? "Joining..."
+                                : botRepliesEnabled
+                                  ? "Request Human"
+                                  : "Join Chat"}
+                            </button>
+                          )}
+                        {/* Close button — show when joined */}
+                        {hasJoined &&
                           selectedTicket?.status !== "closed" && (
-                            <>
-                              <button
-                                className="btn btn-danger"
-                                onClick={() => {
-                                  handleCloseConversation();
-                                }}
-                                disabled={submitting}
-                                aria-label="Close ticket"
-                              >
-                                <BiXCircle /> Close
-                              </button>
-                            </>
+                            <button
+                              className="btn btn-danger"
+                              onClick={handleCloseConversation}
+                              disabled={submitting}
+                              aria-label="Close ticket"
+                            >
+                              <BiXCircle /> Close
+                            </button>
                           )}
                       </div>
                     </>

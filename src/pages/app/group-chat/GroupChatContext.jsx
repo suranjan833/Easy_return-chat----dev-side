@@ -122,22 +122,21 @@ export function GroupChatProvider({ children }) {
       // Mark the latest message as read
       const lastMsg = normalized[normalized.length - 1];
       if (lastMsg) {
-        // Defer until WS is open — retry until connected
-        const tryMarkRead = (attempts = 0) => {
+        let attempts = 0;
+        const intervalId = setInterval(() => {
           console.log(`[ReadReceipt] tryMarkRead attempt ${attempts} — wsState:${groupChatService.ws?.readyState} msgId:${lastMsg.id}`);
           if (groupChatService.ws?.readyState === WebSocket.OPEN) {
+            clearInterval(intervalId);
             if (lastMsg.type === "reply" || lastMsg.type === "group_message_reply") {
               groupChatService.markReplyRead(activeGroup.id, lastMsg.id);
             } else {
               groupChatService.markMessageRead(activeGroup.id, lastMsg.id);
             }
-          } else if (attempts < 10) {
-            setTimeout(() => tryMarkRead(attempts + 1), 300);
-          } else {
+          } else if (++attempts >= 10) {
+            clearInterval(intervalId);
             console.warn("[ReadReceipt] WS never opened after 10 attempts, giving up");
           }
-        };
-        tryMarkRead();
+        }, 300);
       }
     });
   }, [activeGroupId, token, userId]);

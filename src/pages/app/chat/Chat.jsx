@@ -45,16 +45,18 @@ const Chat = () => {
   const [searchParams] = useSearchParams();
 
   //  URL TAB AUTO SWITCH
-  // useEffect(() => {
-  //   const tab = searchParams.get("tab");
-  //   const ticket = searchParams.get("ticket");
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    const ticket = searchParams.get("ticket");
 
-  //   if (tab) setMainTab(tab);
+    if (tab) {
+      setMainTab(tab);
+    }
 
-  //   if (ticket) {
-  //     console.log("Open Ticket From URL:", ticket);
-  //   }
-  // }, [searchParams]);
+    if (ticket) {
+      console.log("Open Ticket From URL:", ticket);
+    }
+  }, [searchParams]);
 
   // FAV FILTER LOGIC
   useEffect(() => {

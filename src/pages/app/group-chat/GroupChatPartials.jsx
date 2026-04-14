@@ -171,9 +171,6 @@ export const GroupMeChat = ({
                           style={{ cursor: 'pointer' }}
                           onClick={() => onScrollToMessage(message.parentMsg.id)}
                         >
-                          <small className="text-muted" style={{ fontSize: "0.75em", opacity: 0.7 }}>
-                            {message.parentMsg?.user?.first_name || "User"}
-                          </small>
                           <div style={{ fontSize: "0.85em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                             {(message.parentMsg?.message || message.parentMsg?.content || "")?.slice(0, 50)}
                             {(message.parentMsg?.message || message.parentMsg?.content || "").length > 50 ? "..." : ""}
@@ -475,7 +472,7 @@ export const GroupMeChat = ({
                         )}
                         {/* Always-visible seen tick */}
                         <span style={{ marginLeft: "4px", lineHeight: 1 }}>
-                          {message.is_read
+                          {(message.is_read || (message.read_receipts && message.read_receipts.length > 0))
                             ? <i className="bi bi-check2-all" style={{ color: "#1ee0ac", fontSize: "13px" }} title="Seen" />
                             : <i className="bi bi-check2" style={{ color: "rgba(255,255,255,0.6)", fontSize: "13px" }} title="Delivered" />
                           }
@@ -555,9 +552,6 @@ export const GroupYouChat = ({
                         style={{ cursor: 'pointer' }}
                         onClick={() => onScrollToMessage(message.parentMsg.id)}
                       >
-                        <small className="text-muted" style={{ fontSize: "0.75em", opacity: 0.7 }}>
-                          {message?.parentMsg?.user?.first_name || "User"}
-                        </small>
                         <div style={{ fontSize: "0.85em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                           {(message.parentMsg?.message || message.parentMsg?.content || "")?.slice(0, 50)}
                           {(message.parentMsg?.message || message.parentMsg?.content || "").length > 50 ? "..." : ""}
