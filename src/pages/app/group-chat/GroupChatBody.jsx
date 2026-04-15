@@ -13,6 +13,7 @@ import { addGroupChatPopup } from "../../../redux/slices/chatPopupsSlice";
 import { isOnlyEmojis } from "../../comman/helper";
 import "./GroupChatBody.css";
 import { GroupChatContext } from "./GroupChatContext";
+import ChatPopupsContainer from "@/pages/app/chat-popups/ChatPopupsContainer";
 import ForwardMessageModal from "../chat/modals/ForwardMessageModal";
 import { DirectChatContext } from "../chat/DirectChatContext";
 import { GroupMeChat, GroupYouChat, MetaChat } from "./GroupChatPartials";
@@ -252,6 +253,7 @@ export default function GroupChatBody() {
   return (
     <div
       className="nk-chat-body show-chat"
+      style={{ position: "relative" }}
       onDragEnter={(e) => {
         e.preventDefault();
         setIsDragging(true);
@@ -713,6 +715,7 @@ export default function GroupChatBody() {
           </Button>
         </div>
       </div>
+      <ChatPopupsContainer />
     </div>
   );
 }

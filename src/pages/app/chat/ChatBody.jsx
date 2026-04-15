@@ -4,6 +4,7 @@ import React, { useContext, useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";
 import { addUserChatPopup } from "@/redux/slices/chatPopupsSlice";
+import ChatPopupsContainer from "@/pages/app/chat-popups/ChatPopupsContainer";
 
 import { ChatContext } from "./ChatContext";
 import { DirectChatContext } from "./DirectChatContext";
@@ -575,6 +576,7 @@ const ChatBody = ({ id, mobileView, setMobileView, setSelectedId }) => {
           />
 
           <ChatInputFooter direct={direct} />
+          <ChatPopupsContainer />
         </div>
 
       ) : Uchat.convo ? (

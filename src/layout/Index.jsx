@@ -10,7 +10,6 @@ import AppMain from "./global/AppMain";
 import AppWrap from "./global/AppWrap";
 
 import FileManagerProvider from "@/pages/app/file-manager/components/Context";
-import ChatPopupsContainer from "@/pages/app/chat-popups/ChatPopupsContainer";
 
 const Layout = ({title, ...props}) => {
   return (
@@ -23,7 +22,6 @@ const Layout = ({title, ...props}) => {
             <Header fixed />
               <Outlet />
             <Footer />
-            <ChatPopupsContainer />
           </AppWrap>
         </AppMain>
       </AppRoot>

@@ -3,18 +3,14 @@ import GroupChatPopup from "@/layout/sidebar/GroupChatPopup";
 import {
   removeGroupChatPopup,
   removeUserChatPopup,
+  clearAllPopups,
 } from "@/redux/slices/chatPopupsSlice";
 import { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import DirectChatProvider from "../chat/DirectChatContext";
 
-const POPUP_WIDTH = 320;
-const GAP = 12; // gap between popups and from right edge
-
-// Each popup takes exactly 1/3 of available width minus gaps
-// 3 popups + 4 gaps (left edge, between each, right edge) = calc((100% - 4*GAP) / 3)
-const POPUP_WIDTH_CSS = `calc((100% - ${GAP * 4}px) / 3)`;
+const GAP = 12;
 
 const ChatPopupsContainer = () => {
   const dispatch = useDispatch();
@@ -61,79 +57,78 @@ const ChatPopupsContainer = () => {
     return null;
   }
 
+  const allPopups = [
+    ...openChatPopups.map((popup, i) => ({ type: "direct", popup, index: i })),
+    ...openGroupChatPopups.map((popup, i) => ({
+      type: "group",
+      popup,
+      index: openChatPopups.length + i,
+    })),
+  ];
+
   return (
-    // Sticky anchor at the bottom of the content area — zero height so it doesn't affect layout.
-    // overflow:visible so popups (which extend upward) are not clipped.
-    <div style={{ position: "sticky", bottom: 0, height: 0, zIndex: 1050, overflow: "visible" }}>
-      {/* Direct chat popups — Requirements 6.1, 6.4, 8.1, 8.3, 3.2, 3.4 */}
-      {openChatPopups.map((popup, i) => {
-        const overallIndex = i;
-        // right offset: each slot is 1/3 of width, stacked from right
-        const rightOffset = `calc(${overallIndex} * (${POPUP_WIDTH_CSS} + ${GAP}px) + ${GAP}px)`;
+    // Rendered inside the message body area (flex: 1 column).
+    // display:flex row lays popups side by side with equal spacing.
+    // position:absolute bottom:0 anchors to the bottom of the message area.
+    <div
+      style={{
+        position: "absolute",
+        bottom: 0,
+        left: 0,
+        right: 0,
+        display: "flex",
+        flexDirection: "row",
+        alignItems: "flex-end",
+        gap: GAP,
+        padding: `0 ${GAP}px ${GAP}px`,
+        pointerEvents: "none", // let clicks pass through the gap areas
+        zIndex: 100,
+      }}
+    >
+      {allPopups.map(({ type, popup, index }) => {
+        const commonStyle = {
+          flex: 1,
+          minWidth: 0,
+          pointerEvents: "all",
+        };
+
+        if (type === "direct") {
+          return (
+            <div key={popup.key} style={commonStyle}>
+              <DirectChatProvider>
+                <ChatPopup
+                  user={popup.user}
+                  onClose={() => dispatch(removeUserChatPopup(popup.user.id))}
+                  onMaximize={() => {
+                    dispatch(clearAllPopups());
+                    navigate("/messages", { state: { openUserId: popup.user.id } });
+                  }}
+                  meId={ME_ID}
+                  token={TOKEN}
+                  baseUrl={BASE_URL}
+                  initialPosition={{ x: 0, y: 0 }}
+                  index={index}
+                  isFixed={true}
+                />
+              </DirectChatProvider>
+            </div>
+          );
+        }
 
         return (
-          <div
-            key={popup.key}
-            style={{
-              position: "absolute",
-              bottom: GAP,
-              right: rightOffset,
-              zIndex: overallIndex,
-              width: POPUP_WIDTH_CSS,
-            }}
-          >
-            <DirectChatProvider>
-              <ChatPopup
-                user={popup.user}
-                onClose={() => dispatch(removeUserChatPopup(popup.user.id))}
-                onMaximize={() => {
-                  dispatch(removeUserChatPopup(popup.user.id));
-                  navigate("/messages", {
-                    state: { openUserId: popup.user.id },
-                  });
-                }}
-                meId={ME_ID}
-                token={TOKEN}
-                baseUrl={BASE_URL}
-                initialPosition={{ x: 0, y: 0 }}
-                index={overallIndex}
-                isFixed={true}
-              />
-            </DirectChatProvider>
-          </div>
-        );
-      })}
-
-      {/* Group chat popups — Requirements 6.1, 6.4, 8.1, 8.4, 3.3, 3.4 */}
-      {openGroupChatPopups.map((popup, i) => {
-        const overallIndex = openChatPopups.length + i;
-        const rightOffset = `calc(${overallIndex} * (${POPUP_WIDTH_CSS} + ${GAP}px) + ${GAP}px)`;
-
-        return (
-          <div
-            key={popup.key}
-            style={{
-              position: "absolute",
-              bottom: GAP,
-              right: rightOffset,
-              zIndex: overallIndex,
-              width: POPUP_WIDTH_CSS,
-            }}
-          >
+          <div key={popup.key} style={commonStyle}>
             <GroupChatPopup
               group={popup.group}
               onClose={() => dispatch(removeGroupChatPopup(popup.group.id))}
               onMaximize={() => {
-                dispatch(removeGroupChatPopup(popup.group.id));
-                navigate("/app-group-chat", {
-                  state: { openGroupId: popup.group.id },
-                });
+                dispatch(clearAllPopups());
+                navigate("/app-group-chat", { state: { openGroupId: popup.group.id } });
               }}
               userId={ME_ID}
               token={TOKEN}
               baseUrl={BASE_URL}
               initialPosition={{ x: 0, y: 0 }}
-              index={overallIndex}
+              index={index}
               isFixed={true}
             />
           </div>
