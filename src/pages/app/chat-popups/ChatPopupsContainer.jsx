@@ -1,16 +1,16 @@
 import ChatPopup from "@/layout/sidebar/ChatPopup";
 import GroupChatPopup from "@/layout/sidebar/GroupChatPopup";
 import {
+  clearAllPopups,
   removeGroupChatPopup,
   removeUserChatPopup,
-  clearAllPopups,
 } from "@/redux/slices/chatPopupsSlice";
 import { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import DirectChatProvider from "../chat/DirectChatContext";
 
-const GAP = 12;
+const GAP = 50;
 
 const ChatPopupsContainer = () => {
   const dispatch = useDispatch();
@@ -70,19 +70,23 @@ const ChatPopupsContainer = () => {
     // Rendered inside the message body area (flex: 1 column).
     // display:flex row lays popups side by side with equal spacing.
     // position:absolute bottom:0 anchors to the bottom of the message area.
+    // overflow:visible ensures popup headers (which extend upward) are not clipped.
     <div
       style={{
         position: "absolute",
-        bottom: 0,
+        bottom: 50,
         left: 0,
         right: 0,
         display: "flex",
         flexDirection: "row",
-        alignItems: "flex-end",
+        alignItems: "center",
+        justifyContent: "center",
         gap: GAP,
-        padding: `0 ${GAP}px ${GAP}px`,
-        pointerEvents: "none", // let clicks pass through the gap areas
+        padding: `0 ${GAP}px`,
+        pointerEvents: "none",
         zIndex: 100,
+        overflow: "visible",
+        top: 100,
       }}
     >
       {allPopups.map(({ type, popup, index }) => {

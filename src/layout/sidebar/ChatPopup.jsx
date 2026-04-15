@@ -854,7 +854,7 @@ const startReplying = (target) => {
         top: isFixed ? undefined : position.y,
         zIndex: isFixed ? undefined : 1000 + index,
         width: isFixed ? "100%" : "500px",
-        height: "480px",
+        height: "400px",
         backgroundColor: "#fff",
         border: "2px solid #e0e0e0",
         borderRadius: "12px",

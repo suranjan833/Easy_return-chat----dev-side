@@ -21,6 +21,9 @@ import "./ModernChat.css";
 import DirectChatProvider from "./DirectChatContext";
 import GroupChatBody from "../group-chat/GroupChatBody";
 import { DirectChatContext } from "./DirectChatContext";
+import ChatPopupsContainer from "@/pages/app/chat-popups/ChatPopupsContainer";
+import { useDispatch } from "react-redux";
+import { clearAllPopups } from "@/redux/slices/chatPopupsSlice";
 
 const Chat = () => {
   // MAIN STATE
@@ -43,11 +46,26 @@ const Chat = () => {
   const [chat, setChat] = chatState;
   const [favData] = fav;
   const direct = useContext(DirectChatContext);
+  const dispatch = useDispatch();
 
   //  ROUTER
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+
+  // Clear all popups when navigating to this page (unless arriving via maximize)
+  useEffect(() => {
+    if (!location.state?.openUserId) {
+      dispatch(clearAllPopups());
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Clear all popups when switching tabs (Chats ↔ Groups ↔ Support)
+  useEffect(() => {
+    dispatch(clearAllPopups());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mainTab]);
 
   // Handle maximize navigation: open conversation inline when navigated here with openUserId state
   useEffect(() => {
@@ -243,10 +261,20 @@ const Chat = () => {
             </div>
 
             {/* DIRECT CHAT */}
-            {mainTab === "Chats" && <ChatBody id={7657865876} />}
+            {mainTab === "Chats" && (
+              <div style={{ flex: 1, minWidth: 0, position: "relative", display: "flex", flexDirection: "column", overflow: "visible", height: "100%" }}>
+                <ChatBody id={7657865876} />
+                <ChatPopupsContainer />
+              </div>
+            )}
 
             {/* GROUP CHAT */}
-            {mainTab === "Groups" && <GroupChatBody />}
+            {mainTab === "Groups" && (
+              <div style={{ flex: 1, minWidth: 0, position: "relative", display: "flex", flexDirection: "column", overflow: "visible", height: "100%" }}>
+                <GroupChatBody />
+                <ChatPopupsContainer />
+              </div>
+            )}
 
             {/* SUPPORT CHAT */}
             {mainTab === "Support-Ticket" && <SupportChatWidget />}
