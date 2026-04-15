@@ -1,6 +1,9 @@
 import { currentTime } from "@/utils/Utils";
 import { motion } from "framer-motion";
 import React, { useContext, useEffect, useRef, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { toast } from "react-toastify";
+import { addUserChatPopup } from "@/redux/slices/chatPopupsSlice";
 
 import { ChatContext } from "./ChatContext";
 import { DirectChatContext } from "./DirectChatContext";
@@ -26,6 +29,11 @@ const ChatBody = ({ id, mobileView, setMobileView, setSelectedId }) => {
   const { chatState } = useContext(ChatContext);
   const direct = useContext(DirectChatContext);
   const groupChat = useContext(GroupChatContext);
+
+  const dispatch = useDispatch();
+  const { openChatPopups, openGroupChatPopups, openSupportChatPopups } = useSelector(
+    (state) => state.chatPopups
+  );
 
   const [chat, setChat] = chatState;
   const [Uchat, setUchat] = useState({});
@@ -471,6 +479,26 @@ const ChatBody = ({ id, mobileView, setMobileView, setSelectedId }) => {
             selectedMessages={direct.selectedMessages}
             onDeleteSelected={direct.deleteSelected}
             onToggleSelection={(val) => direct.setIsSelectionMode(val)}
+            onMinimize={() => {
+              const total = openChatPopups.length + (openGroupChatPopups || []).length + (openSupportChatPopups || []).length;
+              if (openChatPopups.some((p) => p.user.id === direct.activeUser.id)) {
+                toast.warning("Chat is already open as a popup.");
+                return;
+              }
+              if (total >= 3) {
+                toast.error("Maximum of 3 chat windows are already open.");
+                return;
+              }
+              // Find the conversation object to get conversation_id for correct API call in popup
+              const activeConv = direct.users?.find(
+                (u) => u.other_user?.id === direct.activeUser.id
+              );
+              const userWithConvId = activeConv?.conversation_id
+                ? { ...direct.activeUser, conversation_id: activeConv.conversation_id }
+                : direct.activeUser;
+              dispatch(addUserChatPopup(userWithConvId));
+              direct.selectUser(null);
+            }}
           />
 
           {direct?.isSelectionMode && (

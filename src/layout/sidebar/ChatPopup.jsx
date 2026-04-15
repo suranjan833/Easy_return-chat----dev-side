@@ -14,6 +14,7 @@ import { color } from "framer-motion";
 const ChatPopup = ({
   user,
   onClose,
+  onMaximize,
   meId,
   token,
   baseUrl,
@@ -193,7 +194,18 @@ const showMessageInfo = (message) => {
 
     const fetchMessages = async () => {
       try {
-        const serverMessages = await getDirectMessages(meId, user.id);
+        // Resolve userId1/userId2 from conversation_id (same logic as DirectChatContext)
+        // conversation_id is "senderId_recipientId" (e.g. "30_55")
+        let userId1 = meId;
+        let userId2 = user.id;
+        if (user.conversation_id) {
+          const parts = String(user.conversation_id).split("_").map(Number);
+          if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+            [userId1, userId2] = parts;
+          }
+        }
+
+        const serverMessages = await getDirectMessages(userId1, userId2);
 
         if (!Array.isArray(serverMessages)) return;
 
@@ -837,11 +849,11 @@ const startReplying = (target) => {
       ref={chatWindowRef}
       className="chat-popup"
       style={{
-        position: "fixed",
-        left: position.x,
-        top: position.y,
-        zIndex: 1000 + index,
-        width: "500px",
+        position: isFixed ? "relative" : "fixed",
+        left: isFixed ? undefined : position.x,
+        top: isFixed ? undefined : position.y,
+        zIndex: isFixed ? undefined : 1000 + index,
+        width: isFixed ? "100%" : "500px",
         height: "600px",
         backgroundColor: "#fff",
         border: "2px solid #e0e0e0",
@@ -896,6 +908,11 @@ const startReplying = (target) => {
         <h5 className="chat-title">
           {user.first_name} {user.last_name || ""}
         </h5>
+        {onMaximize && (
+          <button type="button" className="chat-close" onClick={onMaximize} title="Maximize">
+            <i className="bi bi-arrows-fullscreen" />
+          </button>
+        )}
         <button type="button" className="chat-close" onClick={onClose}>
           <i className="bi bi-x"></i>
         </button>

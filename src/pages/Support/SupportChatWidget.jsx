@@ -11,6 +11,7 @@ import { v4 as uuidv4 } from "uuid";
 import { useTickets } from "../../Global/TicketsContext";
 import Head from "../../layout/head/Head.jsx";
 import { joinChat, leaveChat } from "../../redux/slices/chatConnectionSlice";
+import { addSupportChatPopup } from "../../redux/slices/chatPopupsSlice";
 import NotificationService from "../../Services/NotificationService";
 import {
   closeConversation,
@@ -43,6 +44,9 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
   const dispatch = useDispatch();
   const { joinedTickets, activeJoinedTicket } = useSelector(
     (state) => state.chatConnection,
+  );
+  const { openChatPopups, openGroupChatPopups, openSupportChatPopups } = useSelector(
+    (state) => state.chatPopups,
   );
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [ticketNumber, setTicketNumber] = useState(null);
@@ -648,6 +652,26 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
       }
       return newState;
     });
+  };
+
+  const handleMinimize = () => {
+    if (!selectedTicket) return;
+    const { ticket_number, name, status, site_name, agent_email } = selectedTicket;
+    // Requirement 5.3: already in popup state
+    if (openSupportChatPopups.some((p) => p.ticket.ticket_number === ticket_number)) {
+      toast.warning("This support chat is already open as a popup panel.");
+      return;
+    }
+    // Requirement 5.4: combined limit reached
+    const total = openChatPopups.length + openGroupChatPopups.length + openSupportChatPopups.length;
+    if (total >= 3) {
+      toast.error("Maximum of 3 chat windows are already open.");
+      return;
+    }
+    // Requirement 5.2: add to popup state and return to ticket list
+    dispatch(addSupportChatPopup({ ticket_number, name, status, site_name, agent_email }));
+    setSelectedTicket(null);
+    setTicketNumber(null);
   };
   // Handle URL ticket number to auto-select and open ticket chat
   useEffect(() => {
@@ -2099,7 +2123,17 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
                       </button>
                     </OverlayTrigger>
                   </div>
-                  <div className="d-flex align-items-center">
+                  <div className="d-flex align-items-center gap-2">
+                    {selectedTicket && (
+                      <button
+                        className="btn btn-sm btn-outline-secondary"
+                        onClick={handleMinimize}
+                        title="Minimize"
+                        aria-label="Minimize chat to popup"
+                      >
+                        <i className="bi bi-dash-lg" />
+                      </button>
+                    )}
                     <span
                       className={`badge ${
                         selectedTicket?.status === "initiated"

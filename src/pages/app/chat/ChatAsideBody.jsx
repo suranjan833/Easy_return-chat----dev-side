@@ -1,8 +1,11 @@
 import { Icon, UserAvatar } from "@/components/Component";
 import { findUpper } from "@/utils/Utils";
 import { useContext, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { toast } from "react-toastify";
 import { Input } from "reactstrap";
 import SimpleBar from "simplebar-react";
+import { addUserChatPopup } from "@/redux/slices/chatPopupsSlice";
 import { ChatContext } from "./ChatContext";
 import { ChatItem } from "./ChatPartials2";
 import { DirectChatContext } from "./DirectChatContext";
@@ -16,6 +19,8 @@ const formatTime = (timestamp) => {
 
 export const ChatAsideBody = ({}) => {
   const direct = useContext(DirectChatContext);
+  const dispatch = useDispatch();
+  const { openChatPopups, openGroupChatPopups, openSupportChatPopups } = useSelector((s) => s.chatPopups);
 
   const [isNewChatListVisible, setIsNewChatListVisible] = useState(false);
   const [newChatSearch, setNewChatSearch] = useState("");
@@ -30,6 +35,30 @@ export const ChatAsideBody = ({}) => {
     selectUser,
     users,
   } = direct;
+
+  const total = openChatPopups.length + openGroupChatPopups.length + openSupportChatPopups.length;
+
+  const handleUserClick = (userId, userObj) => {
+    // If any popup is already open, always open as popup
+    if (total > 0) {
+      if (openChatPopups.some((p) => p.user.id === userId)) {
+        toast.warning("Chat already open for this user.");
+        return;
+      }
+      if (total >= 3) {
+        toast.error("Maximum of 3 chat windows can be open at a time.");
+        return;
+      }
+      // Find conversation to get conversation_id
+      const conv = users?.find((u) => u.other_user?.id === userId);
+      const payload = conv?.conversation_id
+        ? { ...userObj, conversation_id: conv.conversation_id }
+        : userObj;
+      dispatch(addUserChatPopup(payload));
+    } else {
+      selectUser(userId);
+    }
+  };
 
   const getInitials = (first = "", last = "") =>
     `${(first[0] || "").toUpperCase()}${(last[0] || "").toUpperCase()}`;
@@ -171,7 +200,7 @@ export const ChatAsideBody = ({}) => {
                 <div
                   key={user.id}
                   onClick={() => {
-                    selectUser(user.id);
+                    handleUserClick(user.id, user);
                     setIsNewChatListVisible(false);
                   }}
                   style={{
@@ -208,7 +237,7 @@ export const ChatAsideBody = ({}) => {
                 key={conversation.conversation_id}
                 className={`modern-chat-item ${isActive ? "active" : ""}`}
                 onClick={() => {
-                  selectUser(otherUser.id);
+                  handleUserClick(otherUser.id, otherUser);
                 }}
               >
                 <div style={{ position: "relative" }}>

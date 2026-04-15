@@ -7,7 +7,7 @@ function AppWrap({className,...props}) {
     [`${className}`]: className,
   });
   return (
-    <div className={compClass}>
+    <div className={compClass} style={{ overflowX: "hidden" }}>
         {props.children}
     </div>
   )

@@ -1,8 +1,10 @@
 import { Icon, UserAvatar } from "@/components/Component";
 import { findUpper } from "@/utils/Utils";
 import { useContext, useState } from "react";
-import { Input } from "reactstrap";
+import { useDispatch, useSelector } from "react-redux";
+import { toast } from "react-toastify";
 import SimpleBar from "simplebar-react";
+import { addGroupChatPopup } from "@/redux/slices/chatPopupsSlice";
 import { ChatContext } from "./ChatContext";
 import { ChatItem } from "./ChatPartials2";
 import { DirectChatContext } from "./DirectChatContext";
@@ -17,8 +19,28 @@ const formatTime = (timestamp) => {
 
 export const GroupAsideBody = ({}) => {
   const direct = useContext(GroupChatContext);
+  const dispatch = useDispatch();
+  const { openChatPopups, openGroupChatPopups, openSupportChatPopups } = useSelector((s) => s.chatPopups);
 
   const { filteredGroups, setSearchTerm, activeGroup, selectGroup } = direct;
+
+  const total = openChatPopups.length + openGroupChatPopups.length + openSupportChatPopups.length;
+
+  const handleGroupClick = (group) => {
+    if (total > 0) {
+      if (openGroupChatPopups.some((p) => p.group.id === group.id)) {
+        toast.warning("Group chat already open.");
+        return;
+      }
+      if (total >= 3) {
+        toast.error("Maximum of 3 chat windows can be open at a time.");
+        return;
+      }
+      dispatch(addGroupChatPopup(group));
+    } else {
+      selectGroup(group.id);
+    }
+  };
 
   const getInitials = (first = "", last = "") =>
     `${(first[0] || "").toUpperCase()}${(last[0] || "").toUpperCase()}`;
@@ -63,8 +85,7 @@ export const GroupAsideBody = ({}) => {
                 key={group.id}
                 className={`modern-chat-item ${isActive ? "active" : ""}`}
                 onClick={() => {
-                  selectGroup(group.id);
-                  direct.activeGroup = group;
+                  handleGroupClick(group);
                 }}
               >
                 <div style={{ position: "relative" }}>

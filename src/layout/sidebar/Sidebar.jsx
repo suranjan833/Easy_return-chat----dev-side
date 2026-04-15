@@ -4,11 +4,12 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import classNames from "classnames";
 import { useContext, useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import SimpleBar from "simplebar-react";
 import { useTickets } from "../../Global/TicketsContext";
 import { DirectChatContext } from "../../pages/app/chat/DirectChatContext";
+import { GroupChatContext } from "../../pages/app/group-chat/GroupChatContext";
 import "../../pages/Support/SupportChatWidget.css";
 import {
   addGroupChatPopup,
@@ -35,7 +36,9 @@ const Sidebar = ({
   const theme = useTheme();
   const themeUpdate = useThemeUpdate();
   const navigate = useNavigate();
-  const { selectUser } = useContext(DirectChatContext);
+  const location = useLocation();
+  const directChatContext = useContext(DirectChatContext);
+  const groupChatContext = useContext(GroupChatContext);
   const [mouseEnter, setMouseEnter] = useState(false);
   const [activeTickets, setActiveTickets] = useState([]);
   const [inactiveTickets, setInactiveTickets] = useState([]);
@@ -56,7 +59,7 @@ const Sidebar = ({
   const [siteCache, setSiteCache] = useState(new Map());
   const [agents, setAgents] = useState([]);
   const dispatch = useDispatch();
-  const { openChatPopups, openGroupChatPopups } = useSelector(
+  const { openChatPopups, openGroupChatPopups, openSupportChatPopups } = useSelector(
     (state) => state.chatPopups,
   );
   const [groupMetadata, setGroupMetadata] = useState(new Map());
@@ -500,7 +503,7 @@ const Sidebar = ({
 
     const handleOpenChatWithUser = (data) => {
       if (data?.user?.id) {
-        selectUser(data.user.id);
+        directChatContext.selectUser(data.user.id);
       }
       navigate("/messages");
     };
@@ -570,32 +573,20 @@ const Sidebar = ({
         if (
           openGroupChatPopups.some((popup) => popup.group.id === data.group.id)
         ) {
-          // Navigate to chat-popups page even if already open
-          navigate("/chat-popups", {
-            state: {
-              chatPopups: openChatPopups,
-              groupChatPopups: openGroupChatPopups,
-            },
-          });
+          toast.warning("Group chat already open.");
           return;
         }
 
-        // Check if we've reached the limit
-        if (openGroupChatPopups.length >= 3) {
-          toast.error("Maximum of 3 group chat windows can be open at a time.");
+        const total = openChatPopups.length + openGroupChatPopups.length + openSupportChatPopups.length;
+
+        // Check if we've reached the combined limit
+        if (total >= 3) {
+          toast.error("Maximum of 3 chat windows can be open at a time.");
           return;
         }
 
         // Add the group chat popup
         dispatch(addGroupChatPopup(data.group));
-
-        // Navigate to chat-popups page
-        navigate("/chat-popups", {
-          state: {
-            chatPopups: openChatPopups,
-            groupChatPopups: [...openGroupChatPopups, { group: data.group }],
-          },
-        });
       }
     };
 
@@ -891,47 +882,52 @@ const Sidebar = ({
     // Mark group as read
     groupChatService.markGroupAsRead(group.id);
 
+    const total = openChatPopups.length + openGroupChatPopups.length + openSupportChatPopups.length;
+
     if (openGroupChatPopups.some((popup) => popup.group.id === group.id)) {
       toast.warning("Group chat already open.");
       return;
     }
 
-    if (openGroupChatPopups.length >= 3) {
-      toast.error("Maximum of 3 group chat windows can be open at Va time.");
+    if (total >= 3) {
+      toast.error("Maximum of 3 chat windows can be open at a time.");
       return;
     }
 
-    dispatch(addGroupChatPopup(group));
+    const isOnGroupChatPage = location.pathname === "/app-group-chat";
+    const hasActiveInlineGroup = !!(groupChatContext?.activeGroup);
 
-    navigate("/chat-popups", {
-      state: {
-        groupChatPopups: [...openGroupChatPopups, { group }],
-        chatPopups: openChatPopups,
-      },
-    });
+    if (isOnGroupChatPage && !hasActiveInlineGroup && total === 0) {
+      groupChatContext.selectGroup(group.id);
+    } else {
+      dispatch(addGroupChatPopup(group));
+    }
   };
 
   // bhaii click hocche .
   const handleUserClick = (user) => {
     chatService.markAsRead(user.id); // Mark messages as read
+
+    const total = openChatPopups.length + openGroupChatPopups.length + openSupportChatPopups.length;
+
     if (openChatPopups.some((popup) => popup.user.id === user.id)) {
       toast.warning("Chat already open for this user.");
       return;
     }
 
-    if (openChatPopups.length >= 4) {
+    if (total >= 3) {
       toast.error("Maximum of 3 chat windows can be open at a time.");
       return;
     }
 
-    dispatch(addUserChatPopup(user));
-    // commented
-    navigate("/chat-popups", {
-      state: {
-        chatPopups: [...openChatPopups, { user }],
-        groupChatPopups: openGroupChatPopups,
-      },
-    });
+    const isOnMessagesPage = location.pathname === "/messages";
+    const hasActiveInlineChat = !!(directChatContext?.activeUser);
+
+    if (isOnMessagesPage && !hasActiveInlineChat && total === 0) {
+      directChatContext.selectUser(user.id);
+    } else {
+      dispatch(addUserChatPopup(user));
+    }
   };
 
   const handleAgentChatsClick = () => {

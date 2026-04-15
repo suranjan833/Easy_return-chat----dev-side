@@ -1,7 +1,7 @@
 import { Icon } from "@/components/Component";
 import React from "react";
 
-const ChatHeader = ({ activeUser, activeUserIDs, isSelectionMode, selectedMessages, onDeleteSelected, onToggleSelection }) => {
+const ChatHeader = ({ activeUser, activeUserIDs, isSelectionMode, selectedMessages, onDeleteSelected, onToggleSelection, onMinimize }) => {
   return (
     <div className="modern-chat-header">
       <div className="modern-chat-header-user">
@@ -42,9 +42,16 @@ const ChatHeader = ({ activeUser, activeUserIDs, isSelectionMode, selectedMessag
             </div>
           </div>
         ) : (
-          <button className="modern-chat-header-btn" onClick={() => onToggleSelection(true)}>
-            <Icon name="check" />
-          </button>
+          <>
+            {onMinimize && (
+              <button className="modern-chat-header-btn" onClick={onMinimize} title="Minimize">
+                <i className="bi bi-dash-lg" />
+              </button>
+            )}
+            <button className="modern-chat-header-btn" onClick={() => onToggleSelection(true)}>
+              <Icon name="check" />
+            </button>
+          </>
         )}
       </div>
     </div>

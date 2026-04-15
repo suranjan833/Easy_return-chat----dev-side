@@ -5,14 +5,16 @@ const chatPopupsSlice = createSlice({
   initialState: {
     openChatPopups: [],
     openGroupChatPopups: [],
+    openSupportChatPopups: [],
   },
   reducers: {
     addUserChatPopup: (state, action) => {
       const user = action.payload;
       // Prevent duplicate
       if (state.openChatPopups.some((popup) => popup.user.id === user.id)) return;
-      // Limit to 3
-      if (state.openChatPopups.length >= 3) return;
+      // Combined limit across all three popup types
+      const total = state.openChatPopups.length + state.openGroupChatPopups.length + state.openSupportChatPopups.length;
+      if (total >= 3) return;
       state.openChatPopups.push({
         user,
         key: `chat-${user.id}-${Date.now()}`,
@@ -29,7 +31,9 @@ const chatPopupsSlice = createSlice({
     addGroupChatPopup: (state, action) => {
       const group = action.payload;
       if (state.openGroupChatPopups.some((popup) => popup.group.id === group.id)) return;
-      if (state.openGroupChatPopups.length >= 3) return;
+      // Combined limit across all three popup types
+      const total = state.openChatPopups.length + state.openGroupChatPopups.length + state.openSupportChatPopups.length;
+      if (total >= 3) return;
       state.openGroupChatPopups.push({
         group,
         key: `group-chat-${group.id}-${Date.now()}`,
@@ -43,9 +47,29 @@ const chatPopupsSlice = createSlice({
       );
     },
 
+    addSupportChatPopup: (state, action) => {
+      const ticket = action.payload;
+      // Prevent duplicate by ticket_number
+      if (state.openSupportChatPopups.some((popup) => popup.ticket.ticket_number === ticket.ticket_number)) return;
+      // Combined limit across all three popup types
+      const total = state.openChatPopups.length + state.openGroupChatPopups.length + state.openSupportChatPopups.length;
+      if (total >= 3) return;
+      state.openSupportChatPopups.push({
+        ticket,
+        key: `support-${ticket.ticket_number}-${Date.now()}`,
+      });
+    },
+
+    removeSupportChatPopup: (state, action) => {
+      state.openSupportChatPopups = state.openSupportChatPopups.filter(
+        (popup) => popup.ticket.ticket_number !== action.payload
+      );
+    },
+
     clearAllPopups: (state) => {
       state.openChatPopups = [];
       state.openGroupChatPopups = [];
+      state.openSupportChatPopups = [];
     },
   },
 });
@@ -55,6 +79,8 @@ export const {
   removeUserChatPopup,
   addGroupChatPopup,
   removeGroupChatPopup,
+  addSupportChatPopup,
+  removeSupportChatPopup,
   clearAllPopups,
 } = chatPopupsSlice.actions;
 

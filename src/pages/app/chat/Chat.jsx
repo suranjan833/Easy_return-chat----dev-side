@@ -6,7 +6,8 @@ import ChatBody from "./ChatBody";
 import { GroupChatProvider } from "@/pages/app/group-chat/GroupChatContext";
 import SupportChatWidget from "../../Support/SupportChatWidget";
 import { Icon, UserAvatar } from "@/components/Component";
-import { useSearchParams } from "react-router-dom";
+import { useLocation, useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import {
   DropdownItem,
   DropdownMenu,
@@ -19,6 +20,7 @@ import { ChatContext } from "./ChatContext";
 import "./ModernChat.css";
 import DirectChatProvider from "./DirectChatContext";
 import GroupChatBody from "../group-chat/GroupChatBody";
+import { DirectChatContext } from "./DirectChatContext";
 
 const Chat = () => {
   // MAIN STATE
@@ -40,9 +42,23 @@ const Chat = () => {
   const { chatState, fav } = useContext(ChatContext);
   const [chat, setChat] = chatState;
   const [favData] = fav;
+  const direct = useContext(DirectChatContext);
 
-  //  URL PARAMS
+  //  ROUTER
+  const location = useLocation();
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+
+  // Handle maximize navigation: open conversation inline when navigated here with openUserId state
+  useEffect(() => {
+    const openUserId = location.state?.openUserId;
+    if (openUserId && direct?.selectUser) {
+      direct.selectUser(openUserId);
+      // Clear state to avoid re-triggering on re-renders
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   //  URL TAB AUTO SWITCH
   useEffect(() => {

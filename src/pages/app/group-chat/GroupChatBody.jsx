@@ -1,12 +1,15 @@
 import { Button, Icon, UserAvatar } from "@/components/Component";
 import EmojiPicker from "emoji-picker-react";
 import { useContext, useEffect, useRef, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 import SimpleBar from "simplebar-react";
 import DeleteConfirmationModal from "../../../components/custom/DeleteConfirmationModal";
 import GroupAttachmentPreview from "../../../components/custom/GroupAttachmentPreview";
 import MessageInfoModal from "../../../components/custom/MessageInfoModal";
 import ReplyPreview from "../../../components/custom/GroupChatPreview/ReplyPreview";
+import { addGroupChatPopup } from "../../../redux/slices/chatPopupsSlice";
 import { isOnlyEmojis } from "../../comman/helper";
 import "./GroupChatBody.css";
 import { GroupChatContext } from "./GroupChatContext";
@@ -57,8 +60,14 @@ export default function GroupChatBody() {
   const [forwardModal, setForwardModal] = useState({ show: false, message: null });
   const [forwardSearch, setForwardSearch] = useState("");
 
+  const dispatch = useDispatch();
+  const { openChatPopups, openGroupChatPopups, openSupportChatPopups } = useSelector(
+    (state) => state.chatPopups
+  );
+
   const {
     activeGroup,
+    selectGroup,
     messages,
     typingUsers,
     inputText,
@@ -85,6 +94,21 @@ export default function GroupChatBody() {
   } = useContext(GroupChatContext);
 
   const directChat = useContext(DirectChatContext);
+
+  const handleMinimize = () => {
+    if (openGroupChatPopups.some((p) => p.group.id === activeGroup.id)) {
+      toast.warning("Chat is already open as a popup.");
+      return;
+    }
+    const total =
+      openChatPopups.length + openGroupChatPopups.length + openSupportChatPopups.length;
+    if (total >= 3) {
+      toast.error("Maximum of 3 chat windows can be open at a time.");
+      return;
+    }
+    dispatch(addGroupChatPopup(activeGroup));
+    selectGroup(null);
+  };
 
   // Debug logging
 
@@ -270,6 +294,13 @@ export default function GroupChatBody() {
             </div>
           </li>
         </ul>
+        <button
+          className="btn btn-sm btn-icon"
+          onClick={handleMinimize}
+          title="Minimize"
+        >
+          <i className="bi bi-dash-lg" />
+        </button>
       </div>
       <SimpleBar
         className="nk-chat-panel"

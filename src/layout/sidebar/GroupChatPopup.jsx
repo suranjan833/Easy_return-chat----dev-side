@@ -16,7 +16,7 @@ import "./GroupChatPopup.css";
 import MessageInfoModal from "./MessageInfoModal";
 
 
-const GroupChatPopup = ({ group, onClose, userId: propUserId, token, initialPosition, index, isFixed = false }) => {
+const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token, initialPosition, index, isFixed = false }) => {
   const userId = parseInt(propUserId); // Ensure userId is always an integer
 
   const [messages, setMessages] = useState([]);
@@ -274,14 +274,14 @@ const GroupChatPopup = ({ group, onClose, userId: propUserId, token, initialPosi
       const newMsg = {
         id: data.message.id,
         group_id: data.message.group_id,
-        content: data.message.content || "",
+        content: data.message.message || data.message.content || "",
         attachment: data.message.attachment || null,
         created_at: data.message.created_at || new Date().toISOString(),
         updated_at: data.message.updated_at || new Date().toISOString(),
         user: {
           id: parseInt(data.message.sender_id),
-          first_name: data.message.user?.first_name || "User",
-          last_name: data.message.user?.last_name || "",
+          first_name: data.message.sender?.first_name || data.message.user?.first_name || "User",
+          last_name: data.message.sender?.last_name || data.message.user?.last_name || "",
         },
         sender_id: parseInt(data.message.sender_id),
         is_read: data.message.is_read || false, // Add is_read property
@@ -525,15 +525,23 @@ const GroupChatPopup = ({ group, onClose, userId: propUserId, token, initialPosi
           const mappedMsg = {
             id: msg.id,
             group_id: msg.group_id,
-            content: msg.message || "Empty message",
+            // API returns "message" field (not "content") — same normalization as GroupChatContext
+            content: msg.message || msg.content || "",
             attachment: msg.attachment || null,
             created_at: msg.created_at,
             updated_at: msg.updated_at,
-            user: msg.user || { id: msg.user?.id || 0, first_name: msg.user?.first_name || "Unknown", last_name: msg.user?.last_name || "", email: "", profile_picture: "" },
-            sender_id: msg.user?.id || 0,
-            is_read: msg.is_read || false, // Add is_read property
-            read: msg.read || false, // Add read property
-            read_at: msg.read_at || null, // Add read_at property
+            // API returns sender under msg.sender (not msg.user) — align with GroupChatContext
+            user: {
+              id: msg.sender?.id || msg.sender_id || 0,
+              first_name: msg.sender?.first_name || msg.user?.first_name || "Unknown",
+              last_name: msg.sender?.last_name || msg.user?.last_name || "",
+              email: msg.sender?.email || msg.user?.email || "",
+              profile_picture: msg.sender?.profile_picture || msg.user?.profile_picture || "",
+            },
+            sender_id: msg.sender_id || msg.sender?.id || 0,
+            is_read: msg.is_read || false,
+            read: msg.read || false,
+            read_at: msg.read_at || null,
             replies_mentions: (msg.replies_mentions || []).map(reply => {
               const replySender = group.group_members.find(member => member.id === reply.user_id);
 
@@ -952,11 +960,11 @@ const GroupChatPopup = ({ group, onClose, userId: propUserId, token, initialPosi
       ref={chatWindowRef}
       className="group-chat-popup"
       style={{
-        position: "fixed",
-        left: position.x,
-        top: position.y,
-        zIndex: 1000 + index,
-        width: "500px",
+        position: isFixed ? "relative" : "fixed",
+        left: isFixed ? undefined : position.x,
+        top: isFixed ? undefined : position.y,
+        zIndex: isFixed ? undefined : 1000 + index,
+        width: isFixed ? "100%" : "500px",
         height: "600px",
         backgroundColor: "#fff",
         border: "2px solid #e0e0e0",
@@ -1043,6 +1051,27 @@ const GroupChatPopup = ({ group, onClose, userId: propUserId, token, initialPosi
             </small>
           </div>
         </div>
+        {onMaximize && (
+          <button
+            onClick={onMaximize}
+            title="Maximize"
+            style={{
+              background: "none",
+              border: "none",
+              color: "#fff",
+              fontSize: "14px",
+              cursor: "pointer",
+              padding: "0",
+              width: "24px",
+              height: "24px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center"
+            }}
+          >
+            <i className="bi bi-arrows-fullscreen" />
+          </button>
+        )}
         <button
           onClick={() => onClose(group.id)}
           style={{
