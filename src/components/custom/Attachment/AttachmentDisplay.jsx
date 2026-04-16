@@ -51,48 +51,38 @@ const AttachmentDisplay = ({ attachment, isMe, message }) => {
   // If attachment is a string, it's likely a URL
   const BASE_URL = (import.meta.env.VITE_API_BASE_URL || "https://chatsupport.fskindia.com") + "/";
 
+  // Filename priority: attachment path/url > attachment object name > message.content (only if it looks like a filename)
+  // message.content is a caption and should NOT be used for extension detection after editing
+
   if (typeof attachment === "string") {
     attachmentUrl = attachment.startsWith("http")
       ? encodeURI(attachment)
       : encodeURI(BASE_URL + attachment);
+    // Derive filename from the URL path
+    filename = decodeURIComponent(attachment.split("/").pop().split("?")[0]);
   } else if (attachment?.url) {
     attachmentUrl = attachment.url.startsWith("http")
       ? encodeURI(attachment.url)
       : encodeURI(BASE_URL + attachment.url);
-  } else if (attachment.url) {
-    attachmentUrl = attachment.url;
-  } else if (attachment.name) {
+    filename = decodeURIComponent(attachment.url.split("/").pop().split("?")[0]);
+  } else if (attachment?.name) {
     filename = attachment.name;
-    attachmentContent = attachment.base64 || attachment.data; // For group chat, it could be 'data'
+    attachmentContent = attachment.base64 || attachment.data;
   }
 
-  // If an attachmentUrl is determined, always derive filename from it if not already set
-  // ✅ FIRST priority → message.content
-  if (message?.content) {
-    if (message.content.startsWith("File:")) {
-      filename = message.content.replace(/^File:\s*/, "").trim();
-    } else {
-      filename = message.content.trim();
-    }
+  // Use message.content as caption display only — override filename only if it looks like a real filename (has extension)
+  if (!filename && message?.content) {
+    const raw = message.content.startsWith("File:")
+      ? message.content.replace(/^File:\s*/, "").trim()
+      : message.content.trim();
+    // Only use as filename if it contains a dot (has an extension)
+    if (raw.includes(".")) filename = raw;
   }
 
-  // ✅ SECOND priority → attachment object name
-  if (!filename && attachment?.name) {
-    filename = attachment.name;
-  }
+  if (!filename && attachment?.filename) filename = attachment.filename;
 
-  // ✅ THIRD priority → attachment URL
-  if (!filename && attachmentUrl) {
-    filename = attachmentUrl.split("/").pop().split("?")[0];
-  }
-
-  // ✅ FINAL fallback
-  if (!filename) {
-    filename = "file";
-  }
-  // if (!filename && message.content) {
-  //   filename = message.content;
-  // }
+  // Final fallback
+  if (!filename) filename = "file";
 
   const fileExtension = filename.split(".").pop().toLowerCase();
   const isImage = ["jpg", "jpeg", "png", "gif", "webp"].includes(fileExtension);

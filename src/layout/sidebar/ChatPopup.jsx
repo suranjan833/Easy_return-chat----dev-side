@@ -11,6 +11,9 @@ import ReplyPreview from "../../components/custom/ReplyPreview";
 import { AttechmentSizeLimit, isOnlyEmojis } from "../../pages/comman/helper";
 import chatService from "../../Services/ChatService";
 import { getDirectMessages, markAllRead } from "../../Services/DirectsmsApi";
+import { useContext } from "react";
+import { DirectChatContext } from "../../pages/app/chat/DirectChatContext";
+import ForwardMessageModal from "../../pages/app/chat/modals/ForwardMessageModal";
 import "./ChatPopup.css";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -41,6 +44,7 @@ const groupByDate = (list) => {
 
 // ── component ─────────────────────────────────────────────────────────────────
 const ChatPopup = ({ user, onClose, meId, token, initialPosition, index }) => {
+  const directCtx = useContext(DirectChatContext);
   // ── state ──
   const [messages, setMessages]           = useState([]);
   const [messageInput, setMessageInput]   = useState("");
@@ -52,6 +56,8 @@ const ChatPopup = ({ user, onClose, meId, token, initialPosition, index }) => {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [deleteModal, setDeleteModal]     = useState({ isOpen: false, messageId: null, content: null });
   const [infoModal, setInfoModal]         = useState({ isOpen: false, message: null });
+  const [forwardModal, setForwardModal]   = useState({ show: false, message: null });
+  const [forwardSearch, setForwardSearch] = useState("");
   const [position, setPosition]           = useState(initialPosition || { x: 20, y: 20 });
   const [isDragging, setIsDragging]       = useState(false);
   const [showScrollDown, setShowScrollDown] = useState(false);
@@ -326,8 +332,13 @@ const ChatPopup = ({ user, onClose, meId, token, initialPosition, index }) => {
   };
 
   const startEditing = (msg) => {
+    // For attachment messages, only edit the text caption — not the "File: filename" content
+    const isAttachment = !!msg.attachment;
+    const caption = isAttachment
+      ? (msg.content?.startsWith("File:") ? "" : msg.content || "")
+      : (msg.content || "");
     setEditingMessageId(msg.id);
-    setMessageInput(msg.content || "");
+    setMessageInput(caption);
     setReplyToMessage(null);
   };
 
@@ -406,6 +417,14 @@ const ChatPopup = ({ user, onClose, meId, token, initialPosition, index }) => {
               </div>
             )}
 
+            {/* Forwarded label */}
+            {(msg.type === "forward_message" || msg.forwarded || msg.forwarded_from_message_id) && !msg.is_deleted && (
+              <div style={{ fontSize: "10px", opacity: 0.65, marginBottom: "4px", display: "flex", alignItems: "center", gap: "3px" }}>
+                <i className="bi bi-reply-fill" style={{ fontSize: "10px", transform: "scaleX(-1)" }} />
+                <span>Forwarded</span>
+              </div>
+            )}
+
             {msg.attachment && !msg.is_deleted ? (
               <AttachmentDisplay attachment={msg.attachment} isMe={isMe} message={msg} />
             ) : (
@@ -418,7 +437,6 @@ const ChatPopup = ({ user, onClose, meId, token, initialPosition, index }) => {
                 )}
               </span>
             )}
-
             {/* Time + status */}
             {!msg.is_deleted && (
               <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "3px", marginTop: "3px" }}>
@@ -437,6 +455,9 @@ const ChatPopup = ({ user, onClose, meId, token, initialPosition, index }) => {
             <div className="popup-msg-actions">
               <button className="popup-msg-action-btn" onClick={() => setReplyToMessage(msg)} title="Reply">
                 <i className="bi bi-reply" />
+              </button>
+              <button className="popup-msg-action-btn" onClick={() => setForwardModal({ show: true, message: msg })} title="Forward">
+                <i className="bi bi-forward" />
               </button>
               {isMe && (
                 <>
@@ -527,6 +548,26 @@ const ChatPopup = ({ user, onClose, meId, token, initialPosition, index }) => {
         isOpen={infoModal.isOpen}
         message={infoModal.message}
         onClose={() => setInfoModal({ isOpen: false, message: null })}
+      />
+
+      {/* Forward modal */}
+      <ForwardMessageModal
+        show={forwardModal.show}
+        onClose={() => { setForwardModal({ show: false, message: null }); setForwardSearch(""); }}
+        forwardMessage={forwardModal.message}
+        forwardSearch={forwardSearch}
+        setForwardSearch={setForwardSearch}
+        recentForwardUsers={(directCtx?.recentChats || []).map(c => {
+          const u = directCtx?.allUsers?.find(u => u.id === c.recipient_id);
+          return u || null;
+        }).filter(Boolean)}
+        allForwardUsers={(directCtx?.allUsers || []).filter(u =>
+          `${u.first_name} ${u.last_name}`.toLowerCase().includes(forwardSearch.toLowerCase())
+        )}
+        onForward={(messageId, recipientId) => directCtx?.forwardMessage?.(messageId, recipientId)}
+        groups={[]}
+        onForwardToGroup={(msg, groupId) => directCtx?.forwardMessageToGroup?.(msg, groupId)}
+        currentGroupId={null}
       />
 
       {/* Reply preview */}

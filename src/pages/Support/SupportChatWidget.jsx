@@ -2153,16 +2153,6 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
                     </OverlayTrigger>
                   </div>
                   <div className="d-flex align-items-center gap-2">
-                    {selectedTicket && (
-                      <button
-                        className="btn btn-sm btn-outline-secondary"
-                        onClick={handleMinimize}
-                        title="Minimize"
-                        aria-label="Minimize chat to popup"
-                      >
-                        <i className="bi bi-dash-lg" />
-                      </button>
-                    )}
                     <span
                       className={`badge ${
                         selectedTicket?.status === "initiated"

@@ -1083,7 +1083,12 @@ export function DirectChatProvider({ children }) {
 
   const startEditing = useCallback((message) => {
     setEditingMessageId(message.id);
-    setEditContent(message.content || message.reply_content || "");
+    // For attachment messages, only edit the text caption — not the "File: filename" content
+    const isAttachment = !!message.attachment;
+    const caption = isAttachment
+      ? (message.content?.startsWith("File:") ? "" : message.content || "")
+      : (message.content || message.reply_content || "");
+    setEditContent(caption);
     setReplyingTo(null);
     setEditingReply(null);
   }, []);

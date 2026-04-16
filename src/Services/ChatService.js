@@ -324,7 +324,15 @@ class ChatService {
       try {
         const data = JSON.parse(event.data);
 
-        console.log(" MERA SOCKET DATA:", data);
+        console.log("[ChatService] ⬅️ RECEIVED from server:", data);
+
+        // Log server response specifically for sent messages (confirmation)
+        if (
+          (data.type === "message" || data.type === "message_with_attachment") &&
+          (data.sender_id === this.userId || data?.data?.sender_id === this.userId)
+        ) {
+          console.log("[ChatService] ✅ Server confirmed sent message:", data);
+        }
 
         var activeChatID = localStorage.getItem("active_user_id");
 
@@ -639,14 +647,26 @@ class ChatService {
   sendMessage(messageData) {
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
       console.warn("[ChatService] Socket not ready, queueing message");
-      // this.messageQueue = this.messageQueue || [];
-
       this.messageQueue.push(messageData);
       this.connectWebSocket();
-      return true; // treat as success to prevent UI error
+      return true;
     }
 
     try {
+      // Log outgoing payload
+      if (messageData.type === "message_with_attachment") {
+        console.log("[ChatService] ➡️ SENT payload:", {
+          ...messageData,
+          attachment: {
+            ...messageData.attachment,
+            content: messageData.attachment?.content
+              ? `[base64 ${messageData.attachment.content.length} chars — starts: ${messageData.attachment.content.slice(0, 40)}]`
+              : undefined,
+          },
+        });
+      } else {
+        console.log("[ChatService] ➡️ SENT payload:", messageData);
+      }
       this.ws.send(JSON.stringify(messageData));
       return true;
     } catch (error) {
