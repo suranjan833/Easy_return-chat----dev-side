@@ -90,13 +90,6 @@ const ChatPopupsContainer = () => {
             <ChatPopup
               user={popup.user}
               onClose={() => dispatch(removeUserChatPopup(popup.user.id))}
-              onMaximize={() => {
-                dispatch(clearAllPopups());
-                navigate("/messages", { state: { openUserId: popup.user.id } });
-              }}
-              meId={ME_ID}
-              token={TOKEN}
-              baseUrl={BASE_URL}
               initialPosition={getInitialPosition(index)}
               index={index}
             />

@@ -55,6 +55,8 @@ export const ChatAsideBody = ({}) => {
         ? { ...userObj, conversation_id: conv.conversation_id }
         : userObj;
       dispatch(addUserChatPopup(payload));
+      // Clear inline chat so it doesn't stay open alongside popups
+      selectUser(null);
     } else {
       selectUser(userId);
     }
