@@ -49,7 +49,7 @@ const AttachmentDisplay = ({ attachment, isMe, message }) => {
   let attachmentUrl = message.attachment?.url || "";
 
   // If attachment is a string, it's likely a URL
-  const BASE_URL = "https://chat.fskindia.com/";
+  const BASE_URL = (import.meta.env.VITE_API_BASE_URL || "https://chatsupport.fskindia.com") + "/";
 
   if (typeof attachment === "string") {
     attachmentUrl = attachment.startsWith("http")

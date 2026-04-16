@@ -1,6 +1,6 @@
 import React from "react";
 
-const MinimizedChatsBar = ({ minimizedChats, activeUser, onMaximize }) => {
+const MinimizedChatsBar = ({ minimizedChats, activeUser, allUsers, onMaximize }) => {
   if (!minimizedChats.length) return null;
 
   return (
@@ -14,31 +14,50 @@ const MinimizedChatsBar = ({ minimizedChats, activeUser, onMaximize }) => {
         zIndex: 9999,
       }}
     >
-      {minimizedChats.map((chatId) => (
-        <div
-          key={chatId}
-          style={{
-            background: "#0d6efd",
-            color: "#fff",
-            padding: "8px 12px",
-            borderRadius: "20px",
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-            cursor: "pointer",
-          }}
-        >
-          <span style={{ fontSize: "13px" }}>
-            {activeUser?.first_name || "Chat"}
-          </span>
-          <button
-            style={{ background: "transparent", border: "none", color: "#fff", cursor: "pointer" }}
+      {minimizedChats.map((chatId) => {
+        // Find the user info for this minimized chat
+        const user = allUsers?.find(u => u.id === chatId) || activeUser;
+        const displayName = user?.first_name || "Chat";
+        
+        return (
+          <div
+            key={chatId}
+            style={{
+              background: "#0d6efd",
+              color: "#fff",
+              padding: "8px 12px",
+              borderRadius: "20px",
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              cursor: "pointer",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
+            }}
             onClick={() => onMaximize(chatId)}
           >
-            <i className="bi bi-arrows-fullscreen"></i>
-          </button>
-        </div>
-      ))}
+            <span style={{ fontSize: "13px" }}>
+              {displayName}
+            </span>
+            <button
+              style={{ 
+                background: "transparent", 
+                border: "none", 
+                color: "#fff", 
+                cursor: "pointer",
+                padding: "2px",
+                display: "flex",
+                alignItems: "center"
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                onMaximize(chatId);
+              }}
+            >
+              <i className="bi bi-arrows-fullscreen"></i>
+            </button>
+          </div>
+        );
+      })}
     </div>
   );
 };

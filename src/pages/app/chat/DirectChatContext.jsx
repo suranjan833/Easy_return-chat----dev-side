@@ -816,8 +816,8 @@ export function DirectChatProvider({ children }) {
 
   const handleFileChange = useCallback((file) => {
     if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error("File size exceeds 5MB limit.");
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("File size exceeds 10MB limit.");
       return;
     }
     const allowed = [
@@ -1015,8 +1015,7 @@ export function DirectChatProvider({ children }) {
               content: content || "",
               attachment: {
                 filename: attachment.filename,
-                content: attachment.data,
-                content_type: attachment.content_type,
+                content: attachment.data.split(",")[1], // raw base64, no data URI prefix
               },
             }
           : {

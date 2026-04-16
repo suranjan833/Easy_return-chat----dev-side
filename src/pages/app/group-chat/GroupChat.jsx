@@ -8,22 +8,11 @@ import GroupChatBody from "./GroupChatBody";
 import { GroupChatProvider, GroupChatContext } from "./GroupChatContext";
 import { useNavigate, useLocation } from "react-router";
 import ChatPopupsContainer from "@/pages/app/chat-popups/ChatPopupsContainer";
-import { useDispatch } from "react-redux";
-import { clearAllPopups } from "@/redux/slices/chatPopupsSlice";
 
 function GroupChatInner() {
   const navigate = useNavigate();
   const location = useLocation();
   const groupChat = useContext(GroupChatContext);
-  const dispatch = useDispatch();
-
-  // Clear all popups when navigating to this page (unless arriving via maximize)
-  useEffect(() => {
-    if (!location.state?.openGroupId) {
-      dispatch(clearAllPopups());
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   // Handle maximize navigation: open group conversation inline when navigated here with openGroupId state
   useEffect(() => {
@@ -40,7 +29,7 @@ function GroupChatInner() {
     <>
       <Head title="Group Chat" />
       <ContentAlt>
-        <div className="nk-chat" style={{ overflow: "visible" }}>
+        <div className="nk-chat">
           <div className={`nk-chat-aside`}>
             <div className="nk-chat-aside-head">
               <div className="nk-chat-aside-user">
@@ -95,7 +84,7 @@ function GroupChatInner() {
             </div>
             <GroupChatAside />
           </div>
-          <div style={{ flex: 1, minWidth: 0, position: "relative", display: "flex", flexDirection: "column", overflow: "visible", height: "100%" }}>
+          <div style={{ flex: 1, minWidth: 0, position: "relative", display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
             <GroupChatBody />
             <ChatPopupsContainer />
           </div>

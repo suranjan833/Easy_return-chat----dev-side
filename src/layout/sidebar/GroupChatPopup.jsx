@@ -16,7 +16,7 @@ import "./GroupChatPopup.css";
 import MessageInfoModal from "./MessageInfoModal";
 
 
-const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token, initialPosition, index, isFixed = false }) => {
+const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token, initialPosition, index }) => {
   const userId = parseInt(propUserId); // Ensure userId is always an integer
 
   const [messages, setMessages] = useState([]);
@@ -124,7 +124,6 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
 
   // Handle drag start
   const handleMouseDown = (e) => {
-    if (isFixed) return; // Disable dragging when fixed
     setIsDragging(true);
     const rect = chatWindowRef.current.getBoundingClientRect();
     dragOffset.current = {
@@ -135,27 +134,25 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
 
   // Handle drag movement
   const handleMouseMove = (e) => {
-    if (!isDragging || isFixed) return;
-    const newX = Math.max(0, Math.min(window.innerWidth - 320, e.clientX - dragOffset.current.x));
-    const newY = Math.max(0, Math.min(window.innerHeight - 400, e.clientY - dragOffset.current.y));
+    if (!isDragging) return;
+    const newX = Math.max(0, Math.min(window.innerWidth - 300, e.clientX - dragOffset.current.x));
+    const newY = Math.max(0, Math.min(window.innerHeight - 480, e.clientY - dragOffset.current.y));
     setPosition({ x: newX, y: newY });
   };
 
   // Handle drag end
   const handleMouseUp = () => {
-    if (isFixed) return;
     setIsDragging(false);
   };
 
   useEffect(() => {
-    if (isFixed) return; // Don't add event listeners when fixed
     window.addEventListener("mousemove", handleMouseMove);
     window.addEventListener("mouseup", handleMouseUp);
     return () => {
       window.removeEventListener("mousemove", handleMouseMove);
       window.removeEventListener("mouseup", handleMouseUp);
     };
-  }, [isDragging, isFixed]);
+  }, [isDragging]);
 
   // Close emoji picker when clicking outside
   useEffect(() => {
@@ -960,12 +957,12 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
       ref={chatWindowRef}
       className="group-chat-popup"
       style={{
-        position: isFixed ? "relative" : "fixed",
-        left: isFixed ? undefined : position.x,
-        top: isFixed ? undefined : position.y,
-        zIndex: isFixed ? undefined : 1000 + index,
-        width: isFixed ? "100%" : "500px",
-        height: "400px",
+        position: "fixed",
+        left: position.x,
+        top: position.y,
+        zIndex: 1000 + index,
+        width: "300px",
+        height: "480px",
         backgroundColor: "#fff",
         border: "2px solid #e0e0e0",
         borderRadius: "12px",
@@ -986,7 +983,7 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          cursor: isFixed ? "default" : "move"
+          cursor: "move"
         }}
         onMouseDown={handleMouseDown}
       >
@@ -1051,15 +1048,35 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
             </small>
           </div>
         </div>
-        {onMaximize && (
+        <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+          {onMaximize && (
+            <button
+              onClick={onMaximize}
+              title="Drag to move"
+              style={{
+                background: "none",
+                border: "none",
+                color: "#fff",
+                fontSize: "14px",
+                cursor: "pointer",
+                padding: "0",
+                width: "24px",
+                height: "24px",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center"
+              }}
+            >
+              <i className="bi bi-arrows-move" />
+            </button>
+          )}
           <button
-            onClick={onMaximize}
-            title="Maximize"
+            onClick={() => onClose(group.id)}
             style={{
               background: "none",
               border: "none",
               color: "#fff",
-              fontSize: "14px",
+              fontSize: "18px",
               cursor: "pointer",
               padding: "0",
               width: "24px",
@@ -1069,27 +1086,9 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
               justifyContent: "center"
             }}
           >
-            <i className="bi bi-arrows-fullscreen" />
+            ×
           </button>
-        )}
-        <button
-          onClick={() => onClose(group.id)}
-          style={{
-            background: "none",
-            border: "none",
-            color: "#fff",
-            fontSize: "18px",
-            cursor: "pointer",
-            padding: "0",
-            width: "24px",
-            height: "24px",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center"
-          }}
-        >
-          ×
-        </button>
+        </div>
       </div>
 
       {/* Members Dropdown */}

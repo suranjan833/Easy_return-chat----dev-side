@@ -17,7 +17,6 @@ import { MeChat, MetaChat, YouChat } from "./ChatPartials2";
 import ChatHeader from "./components/ChatHeader";
 import ChatInputFooter from "./components/ChatInputFooter";
 import MessageSearchBar from "./components/MessageSearchBar";
-import MinimizedChatsBar from "./components/MinimizedChatsBar";
 import SelectionBar from "./components/SelectionBar";
 import TypingIndicator from "./components/TypingIndicator";
 import ForwardMessageModal from "./modals/ForwardMessageModal";
@@ -42,7 +41,6 @@ const ChatBody = ({ id, mobileView, setMobileView, setSelectedId }) => {
   const [chatOptions, setChatOptions] = useState(false);
   const [messageToDelete, setMessageToDelete] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [minimizedChats, setMinimizedChats] = useState([]);
   const [forwardMessage, setForwardMessage] = useState(null);
   const [showForwardModal, setShowForwardModal] = useState(false);
   const [showSearchBar, setShowSearchBar] = useState(false);
@@ -139,8 +137,6 @@ const ChatBody = ({ id, mobileView, setMobileView, setSelectedId }) => {
   const handleConfirmDelete = () => {
     if (messageToDelete) { direct.deleteMessage(messageToDelete.id); setMessageToDelete(null); }
   };
-
-  const handleMaximize = (chatId) => setMinimizedChats((prev) => prev.filter((c) => c !== chatId));
 
   const resizeFunc = () => setsidebar(window.innerWidth > 1550);
 
@@ -459,7 +455,7 @@ const ChatBody = ({ id, mobileView, setMobileView, setSelectedId }) => {
       {direct && direct.activeUser ? (
         <div
           className="modern-chat-main"
-          style={{ display: minimizedChats.includes(id) ? "none" : "flex", position: "relative" }}
+          style={{ display: "flex", position: "relative" }}
           onDragEnter={(e) => { e.preventDefault(); setIsDragging(true); }}
           onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
           onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
@@ -480,23 +476,21 @@ const ChatBody = ({ id, mobileView, setMobileView, setSelectedId }) => {
             onDeleteSelected={direct.deleteSelected}
             onToggleSelection={(val) => direct.setIsSelectionMode(val)}
             onMinimize={() => {
-              const total = openChatPopups.length + (openGroupChatPopups || []).length + (openSupportChatPopups || []).length;
+              if (!direct.activeUser) return;
               if (openChatPopups.some((p) => p.user.id === direct.activeUser.id)) {
                 toast.warning("Chat is already open as a popup.");
                 return;
               }
-              if (total >= 3) {
-                toast.error("Maximum of 3 chat windows are already open.");
+              const total = openChatPopups.length + openGroupChatPopups.length + openSupportChatPopups.length;
+              if (total >= 4) {
+                toast.error("Maximum of 4 chat windows can be open at a time.");
                 return;
               }
-              // Find the conversation object to get conversation_id for correct API call in popup
-              const activeConv = direct.users?.find(
-                (u) => u.other_user?.id === direct.activeUser.id
-              );
-              const userWithConvId = activeConv?.conversation_id
-                ? { ...direct.activeUser, conversation_id: activeConv.conversation_id }
+              const conv = direct.users?.find((u) => u.other_user?.id === direct.activeUser.id);
+              const payload = conv?.conversation_id
+                ? { ...direct.activeUser, conversation_id: conv.conversation_id }
                 : direct.activeUser;
-              dispatch(addUserChatPopup(userWithConvId));
+              dispatch(addUserChatPopup(payload));
               direct.selectUser(null);
             }}
           />
@@ -513,7 +507,7 @@ const ChatBody = ({ id, mobileView, setMobileView, setSelectedId }) => {
 
           {/* Messages container */}
           <div className="modern-chat-messages" ref={messagesContainerRef}
-            style={{ position: "relative", overflowY: "auto", height: "100%" }}>
+            style={{ position: "relative", overflowY: "auto", flex: 1, height: 0, minHeight: 0 }}>
             {showSearchBar && (
               <MessageSearchBar
                 messageSearchTerm={direct?.messageSearchTerm}
@@ -578,7 +572,7 @@ const ChatBody = ({ id, mobileView, setMobileView, setSelectedId }) => {
         </div>
 
       ) : Uchat.convo ? (
-        <div className="modern-chat-main" style={{ display: minimizedChats.includes(id) ? "none" : "flex" }}>
+        <div className="modern-chat-main" style={{ display: "flex" }}>
           <div className="modern-chat-header">
             <div className="modern-chat-header-user">
               <img src={Uchat.avatar || "https://via.placeholder.com/40"} alt={Uchat.name || "User"} className="modern-chat-header-avatar" />
@@ -615,11 +609,6 @@ const ChatBody = ({ id, mobileView, setMobileView, setSelectedId }) => {
         </div>
       ) : null}
 
-      <MinimizedChatsBar
-        minimizedChats={minimizedChats}
-        activeUser={direct?.activeUser}
-        onMaximize={handleMaximize}
-      />
     </React.Fragment>
   );
 };

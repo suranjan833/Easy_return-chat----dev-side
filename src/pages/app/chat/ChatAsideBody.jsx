@@ -45,8 +45,8 @@ export const ChatAsideBody = ({}) => {
         toast.warning("Chat already open for this user.");
         return;
       }
-      if (total >= 3) {
-        toast.error("Maximum of 3 chat windows can be open at a time.");
+      if (total >= 4) {
+        toast.error("Maximum of 4 chat windows can be open at a time.");
         return;
       }
       // Find conversation to get conversation_id

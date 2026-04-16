@@ -38,33 +38,22 @@ const ChatPopupsPage = () => {
   };
 
   const getPopupLayout = (index, totalPopups) => {
-    const maxPopups = 3;
-    const popupWidth = 500;
-    const popupHeight = 600;
+    const popupWidth = 300;
+    const popupHeight = 400;
     const margin = 20;
+    const maxPopups = 4;
 
-    if (totalPopups <= maxPopups) {
-      const availableWidth = window.innerWidth - margin * 2;
-      const totalWidth = popupWidth * totalPopups + margin * (totalPopups - 1);
-      const startX = (availableWidth - totalWidth) / 2;
-      return {
-        x: startX + index * (popupWidth + margin),
-        y: margin,
-        width: popupWidth,
-        height: popupHeight,
-      };
-    } else {
-      if (index >= maxPopups) return null;
-      const availableWidth = window.innerWidth - margin * 2;
-      const totalWidth = popupWidth * maxPopups + margin * (maxPopups - 1);
-      const startX = (availableWidth - totalWidth) / 2;
-      return {
-        x: startX + index * (popupWidth + margin),
-        y: margin,
-        width: popupWidth,
-        height: popupHeight,
-      };
-    }
+    if (index >= maxPopups) return null;
+    const availableWidth = window.innerWidth - margin * 2;
+    const count = Math.min(totalPopups, maxPopups);
+    const totalWidth = popupWidth * count + margin * (count - 1);
+    const startX = (availableWidth - totalWidth) / 2;
+    return {
+      x: startX + index * (popupWidth + margin),
+      y: margin,
+      width: popupWidth,
+      height: popupHeight,
+    };
   };
 
   const totalPopups = openChatPopups.length + openGroupChatPopups.length;
@@ -102,7 +91,6 @@ const ChatPopupsPage = () => {
                       wsBaseUrl={WS_BASE_URL}
                       initialPosition={{ x: 0, y: 0 }}
                       index={index}
-                      isFixed={true}
                     />
                   </DirectChatProvider>
                 </div>
@@ -136,7 +124,6 @@ const ChatPopupsPage = () => {
                     wsBaseUrl={WS_BASE_URL}
                     initialPosition={{ x: 0, y: 0 }}
                     index={adjustedIndex}
-                    isFixed={true}
                   />
                 </div>
               );

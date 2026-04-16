@@ -14,7 +14,7 @@
 
 /* Individual Chat Panel */
 .chat-panel {
-  width: 500px !important;
+  width: 400px !important;
   height: 600px !important;
   background: white !important;
   border: 2px solid #e0e0e0 !important;
@@ -65,7 +65,7 @@
 }
 
 .chat-panel-grid {
-  width: 500px !important;
+  width: 400px !important;
   height: 500px !important;
 }
 

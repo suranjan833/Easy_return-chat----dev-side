@@ -580,8 +580,8 @@ const Sidebar = ({
         const total = openChatPopups.length + openGroupChatPopups.length + openSupportChatPopups.length;
 
         // Check if we've reached the combined limit
-        if (total >= 3) {
-          toast.error("Maximum of 3 chat windows can be open at a time.");
+        if (total >= 4) {
+          toast.error("Maximum of 4 chat windows can be open at a time.");
           return;
         }
 
@@ -889,8 +889,8 @@ const Sidebar = ({
       return;
     }
 
-    if (total >= 3) {
-      toast.error("Maximum of 3 chat windows can be open at a time.");
+    if (total >= 4) {
+      toast.error("Maximum of 4 chat windows can be open at a time.");
       return;
     }
 
@@ -915,8 +915,8 @@ const Sidebar = ({
       return;
     }
 
-    if (total >= 3) {
-      toast.error("Maximum of 3 chat windows can be open at a time.");
+    if (total >= 4) {
+      toast.error("Maximum of 4 chat windows can be open at a time.");
       return;
     }
 

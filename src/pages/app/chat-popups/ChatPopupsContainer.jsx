@@ -57,87 +57,71 @@ const ChatPopupsContainer = () => {
     return null;
   }
 
-  const allPopups = [
-    ...openChatPopups.map((popup, i) => ({ type: "direct", popup, index: i })),
-    ...openGroupChatPopups.map((popup, i) => ({
-      type: "group",
-      popup,
-      index: openChatPopups.length + i,
-    })),
-  ];
+  // Calculate initial positions for popups to avoid overlap
+  const getInitialPosition = (index) => {
+    const baseX = window.innerWidth - 320; // 300px width + 20px margin
+    const baseY = 100;
+    const offsetX = (index % 3) * 30; // Stagger horizontally
+    const offsetY = Math.floor(index / 3) * 30; // Stagger vertically
+    
+    return {
+      x: Math.max(20, baseX - offsetX),
+      y: baseY + offsetY
+    };
+  };
 
   return (
-    // Rendered inside the message body area (flex: 1 column).
-    // display:flex row lays popups side by side with equal spacing.
-    // position:absolute bottom:0 anchors to the bottom of the message area.
-    // overflow:visible ensures popup headers (which extend upward) are not clipped.
+    // Render popups as fixed positioned elements that can appear anywhere on screen
     <div
       style={{
-        position: "absolute",
-        bottom: 50,
+        position: "fixed",
+        top: 0,
         left: 0,
         right: 0,
-        display: "flex",
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: GAP,
-        padding: `0 ${GAP}px`,
-        pointerEvents: "none",
-        zIndex: 100,
-        overflow: "visible",
-        top: 100,
+        bottom: 0,
+        pointerEvents: "none", // Allow clicks to pass through the container
+        zIndex: 1000,
       }}
     >
-      {allPopups.map(({ type, popup, index }) => {
-        const commonStyle = {
-          flex: 1,
-          minWidth: 0,
-          pointerEvents: "all",
-        };
-
-        if (type === "direct") {
-          return (
-            <div key={popup.key} style={commonStyle}>
-              <DirectChatProvider>
-                <ChatPopup
-                  user={popup.user}
-                  onClose={() => dispatch(removeUserChatPopup(popup.user.id))}
-                  onMaximize={() => {
-                    dispatch(clearAllPopups());
-                    navigate("/messages", { state: { openUserId: popup.user.id } });
-                  }}
-                  meId={ME_ID}
-                  token={TOKEN}
-                  baseUrl={BASE_URL}
-                  initialPosition={{ x: 0, y: 0 }}
-                  index={index}
-                  isFixed={true}
-                />
-              </DirectChatProvider>
-            </div>
-          );
-        }
-
-        return (
-          <div key={popup.key} style={commonStyle}>
-            <GroupChatPopup
-              group={popup.group}
-              onClose={() => dispatch(removeGroupChatPopup(popup.group.id))}
+      {/* Direct Chat Popups */}
+      {openChatPopups.map((popup, index) => (
+        <div key={popup.key} style={{ pointerEvents: "all", width: 0, height: 0 }}>
+          <DirectChatProvider>
+            <ChatPopup
+              user={popup.user}
+              onClose={() => dispatch(removeUserChatPopup(popup.user.id))}
               onMaximize={() => {
                 dispatch(clearAllPopups());
-                navigate("/app-group-chat", { state: { openGroupId: popup.group.id } });
+                navigate("/messages", { state: { openUserId: popup.user.id } });
               }}
-              userId={ME_ID}
+              meId={ME_ID}
               token={TOKEN}
               baseUrl={BASE_URL}
-              initialPosition={{ x: 0, y: 0 }}
+              initialPosition={getInitialPosition(index)}
               index={index}
-              isFixed={true}
             />
-          </div>
-        );
-      })}
+          </DirectChatProvider>
+        </div>
+      ))}
+
+      {/* Group Chat Popups */}
+      {openGroupChatPopups.map((popup, index) => (
+        <div key={popup.key} style={{ pointerEvents: "all", width: 0, height: 0 }}>
+          <GroupChatPopup
+            group={popup.group}
+            onClose={() => dispatch(removeGroupChatPopup(popup.group.id))}
+            onMaximize={() => {
+              dispatch(clearAllPopups());
+              navigate("/app-group-chat", { state: { openGroupId: popup.group.id } });
+            }}
+            userId={ME_ID}
+            token={TOKEN}
+            baseUrl={BASE_URL}
+            initialPosition={getInitialPosition(openChatPopups.length + index)}
+            index={openChatPopups.length + index}
+          />
+        </div>
+      ))}
     </div>
   );
 };

@@ -7,68 +7,16 @@
 .chat-popups-header {
   background-color: #fff;
   border-bottom: 1px solid #dee2e6;
-  /* padding: 1.5rem; */
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
 .chat-popups-container {
   position: relative;
   min-height: calc(80vh - 120px);
-margin: 0 10px 0 10px;
-  /* padding: 10px; */
-}
-
-.chat-popups-container .chat-popup,
-.chat-popups-container .group-chat-popup {
-  position: absolute !important;
-  top: 0 !important;
-  left: 0 !important;
-  transform: none !important;
-  width: 480px !important;
-  height: 600px !important;
-  border-radius: 12px !important;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15) !important;
-  border: 2px solid #e0e0e0 !important;
-  transition: all 0.3s ease !important;
-}
-
-/* Ensure equal dimensions for all popup types */
-.chat-popup,
-.group-chat-popup {
-  width: 500px !important;
-  height: 600px !important;
-  border-radius: 12px !important;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15) !important;
-  border: 2px solid #e0e0e0 !important;
-  transition: all 0.3s ease !important;
-}
-
-/* Responsive adjustments */
-@media (max-width: 1200px) {
-  .chat-popups-container {
-    padding: 15px;
-  }
-  
-  .chat-popup,
-  .group-chat-popup {
-    width: 450px !important;
-    height: 550px !important;
-  }
+  margin: 0 10px;
 }
 
 @media (max-width: 768px) {
-  .chat-popups-container {
-    padding: 10px;
-  }
-  
-  .chat-popups-header {
-    padding: 1rem;
-  }
-  
-  .chat-popups-header h2 {
-    font-size: 1.5rem;
-  }
-  
   .chat-popup,
   .group-chat-popup {
     width: 100vw !important;
@@ -77,15 +25,4 @@ margin: 0 10px 0 10px;
     left: 0 !important;
     top: 0 !important;
   }
-}
-
-/* Sidebar responsive adjustments */
-body.sidebar-hidden .chat-popups-container .chat-popup,
-body.sidebar-hidden .chat-popups-container .group-chat-popup {
-  left: 20px !important;
-}
-
-body:not(.sidebar-hidden) .chat-popups-container .chat-popup,
-body:not(.sidebar-hidden) .chat-popups-container .group-chat-popup {
-  /* left: 310px !important; */
 }

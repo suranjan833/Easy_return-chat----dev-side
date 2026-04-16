@@ -102,8 +102,8 @@ export default function GroupChatBody() {
     }
     const total =
       openChatPopups.length + openGroupChatPopups.length + openSupportChatPopups.length;
-    if (total >= 3) {
-      toast.error("Maximum of 3 chat windows can be open at a time.");
+    if (total >= 4) {
+      toast.error("Maximum of 4 chat windows can be open at a time.");
       return;
     }
     dispatch(addGroupChatPopup(activeGroup));
@@ -304,6 +304,7 @@ export default function GroupChatBody() {
       </div>
       <SimpleBar
         className="nk-chat-panel"
+        style={{ flex: 1, height: 0, minHeight: 0, overflowY: "auto" }}
         scrollableNodeProps={{ ref: (n) => (scrollRef.current = n) }}
       >
         {groupMessagesByDate(messages).map((m, idx) => {

@@ -14,7 +14,7 @@ const chatPopupsSlice = createSlice({
       if (state.openChatPopups.some((popup) => popup.user.id === user.id)) return;
       // Combined limit across all three popup types
       const total = state.openChatPopups.length + state.openGroupChatPopups.length + state.openSupportChatPopups.length;
-      if (total >= 3) return;
+      if (total >= 4) return;
       state.openChatPopups.push({
         user,
         key: `chat-${user.id}-${Date.now()}`,
@@ -33,7 +33,7 @@ const chatPopupsSlice = createSlice({
       if (state.openGroupChatPopups.some((popup) => popup.group.id === group.id)) return;
       // Combined limit across all three popup types
       const total = state.openChatPopups.length + state.openGroupChatPopups.length + state.openSupportChatPopups.length;
-      if (total >= 3) return;
+      if (total >= 4) return;
       state.openGroupChatPopups.push({
         group,
         key: `group-chat-${group.id}-${Date.now()}`,
@@ -53,7 +53,7 @@ const chatPopupsSlice = createSlice({
       if (state.openSupportChatPopups.some((popup) => popup.ticket.ticket_number === ticket.ticket_number)) return;
       // Combined limit across all three popup types
       const total = state.openChatPopups.length + state.openGroupChatPopups.length + state.openSupportChatPopups.length;
-      if (total >= 3) return;
+      if (total >= 4) return;
       state.openSupportChatPopups.push({
         ticket,
         key: `support-${ticket.ticket_number}-${Date.now()}`,

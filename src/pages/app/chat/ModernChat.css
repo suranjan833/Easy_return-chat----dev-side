@@ -30,6 +30,41 @@
 }
 .dropdown-menu {
   z-index: 9999 !important;
+  min-width: 160px;
+  background: white;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  padding: 8px 0;
+}
+
+.dropdown-menu .link-list-opt {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.dropdown-menu .link-list-opt li {
+  margin: 0;
+}
+
+.dropdown-menu .dropdown-item {
+  padding: 8px 16px;
+  color: #333;
+  text-decoration: none;
+  display: block;
+  transition: all 0.2s ease;
+}
+
+.dropdown-menu .dropdown-item:hover {
+  background: rgba(102, 126, 234, 0.1);
+  color: #667eea;
+}
+
+.dropdown-menu .link-list-opt li.active .dropdown-item {
+  background: rgba(102, 126, 234, 0.1);
+  color: #667eea;
+  font-weight: 500;
 }
 .modern-chat-sidebar-header {
   padding: 24px;
@@ -171,7 +206,7 @@
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(20px);
   padding-top: 0 !important;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .modern-chat-header {
@@ -420,6 +455,12 @@
   padding: 20px 24px;
   border-top: 1px solid rgba(0, 0, 0, 0.08);
   background: rgba(255, 255, 255, 0.95);
+  flex-shrink: 0;
+}
+
+/* chat-footer used by ChatInputFooter — must not grow */
+.modern-chat-main .chat-footer {
+  flex-shrink: 0;
 }
 
 /* Reply Preview */
