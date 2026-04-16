@@ -373,6 +373,7 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
       setTicketNumber(null);
       setWebsocketUrl(null);
       setToken(null);
+      localStorage.removeItem("websocket_token");
       setIsHumanHandoff(false);
       updateTicketPartial(ticketNumber, { status: "closed" });
       setLastUserMessageTime(null);
@@ -658,20 +659,23 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
 
   const handleMinimize = () => {
     if (!selectedTicket) return;
-    const { ticket_number, name, status, site_name, agent_email } = selectedTicket;
-    // Requirement 5.3: already in popup state
-    if (openSupportChatPopups.some((p) => p.ticket.ticket_number === ticket_number)) {
+    if (openSupportChatPopups.some((p) => p.ticket.ticket_number === selectedTicket.ticket_number)) {
       toast.warning("This support chat is already open as a popup panel.");
       return;
     }
-    // Requirement 5.4: combined limit reached
     const total = openChatPopups.length + openGroupChatPopups.length + openSupportChatPopups.length;
     if (total >= 4) {
       toast.error("Maximum of 4 chat windows are already open.");
       return;
     }
-    // Requirement 5.2: add to popup state and return to ticket list
-    dispatch(addSupportChatPopup({ ticket_number, name, status, site_name, agent_email }));
+    // Pass full ticket, messages, websocket credentials so popup can restore state
+    dispatch(addSupportChatPopup({
+      ...selectedTicket,
+      _messages: messages,
+      _websocketUrl: websocketUrl,
+      _token: token,
+      _hasJoined: hasJoined,
+    }));
     setSelectedTicket(null);
     setTicketNumber(null);
   };
@@ -912,6 +916,8 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
       );
       setWebsocketUrl(correctedWebsocketUrl);
       setToken(response.token);
+      // Store token in localStorage so markMessagesAsRead can access it
+      localStorage.setItem("websocket_token", response.token);
 
       // Determine if this is the first or second agent
       const isSecondAgent =
@@ -983,6 +989,7 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
               setTicketNumber(null);
               setWebsocketUrl(null);
               setToken(null);
+      localStorage.removeItem("websocket_token");
               setIsHumanHandoff(false);
               setHasJoined(false);
               if (socket) {
@@ -1495,6 +1502,7 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
       setTicketNumber(null);
       setWebsocketUrl(null);
       setToken(null);
+      localStorage.removeItem("websocket_token");
       setIsHumanHandoff(false);
       updateTicketPartial(ticketNumber, { status: "closed" });
       if (fetchTicketsRef.current) {
@@ -2153,6 +2161,16 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
                     </OverlayTrigger>
                   </div>
                   <div className="d-flex align-items-center gap-2">
+                    {selectedTicket && (
+                      <button
+                        className="btn btn-sm btn-outline-secondary"
+                        onClick={handleMinimize}
+                        title="Minimize"
+                        aria-label="Minimize chat to popup"
+                      >
+                        <i className="bi bi-dash-lg" />
+                      </button>
+                    )}
                     <span
                       className={`badge ${
                         selectedTicket?.status === "initiated"
@@ -2332,3 +2350,4 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
   );
 };
 export default SupportChatWidget;
+

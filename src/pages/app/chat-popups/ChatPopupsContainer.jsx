@@ -1,9 +1,11 @@
 import ChatPopup from "@/layout/sidebar/ChatPopup";
 import GroupChatPopup from "@/layout/sidebar/GroupChatPopup";
+import SupportTicketPopup from "@/layout/sidebar/SupportTicketPopup";
 import {
   clearAllPopups,
   removeGroupChatPopup,
   removeUserChatPopup,
+  removeSupportChatPopup,
 } from "@/redux/slices/chatPopupsSlice";
 import { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
@@ -112,6 +114,17 @@ const ChatPopupsContainer = () => {
             baseUrl={BASE_URL}
             initialPosition={getInitialPosition(openChatPopups.length + index)}
             index={openChatPopups.length + index}
+          />
+        </div>
+      ))}
+      {/* Support Ticket Popups */}
+      {openSupportChatPopups.map((popup, index) => (
+        <div key={popup.key} style={{ pointerEvents: "all", width: 0, height: 0 }}>
+          <SupportTicketPopup
+            ticket={popup.ticket}
+            onClose={() => dispatch(removeSupportChatPopup(popup.ticket.ticket_number))}
+            initialPosition={getInitialPosition(openChatPopups.length + openGroupChatPopups.length + index)}
+            index={openChatPopups.length + openGroupChatPopups.length + index}
           />
         </div>
       ))}

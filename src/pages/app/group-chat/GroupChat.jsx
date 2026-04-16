@@ -7,7 +7,6 @@ import GroupChatAside from "./GroupChatAside";
 import GroupChatBody from "./GroupChatBody";
 import { GroupChatProvider, GroupChatContext } from "./GroupChatContext";
 import { useNavigate, useLocation } from "react-router";
-import ChatPopupsContainer from "@/pages/app/chat-popups/ChatPopupsContainer";
 
 function GroupChatInner() {
   const navigate = useNavigate();
@@ -86,7 +85,6 @@ function GroupChatInner() {
           </div>
           <div style={{ flex: 1, minWidth: 0, position: "relative", display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
             <GroupChatBody />
-            <ChatPopupsContainer />
           </div>
         </div>
       </ContentAlt>

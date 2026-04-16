@@ -131,6 +131,8 @@ const MessageInput = ({
   };
 
   const retryTypingStatus = (status, maxRetries = 3, retryInterval = 1000) => {
+    // Don't attempt if agent hasn't joined yet — socket will be null
+    if (!hasJoined) return;
     let attempts = 0;
     const trySend = () => {
       if (

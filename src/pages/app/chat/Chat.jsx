@@ -21,7 +21,6 @@ import "./ModernChat.css";
 import DirectChatProvider from "./DirectChatContext";
 import GroupChatBody from "../group-chat/GroupChatBody";
 import { DirectChatContext } from "./DirectChatContext";
-import ChatPopupsContainer from "@/pages/app/chat-popups/ChatPopupsContainer";
 
 const Chat = () => {
   // MAIN STATE
@@ -247,7 +246,6 @@ const Chat = () => {
             {mainTab === "Chats" && (
               <div style={{ flex: 1, minWidth: 0, position: "relative", display: "flex", flexDirection: "column", overflow: "hidden", height: "100%" }}>
                 <ChatBody id={7657865876} />
-                <ChatPopupsContainer />
               </div>
             )}
 
@@ -255,7 +253,6 @@ const Chat = () => {
             {mainTab === "Groups" && (
               <div style={{ flex: 1, minWidth: 0, position: "relative", display: "flex", flexDirection: "column", overflow: "hidden", height: "100%" }}>
                 <GroupChatBody />
-                <ChatPopupsContainer />
               </div>
             )}
 
