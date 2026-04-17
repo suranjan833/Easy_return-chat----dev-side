@@ -692,9 +692,9 @@ export function GroupChatProvider({ children }) {
         type: "forward_message",
         message_id: message.id,
         recipient_id: recipientId,
+        is_reply: false,
       };
-      console.log("[Forward] forward to DM user payload →", JSON.stringify(payload, null, 2));
-      console.log("[Forward] message object →", JSON.stringify(message, null, 2));
+      console.log("[Forward] group → DM payload →", JSON.stringify(payload, null, 2));
       chatService.sendMessage(payload);
     });
   }, []);

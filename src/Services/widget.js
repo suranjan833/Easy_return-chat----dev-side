@@ -746,4 +746,21 @@ const addTokenInterceptor = (client) =>
   );
 
 addTokenInterceptor(SupportApiClient);
+
+export const blockUser = async ({ email, mobile, reason, blocked_by, ticket_number, support_request_id }) => {
+  try {
+    const response = await SupportApiClient.post('/support-messages/users/block', {
+      email,
+      mobile,
+      reason,
+      blocked_by,
+      ticket_number,
+      support_request_id,
+    });
+    return response.data;
+  } catch (error) {
+    throw handleApiError(error);
+  }
+};
+
 export default SupportApiClient;

@@ -9,9 +9,11 @@ import {
   getMessages,
   getSocketUrl,
   closeConversation,
+  blockUser,
 } from "../../Services/widget";
 import { joinChat, leaveChat } from "../../redux/slices/chatConnectionSlice";
 import DeleteConfirmationModal from "../../components/custom/DeleteConfirmationModal";
+import BlockUserModal from "../../components/custom/BlockUserModal";
 
 const formatTime = (t) =>
   t ? new Date(t).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
@@ -47,6 +49,7 @@ const SupportTicketPopup = ({ ticket, onClose, initialPosition, index }) => {
   const [submitting, setSubmitting]     = useState(false);
   const [connected, setConnected]       = useState(false);
   const [deleteModal, setDeleteModal]   = useState({ isOpen: false, messageId: null, content: null });
+  const [blockModal, setBlockModal]     = useState(false);
   const [showUserInfo, setShowUserInfo] = useState(false);
   const [typingStatus, setTypingStatus] = useState(null);
   const [position, setPosition]         = useState(initialPosition || { x: 20, y: 20 });
@@ -218,6 +221,20 @@ const SupportTicketPopup = ({ ticket, onClose, initialPosition, index }) => {
     };
   }, [isDragging]);
 
+  // ── block user ──
+  const handleBlockUser = async () => {
+    try {
+      const authData = JSON.parse(localStorage.getItem("auth") || "{}");
+      const blocked_by = authData.sub || agent_email || "agent@example.com";
+      await blockUser({ email, mobile, ticket_number, blocked_by, reason: "Blocked by agent" });
+      toast.success(`User ${name || email} has been blocked.`);
+    } catch (err) {
+      toast.error(err?.message || "Failed to block user.");
+    } finally {
+      setBlockModal(false);
+    }
+  };
+
   // ── join ──
   const handleJoin = async () => {
     setSubmitting(true);
@@ -388,6 +405,13 @@ const SupportTicketPopup = ({ ticket, onClose, initialPosition, index }) => {
             >
               <i className="bi bi-person" />
             </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); setBlockModal(true); }}
+              title="Block user"
+              style={{ background: "rgba(239,68,68,0.3)", border: "none", color: "#fff", borderRadius: "50%", width: 24, height: 24, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "12px" }}
+            >
+              <i className="bi bi-slash-circle" />
+            </button>
             <button onClick={onClose} style={{ background: "none", border: "none", color: "#fff", cursor: "pointer", fontSize: "18px", lineHeight: 1 }}>×</button>
           </div>
         </div>
@@ -472,6 +496,14 @@ const SupportTicketPopup = ({ ticket, onClose, initialPosition, index }) => {
         message={{ content: deleteModal.content, type: "message" }}
         onConfirm={() => { deleteMessage(deleteModal.messageId); setDeleteModal({ isOpen: false, messageId: null, content: null }); }}
         onCancel={() => setDeleteModal({ isOpen: false, messageId: null, content: null })}
+      />
+
+      {/* Block user confirmation */}
+      <BlockUserModal
+        isOpen={blockModal}
+        userName={name || email}
+        onConfirm={handleBlockUser}
+        onCancel={() => setBlockModal(false)}
       />
 
       {/* Footer */}

@@ -864,6 +864,7 @@ export function DirectChatProvider({ children }) {
       type: "forward_message",
       message_id: messageId,
       recipient_id: recipientId,
+      is_reply: false,
     });
   }, []);
 

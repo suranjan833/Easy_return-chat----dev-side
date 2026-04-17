@@ -23,6 +23,7 @@ import {
   getSocketUrl,
   getSupportRequests,
   requestHumanAgent,
+  blockUser,
 } from "../../Services/widget";
 import ChatMessages from "./ChatMessages";
 import ChatTransfer from "./ChatTransfer";
@@ -31,6 +32,7 @@ import HistoricalTickets from "./HistoricalTickets";
 import MessageInput from "./MessageInput";
 import StatusCheckModal from "./StatusCheckModal";
 import DeleteConfirmationModal from "../../components/custom/DeleteConfirmationModal";
+import BlockUserModal from "../../components/custom/BlockUserModal";
 import "./SupportChatWidget.css";
 import TransferHistory from "./TransferHistory";
 const SupportChatWidget = ({ isAgent, agentEmail }) => {
@@ -38,6 +40,7 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
   const [theme, setTheme] = useState("light");
   const [messageText, setMessageText] = useState("");
   const [messageToDelete, setMessageToDelete] = useState(null);
+  const [blockModal, setBlockModal] = useState(false);
   // You might integrate a global theme context or user preference here if available.
   // Example: const { theme } = useThemeContext();
   const [localAgentEmail, setLocalAgentEmail] = useState(agentEmail ?? null);
@@ -1468,6 +1471,26 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
     currentPage,
   ]);
 
+  const handleBlockUser = async () => {
+    if (!selectedTicket) return;
+    try {
+      const authData = JSON.parse(localStorage.getItem("auth") || "{}");
+      const blocked_by = authData.sub || agentEmail || "agent@example.com";
+      await blockUser({
+        email: selectedTicket.email,
+        mobile: selectedTicket.mobile,
+        ticket_number: selectedTicket.ticket_number,
+        blocked_by,
+        reason: "Blocked by agent",
+      });
+      toast.success(`User ${selectedTicket.name || selectedTicket.email} has been blocked.`);
+    } catch (err) {
+      toast.error(err?.message || "Failed to block user.");
+    } finally {
+      setBlockModal(false);
+    }
+  };
+
   const handleCloseConversation = async () => {
     if (!ticketNumber) {
       toast.error("No ticket selected.");
@@ -2171,7 +2194,16 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
                         <i className="bi bi-dash-lg" />
                       </button>
                     )}
-                    <span
+                    {selectedTicket && (
+                      <button
+                        className="btn btn-sm btn-outline-danger"
+                        onClick={() => setBlockModal(true)}
+                        title="Block user"
+                        aria-label="Block this user"
+                      >
+                        <i className="bi bi-slash-circle" />
+                      </button>
+                    )}                    <span
                       className={`badge ${
                         selectedTicket?.status === "initiated"
                           ? "bg-info"
@@ -2270,6 +2302,12 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
                         message={{ content: messageToDelete?.content, type: "message" }}
                         onConfirm={() => { handleDeleteMessage(messageToDelete.id); setMessageToDelete(null); }}
                         onCancel={() => setMessageToDelete(null)}
+                      />
+                      <BlockUserModal
+                        isOpen={blockModal}
+                        userName={selectedTicket?.name || selectedTicket?.email}
+                        onConfirm={handleBlockUser}
+                        onCancel={() => setBlockModal(false)}
                       />
                       <MessageInput
                         ticketNumber={ticketNumber}
