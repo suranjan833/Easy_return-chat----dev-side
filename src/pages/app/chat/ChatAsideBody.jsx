@@ -56,9 +56,9 @@ export const ChatAsideBody = ({}) => {
         : userObj;
       dispatch(addUserChatPopup(payload));
       // Clear inline chat so it doesn't stay open alongside popups
-      selectUser(null);
+      selectUser(null, null);
     } else {
-      selectUser(userId);
+      selectUser(userId, userObj?.conversation_id || userObj?.pairKey);
     }
   };
 
@@ -231,15 +231,15 @@ export const ChatAsideBody = ({}) => {
             var otherUser = conversation.other_user;
             var latestMsg = conversation.latest_message;
             var unreadCount = conversation.unread_count;
-            const isActive = activeUser?.id === otherUser.id;
+            const isActive = direct.activeConversationId === conversation.conversation_id || direct.activeConversationId === conversation.pairKey;
             const isOnline = activeUserIDs.includes(otherUser.id);
 
             return (
               <div
-                key={conversation.conversation_id}
+                key={conversation.conversation_id || conversation.pairKey}
                 className={`modern-chat-item ${isActive ? "active" : ""}`}
                 onClick={() => {
-                  handleUserClick(otherUser.id, otherUser);
+                  handleUserClick(otherUser.id, conversation);
                 }}
               >
                 <div style={{ position: "relative" }}>
@@ -281,7 +281,7 @@ export const ChatAsideBody = ({}) => {
                 </div>
                 <div className="modern-chat-item-content">
                   <div className="modern-chat-item-name">
-                    {otherUser.first_name} {otherUser.last_name || ""}
+                    {conversation.displayName || `${otherUser.first_name} ${otherUser.last_name || ""}`}
                   </div>
                   <div className="modern-chat-item-message">
                     {latestMsg.content}
