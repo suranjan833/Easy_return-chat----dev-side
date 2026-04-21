@@ -6,6 +6,8 @@ import { renderMessageWithLinks } from "../../comman/helper";
 export const GroupMeChat = ({
   item,
   message,
+  groupMembers,
+  activeGroup,
   onEdit,
   onDelete,
   onReply,
@@ -21,6 +23,17 @@ export const GroupMeChat = ({
   const isOwnMessage = senderId === currentUserId;
   const messageDropdownRefs = useRef({});
   const [showDropdownForMessageId, setShowDropdownForMessageId] = useState(null);
+
+  // Calculate read status
+  const readReceipts = message.read_receipts || [];
+  const totalMembers = groupMembers?.length || 0;
+  // Exclude the sender from the count
+  const otherMembersCount = Math.max(0, totalMembers - 1);
+  const readByCount = readReceipts.filter(r => r.reader_id !== currentUserId).length;
+  const isReadByAll = otherMembersCount > 0 && readByCount >= otherMembersCount;
+  const isReadBySome = readByCount > 0;
+
+  console.log(`[ReadReceipt] Message ${message.id}: totalMembers=${totalMembers}, otherMembers=${otherMembersCount}, readBy=${readByCount}, isReadByAll=${isReadByAll}`);
 
   return (
     <div id={`message-${message.id}`} className={`chat is-me my-1 ${highlightedMessageId === message.id ? 'highlight-message' : ''}`}>
@@ -470,12 +483,15 @@ export const GroupMeChat = ({
                             <small>(edited)</small>
                           </span>
                         )}
-                        {/* Always-visible seen tick */}
+                        {/* Read receipt tick */}
                         <span style={{ marginLeft: "4px", lineHeight: 1 }}>
-                          {(message.is_read || (message.read_receipts && message.read_receipts.length > 0))
-                            ? <i className="bi bi-check2-all" style={{ color: "#1ee0ac", fontSize: "13px" }} title="Seen" />
-                            : <i className="bi bi-check2" style={{ color: "rgba(255,255,255,0.6)", fontSize: "13px" }} title="Delivered" />
-                          }
+                          {isReadByAll ? (
+                            <i className="bi bi-check2-all" style={{ color: "#1ee0ac", fontSize: "13px" }} title={`Read by all ${readByCount} members`} />
+                          ) : isReadBySome ? (
+                            <i className="bi bi-check2-all" style={{ color: "rgba(255,255,255,0.6)", fontSize: "13px" }} title={`Read by ${readByCount} of ${otherMembersCount} members`} />
+                          ) : (
+                            <i className="bi bi-check2" style={{ color: "rgba(255,255,255,0.6)", fontSize: "13px" }} title="Delivered" />
+                          )}
                         </span>
                       </span>
                     </div>

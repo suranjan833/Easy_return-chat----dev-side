@@ -345,6 +345,8 @@ export default function GroupChatBody() {
                   isReply={m.type === "group_message_reply"}
                   parentMsg={m.parentMsg}
                   message={m}
+                  groupMembers={groupMembers}
+                  activeGroup={activeGroup}
                   onEdit={
                     m.type === "reply" || m.type === "group_message_reply"
                       ? () => startEditingReply(m, m.original_message_id)
@@ -369,6 +371,8 @@ export default function GroupChatBody() {
                 <GroupYouChat
                   item={item}
                   message={m}
+                  groupMembers={groupMembers}
+                  activeGroup={activeGroup}
                   onReply={handleReply}
                   onForward={(msg) => setForwardModal({ show: true, message: msg })}
                   onScrollToMessage={scrollToMessage}
@@ -480,6 +484,7 @@ export default function GroupChatBody() {
       <MessageInfoModal
         isOpen={messageInfoModal.isOpen}
         message={messageInfoModal.message}
+        groupMembers={groupMembers}
         onClose={() => setMessageInfoModal({ isOpen: false, message: null })}
       />
       <ForwardMessageModal
