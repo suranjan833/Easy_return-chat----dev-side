@@ -62,11 +62,9 @@ export default function GroupChatAside() {
                     <div className="chat-info px-2">
                       <div className="chat-from">
                         <div className="name">{g.name}</div>
-                        <span className="time">{formatTime(g.updated_at || g.created_at)}</span>
                       </div>
                       <div className="chat-context">
                         <div className="text">
-                          <p>{g.last_message || "No messages yet"}</p>
                         </div>
                         {unread > 0 && (
                           <span
@@ -91,11 +89,9 @@ export default function GroupChatAside() {
                     <div className="chat-info">
                       <div className="chat-from">
                         <div className="name skeleton" style={{ width: "100px", height: "16px", background: "#e5e7eb" }}></div>
-                        <span className="time skeleton" style={{ width: "50px", height: "12px", background: "#e5e7eb" }}></span>
                       </div>
                       <div className="chat-context">
                         <div className="text">
-                          <p className="skeleton" style={{ width: "150px", height: "12px", background: "#e5e7eb" }}></p>
                         </div>
                       </div>
                     </div>

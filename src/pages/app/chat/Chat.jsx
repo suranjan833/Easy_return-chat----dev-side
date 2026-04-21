@@ -199,7 +199,7 @@ const Chat = () => {
                             href="#"
                             onClick={(ev) => {
                               ev.preventDefault();
-                              setMainTab("Groups");
+                              navigate("/app-group-chat");
                             }}
                           >
                             <span>Group Chats</span>

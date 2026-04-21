@@ -180,10 +180,11 @@ class GroupChatService {
           // 1. Group is NOT currently open
           // 2. Message is NOT sent by current user (self)
           const isSelfMessage = data.sender_id === this.userId;
+          const isGroupOpen = this.activeGroups.has(Number(data.group_id));
 
           if (!isGroupOpen && !isSelfMessage) {
             const groupName =
-              this.groups.find((g) => g.id === groupId)?.name || "Group";
+              this.groups.find((g) => Number(g.id) === Number(data.group_id))?.name || "Group";
             const senderName = data.user?.first_name
               ? `${data.user.first_name} ${data.user.last_name || ""}`.trim()
               : "Someone";

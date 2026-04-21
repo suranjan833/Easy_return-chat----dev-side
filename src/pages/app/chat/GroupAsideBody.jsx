@@ -117,12 +117,6 @@ export const GroupAsideBody = ({}) => {
                   <div className="modern-chat-item-name">
                     {group.name || ""}
                   </div>
-                  <div className="modern-chat-item-message">
-                    {/* {latestMsg.content} */}
-                  </div>
-                </div>
-                <div className="modern-chat-item-time">
-                  {/* {formatTime(latestMsg.timestamp)} */}
                 </div>
                 {/* {!isActive && unreadCount > 0 && (
                   <span
