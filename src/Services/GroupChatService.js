@@ -124,10 +124,14 @@ class GroupChatService {
     this.ws.onmessage = async (event) => {
       try {
         const data = JSON.parse(event.data);
+        console.log("[GroupChatService] 📨 Received from server:", data);
+        
         if (!data) return;
 
         // Handle different message types
         if (data.type === "message") {
+          console.log("[GroupChatService] ✉️ Processing message type, group_id:", data.group_id);
+          
           // Update group metadata for sorting and unread count
           const groupId = data.group_id;
           const currentMetadata = this.groupMetadata.get(groupId) || {
@@ -137,6 +141,7 @@ class GroupChatService {
 
           // Only increment unread count if group is not currently open/active
           const isGroupOpen = this.activeGroups.has(groupId);
+          console.log("[GroupChatService] isGroupOpen:", isGroupOpen, "activeGroups:", Array.from(this.activeGroups));
 
           this.groupMetadata.set(groupId, {
             lastMessageTimestamp: data.created_at || new Date().toISOString(),
@@ -214,6 +219,7 @@ class GroupChatService {
             }
           }
 
+          console.log("[GroupChatService] 🔔 Notifying subscribers: new_group_message, groupId:", data.group_id);
           this.notifySubscribers("new_group_message", {
             message: data,
             groupId: data.group_id,
@@ -363,6 +369,7 @@ class GroupChatService {
       console.log(messageData, "messageData 1");
       console.log(JSON.stringify(messageData), "messageData 1");
       this.ws.send(JSON.stringify(messageData));
+      console.error("[GroupChatService] message sent:", );
 
       return true;
     } catch (error) {

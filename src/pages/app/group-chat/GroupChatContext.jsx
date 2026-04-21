@@ -70,6 +70,10 @@ export function GroupChatProvider({ children }) {
   useEffect(() => {
     if (!activeGroup || !token || !userId) return;
 
+    // Mark group as active in GroupChatService
+    console.log("[GroupChat] 🎯 Marking group as active:", activeGroup.id);
+    groupChatService.setGroupActive(activeGroup.id);
+
     // Clear messages when switching groups to prevent stale data
     setMessages([]);
     setReplyingTo(null);
@@ -146,9 +150,16 @@ export function GroupChatProvider({ children }) {
     if (!activeGroup) return;
 
     const handleNewMessage = (data) => {
-      if (data.groupId !== activeGroup.id) return;
+      console.log("[GroupChat] 🔔 handleNewMessage fired, data:", data);
+      console.log("[GroupChat] activeGroup.id:", activeGroup?.id, "data.groupId:", data.groupId);
+      
+      if (data.groupId !== activeGroup.id) {
+        console.log("[GroupChat] ⚠️ Ignoring message — groupId mismatch");
+        return;
+      }
 
       const m = data.message || data;
+      console.log("[GroupChat] 📦 Raw message object:", m);
 
       // ✅ NORMAL MESSAGE
       const newMsg = {
@@ -158,35 +169,40 @@ export function GroupChatProvider({ children }) {
         message:
           m.message || m.content || m.reply_message || m.reply_content || "",
         attachment: m.attachment || null,
-        created_at: m.created_at,
+        created_at: m.created_at || new Date().toISOString(),
         updated_at: m.updated_at,
         user: {
-          id: normalizeId(m.sender?.id || m.sender_id),
-          first_name: m.sender?.first_name,
-          last_name: m.sender?.last_name,
-          profile_picture: m.sender?.profile_picture,
+          id: normalizeId(m.sender?.id || m.sender_id || m.user?.id),
+          first_name: m.sender?.first_name || m.user?.first_name,
+          last_name: m.sender?.last_name || m.user?.last_name,
+          profile_picture: m.sender?.profile_picture || m.user?.profile_picture,
         },
-        sender_id: normalizeId(m.sender_id || m.sender?.id),
+        sender_id: normalizeId(m.sender_id || m.sender?.id || m.user?.id),
         parentMsg: m.parentMsg || null,
         original_message_id: m.original_message_id || null,
-        is_deleted: m.is_deleted,
-        is_edited: m.is_edited,
+        is_deleted: m.is_deleted || false,
+        is_edited: m.is_edited || false,
         is_forwarded: m.is_forwarded || false,
         forwarded_from_message_id: m.forwarded_from_message_id || null,
         forwarded_from_group_id: m.forwarded_from_group_id || null,
       };
 
+      console.log("[GroupChat] ✅ Normalized message:", newMsg);
+
       setMessages((prev) => {
         const exists = prev.find((msg) => msg.id === newMsg.id);
 
         if (exists) {
+          console.log("[GroupChat] 🔄 Message already exists, updating:", newMsg.id);
           return prev.map((msg) =>
             msg.id === newMsg.id ? { ...msg, ...newMsg } : msg,
           );
         }
 
+        console.log("[GroupChat] ➕ Adding new message:", newMsg.id);
+
         // Mark as read if it's from another user
-        if (newMsg.sender_id !== userId) {
+        if (newMsg.sender_id && newMsg.sender_id !== userId) {
           console.log(`[ReadReceipt] New message from other user, marking read — msgId:${newMsg.id}`);
           groupChatService.markMessageRead(activeGroup.id, newMsg.id);
         }
@@ -429,6 +445,12 @@ export function GroupChatProvider({ children }) {
     setConnectionStatus(groupChatService.getConnectionStatus());
 
     return () => {
+      // Mark group as inactive when leaving
+      if (activeGroup?.id) {
+        console.log("[GroupChat] 🚪 Marking group as inactive:", activeGroup.id);
+        groupChatService.setGroupInactive(activeGroup.id);
+      }
+      
       groupChatService.unsubscribe("new_group_message", handleNewMessage);
       groupChatService.unsubscribe("group_message_edit", handleMessageEdit);
       groupChatService.unsubscribe("delete_group_message", handleMessageDelete);
