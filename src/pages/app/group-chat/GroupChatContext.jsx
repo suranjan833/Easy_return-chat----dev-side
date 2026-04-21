@@ -23,6 +23,7 @@ export function GroupChatProvider({ children }) {
   const [messages, setMessages] = useState([]);
   const [connectionStatus, setConnectionStatus] = useState("disconnected");
   const [typingUsers, setTypingUsers] = useState([]);
+  const [groupUnreadCounts, setGroupUnreadCounts] = useState({}); // { [groupId]: number }
   const [editMessageId, setEditMessageId] = useState(null);
   const [inputText, setInputText] = useState("");
   const [attachment, setAttachment] = useState(null);
@@ -466,6 +467,32 @@ export function GroupChatProvider({ children }) {
 
   const selectGroup = useCallback((groupId) => setActiveGroupId(groupId), []);
 
+  // Global subscription for unread counts — not tied to activeGroup
+  useEffect(() => {
+    const handleMetadataUpdate = (data) => {
+      setGroupUnreadCounts((prev) => ({
+        ...prev,
+        [data.groupId]: data.metadata?.unreadCount || 0,
+      }));
+    };
+
+    groupChatService.subscribe("group_metadata_updated", handleMetadataUpdate);
+
+    // Seed from existing metadata on mount
+    const existing = groupChatService.getGroupMetadata();
+    if (existing && typeof existing === "object") {
+      const counts = {};
+      Object.entries(existing).forEach(([gid, meta]) => {
+        counts[Number(gid)] = meta.unreadCount || 0;
+      });
+      setGroupUnreadCounts(counts);
+    }
+
+    return () => {
+      groupChatService.unsubscribe("group_metadata_updated", handleMetadataUpdate);
+    };
+  }, []);
+
   const handleTyping = useCallback(() => {
     if (!groupChatService.isInitialized() || !activeGroup) return;
 
@@ -804,6 +831,7 @@ export function GroupChatProvider({ children }) {
       selectGroup,
       connectionStatus,
       typingUsers,
+      groupUnreadCounts,
       messages,
       inputText,
       setInputText,
@@ -841,6 +869,7 @@ export function GroupChatProvider({ children }) {
     selectGroup,
     connectionStatus,
     typingUsers,
+    groupUnreadCounts,
     messages,
     inputText,
     handleTyping,

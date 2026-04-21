@@ -44,7 +44,7 @@ const recentChatsSlice = createSlice({
     // Increment unread count for a specific chat
     incrementUnreadCount: (state, action) => {
       const recipient_id = action.payload;
-      const chat = state.chats.find((c) => c.recipient_id === recipient_id);
+      const chat = state.chats.find((c) => Number(c.recipient_id) === Number(recipient_id));
       if (chat) {
         chat.unread_count = (chat.unread_count || 0) + 1;
       }
@@ -53,7 +53,7 @@ const recentChatsSlice = createSlice({
     // Clear unread count for a specific chat
     clearUnreadCount: (state, action) => {
       const recipient_id = action.payload;
-      const chat = state.chats.find((c) => c.recipient_id === recipient_id);
+      const chat = state.chats.find((c) => Number(c.recipient_id) === Number(recipient_id));
       if (chat) {
         chat.unread_count = 0;
       }
@@ -62,7 +62,7 @@ const recentChatsSlice = createSlice({
     // Add or update a chat with unread count
     upsertRecentChat: (state, action) => {
       const { recipient_id, last_message, last_message_timestamp, sender_id, unread_count } = action.payload;
-      const index = state.chats.findIndex((c) => c.recipient_id === recipient_id);
+      const index = state.chats.findIndex((c) => Number(c.recipient_id) === Number(recipient_id));
       
       if (index >= 0) {
         // Update existing

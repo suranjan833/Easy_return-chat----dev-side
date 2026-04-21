@@ -110,27 +110,24 @@ class ChatService {
       this.users = chatsResponse.data?.conversations || [];
       const rawChatsData = chatsResponse.data;
 
-      // 3. Process the API response - it returns an array of messages
+      // 3. Process the API response - it returns an object with a 'conversations' array
       let apiProcessedChats = [];
-      if (Array.isArray(rawChatsData)) {
-        // Process each message from the API
-        apiProcessedChats = rawChatsData.map((message) => {
-          const otherParticipantId =
-            message.sender_id === this.userId
-              ? message.recipient_id
-              : message.sender_id;
-          const unreadCount =
-            message.sender_id !== this.userId && !message.read ? 1 : 0;
-
+      const rawConversations = rawChatsData?.conversations || [];
+      
+      if (Array.isArray(rawConversations)) {
+        apiProcessedChats = rawConversations.map((chat) => {
+          const lastMsg = chat.latest_message || {};
+          const otherParticipantId = chat.other_user?.id;
+          
           return {
-            id: message.id,
+            id: lastMsg.id,
             recipient_id: otherParticipantId,
             last_message:
-              message.content || (message.attachment ? `📎 Attachment` : ""),
-            last_message_timestamp: message.timestamp,
-            unread_count: unreadCount,
+              lastMsg.content || (lastMsg.attachment ? `📎 Attachment` : ""),
+            last_message_timestamp: lastMsg.timestamp,
+            unread_count: chat.unread_count || 0,
           };
-        });
+        }).filter(c => c.recipient_id);
       }
 
       // 4. Merge API chats into currentRecentChats
@@ -637,13 +634,19 @@ class ChatService {
     const uid = Number(userId);
     const idx = this.recentChats.findIndex((c) => Number(c.recipient_id) === uid);
     console.log(`[ChatService] 🔍 markAsRead(${userId}) → uid=${uid}, found at idx=${idx}, recentChats count=${this.recentChats.length}`);
+    
+    // Always dispatch to Redux to ensure UI consistency
+    store.dispatch(clearUnreadCount(uid));
+
     if (idx >= 0) {
       const before = this.recentChats[idx].unread_count;
-      this.recentChats[idx] = { ...this.recentChats[idx], unread_count: 0 };
-      console.log(`[ChatService] ✅ markAsRead: cleared unread_count (was ${before}) for recipient_id=${this.recentChats[idx].recipient_id}, firing recent_chats_updated`);
       
-      // Dispatch to Redux store
-      store.dispatch(clearUnreadCount(uid));
+      // Update immutably to avoid "read only property" errors
+      this.recentChats = this.recentChats.map((chat, i) => 
+        i === idx ? { ...chat, unread_count: 0 } : chat
+      );
+      
+      console.log(`[ChatService] ✅ markAsRead: cleared unread_count (was ${before}) for recipient_id=${uid}, firing recent_chats_updated`);
       
       this.notifySubscribers("recent_chats_updated", {
         recentChats: this.recentChats,

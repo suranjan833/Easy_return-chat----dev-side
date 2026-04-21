@@ -11,13 +11,20 @@ import {
   useState,
 } from "react";
 import { toast } from "react-toastify";
-import { useDispatch } from "react-redux";
-import { upsertRecentChat, incrementUnreadCount } from "@/redux/slices/recentChatsSlice";
+import { useDispatch, useSelector } from "react-redux";
+import { upsertRecentChat, incrementUnreadCount, clearUnreadCount } from "@/redux/slices/recentChatsSlice";
 
 export const DirectChatContext = createContext(null);
 
 export function DirectChatProvider({ children }) {
   const dispatch = useDispatch();
+  const openChatPopups = useSelector((state) => state.chatPopups.openChatPopups);
+  const openChatPopupsRef = useRef(openChatPopups);
+
+  useEffect(() => {
+    openChatPopupsRef.current = openChatPopups;
+  }, [openChatPopups]);
+
   const [users, setUsers] = useState([]);
   const [allUsers, setAllUsers] = useState([]);
   const [filteredUsers, setFilteredUsers] = useState([]);
@@ -309,12 +316,22 @@ export function DirectChatProvider({ children }) {
         unread_count: undefined, // Will be handled separately
       }));
 
-      //if msg is not sent from me and active chat is open then mark as read immediately
-      if (senderId !== ME_ID && currentActiveUser?.id === otherUserId) {
-        // For replies, use message_id (parent message id); for regular messages use id
+      // Check if message should be marked as read immediately (either focus or popup open)
+      const isPopupOpen = openChatPopupsRef.current?.some((p) => Number(p.user?.id) === Number(otherUserId));
+      
+      console.log(`[DirectChat] 📩 handleNewMessage from ${senderId}: otherUserId=${otherUserId}, activeUser=${currentActiveUser?.id}, isPopupOpen=${isPopupOpen}, openPopupsCount=${openChatPopupsRef.current?.length}`);
+
+      if (senderId !== ME_ID && (Number(currentActiveUser?.id) === Number(otherUserId) || isPopupOpen)) {
+        // Mark as read on server
         const idToMark = message.message_id || message.id;
         if (idToMark) {
           chatService.sendMessage({ type: "update_status", message_id: idToMark, status: "read" });
+        }
+        
+        // Ensure Redux count is 0 if it's currently active in a popup
+        if (isPopupOpen) {
+          console.log(`[DirectChat] ✅ Popup is open for ${otherUserId}, clearing unread count`);
+          dispatch(clearUnreadCount(otherUserId));
         }
       } else if (senderId !== ME_ID) {
         // Increment unread count in Redux if message is not from me and chat is not active
@@ -323,10 +340,16 @@ export function DirectChatProvider({ children }) {
 
       setUsers((prevUsers) => {
         let found = false;
+        const isPopupOpen = openChatPopupsRef.current?.some((p) => Number(p.user?.id) === Number(otherUserId));
+        const isChatActive = Number(currentActiveUser?.id) === Number(otherUserId) || isPopupOpen;
 
         const updated = prevUsers.map((conv) => {
-          if (conv.other_user.id === otherUserId) {
+          if (Number(conv.other_user?.id) === Number(otherUserId)) {
             found = true;
+
+            const newUnreadCount = (senderId !== ME_ID && !isChatActive)
+              ? (conv.unread_count || 0) + 1
+              : 0;
 
             return {
               ...conv,
@@ -338,10 +361,7 @@ export function DirectChatProvider({ children }) {
                 timestamp: message.timestamp || message.created_at,
                 sender_id: senderId,
               },
-              unread_count:
-                senderId !== ME_ID && currentActiveUser?.id !== otherUserId
-                  ? (conv.unread_count || 0) + 1
-                  : conv.unread_count || 0,
+              unread_count: newUnreadCount,
             };
           }
 
@@ -438,29 +458,39 @@ export function DirectChatProvider({ children }) {
 
       // Clear unread count for the active conversation in sidebar lists
       const currentActiveUser = activeUserRef.current;
-      console.log(`[DirectChat] 👤 activeUserRef.current at status update:`, currentActiveUser?.id ?? 'null');
-      if (currentActiveUser) {
+      const openPopups = openChatPopupsRef.current || [];
+      
+      // Determine which user(s) need clearing
+      const activeIds = new Set();
+      if (currentActiveUser?.id) activeIds.add(Number(currentActiveUser.id));
+      openPopups.forEach(p => { if (p.user?.id) activeIds.add(Number(p.user.id)); });
+
+      console.log(`[DirectChat] 👤 activeUserRef.current at status update:`, currentActiveUser?.id ?? 'null', 'Active IDs in popups:', Array.from(activeIds));
+
+      if (activeIds.size > 0) {
         setUsers((prev) =>
           prev.map((conv) => {
-            if (conv.other_user.id !== currentActiveUser.id) return conv;
+            if (!activeIds.has(Number(conv.other_user?.id))) return conv;
             const cleared = conv.unread_count || 0;
-            console.log(`[DirectChat] 🧹 clearing unread_count=${cleared} for user=${currentActiveUser.id} in users state`);
+            console.log(`[DirectChat] 🧹 clearing unread_count=${cleared} for user=${conv.other_user.id} in users state`);
             setTotalUnreadCount((t) => Math.max(0, t - cleared));
             return { ...conv, unread_count: 0 };
           }),
         );
         setRecentChats((prev) =>
           prev.map((chat) =>
-            chat.recipient_id === currentActiveUser.id
+            activeIds.has(Number(chat.recipient_id))
               ? { ...chat, unread_count: 0 }
               : chat,
           ),
         );
         // Update ChatService singleton so Sidebar receives recent_chats_updated
-        console.log(`[DirectChat] 🔔 calling chatService.markAsRead(${currentActiveUser.id}) from handleStatusUpdate`);
-        chatService.markAsRead(currentActiveUser.id);
+        activeIds.forEach(id => {
+          console.log(`[DirectChat] 🔔 calling chatService.markAsRead(${id}) from handleStatusUpdate`);
+          chatService.markAsRead(id);
+        });
       } else {
-        console.warn(`[DirectChat] ⚠️ handleStatusUpdate: activeUserRef.current is null — sidebar will NOT be updated`);
+        console.warn(`[DirectChat] ⚠️ handleStatusUpdate: No active users/popups found — sidebar will NOT be updated`);
       }
     },
     [ME_ID],
@@ -540,18 +570,22 @@ export function DirectChatProvider({ children }) {
             headers: { Authorization: `Bearer ${TOKEN}` },
           },
         );
-        const chats = response?.data?.map((chat) => ({
-          id: chat.id,
-          recipient_id:
-            chat.sender_id === ME_ID ? chat.recipient_id : chat.sender_id,
-          last_message:
-            chat.content || (chat.attachment ? `📎 ${chat.attachment}` : ""),
-          last_message_timestamp: chat.timestamp,
-          sender_id: chat.sender_id,
-        }));
+        const rawConversations = response?.data?.conversations || [];
+        const chats = rawConversations.map((chat) => {
+          const lastMsg = chat.latest_message || {};
+          return {
+            id: lastMsg.id,
+            recipient_id: chat.other_user?.id,
+            last_message:
+              lastMsg.content || (lastMsg.attachment ? `📎 ${lastMsg.attachment}` : ""),
+            last_message_timestamp: lastMsg.timestamp,
+            sender_id: lastMsg.sender_id,
+          };
+        });
 
         // Deduplicate by recipient_id, keep most recent
         const deduped = chats
+          .filter(c => c.recipient_id) // Ensure we have a recipient_id
           .sort((a, b) => new Date(b.last_message_timestamp) - new Date(a.last_message_timestamp))
           .filter((c, i, arr) => arr.findIndex((x) => x.recipient_id === c.recipient_id) === i);
 
@@ -566,7 +600,6 @@ export function DirectChatProvider({ children }) {
         setTotalUnreadCount(unreadResponse.data?.unread_count || 0);
       } catch (error) {
         console.error("Failed to fetch recent chats:", error);
-        // toast.error("Failed to load recent chats");
       }
     };
 

@@ -51,6 +51,7 @@ export default function GroupChatBody() {
   const [groupMembers, setGroupMembers] = useState([]);
   const [mentionPosition, setMentionPosition] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [showScrollDown, setShowScrollDown] = useState(false);
   const textareaRef = useRef(null);
   const [showEmojiPicker, setShowEmojiPicker] =
     useState(false); /* Added for emoji functionality */
@@ -179,6 +180,20 @@ export default function GroupChatBody() {
     }
   }, [messages, typingUsers]); // Added typingUsers to trigger scroll on typing indicator
 
+  const scrollToBottom = () => {
+    const el = scrollRef.current;
+    if (el) {
+      el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    }
+    setShowScrollDown(false);
+  };
+
+  const handleScroll = (e) => {
+    const el = e.target;
+    const maxScroll = el.scrollHeight - el.clientHeight;
+    setShowScrollDown(el.scrollTop < maxScroll - 150);
+  };
+
   const scrollToMessage = (messageId) => {
     const element = document.getElementById(`message-${messageId}`);
     if (element) {
@@ -304,8 +319,8 @@ export default function GroupChatBody() {
       </div>
       <SimpleBar
         className="nk-chat-panel"
-        style={{ flex: 1, height: 0, minHeight: 0, overflowY: "auto" }}
-        scrollableNodeProps={{ ref: (n) => (scrollRef.current = n) }}
+        style={{ flex: 1, height: 0, minHeight: 0, overflowY: "auto", position: "relative" }}
+        scrollableNodeProps={{ ref: (n) => (scrollRef.current = n), onScroll: handleScroll }}
       >
         {groupMessagesByDate(messages).map((m, idx) => {
           if (m.meta)
@@ -387,6 +402,34 @@ export default function GroupChatBody() {
           );
         })}
       </SimpleBar>
+
+      {/* Scroll to bottom button */}
+      {showScrollDown && (
+        <button
+          onClick={scrollToBottom}
+          style={{
+            position: "absolute",
+            bottom: "80px",
+            right: "20px",
+            width: "36px",
+            height: "36px",
+            borderRadius: "50%",
+            border: "none",
+            background: "#6576ff",
+            color: "#fff",
+            boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
+            cursor: "pointer",
+            zIndex: 100,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+          title="Scroll to bottom"
+        >
+          <i className="bi bi-arrow-down" style={{ fontSize: "16px" }} />
+        </button>
+      )}
+
       {typingUsers.length > 0 && (
         <div
           className="nk-chat-typing"

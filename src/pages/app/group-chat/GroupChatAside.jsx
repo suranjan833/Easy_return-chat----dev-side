@@ -3,7 +3,8 @@ import SimpleBar from "simplebar-react";
 import { Input } from "reactstrap";
 import { Icon, UserAvatar } from "@/components/Component";
 import { GroupChatContext } from "./GroupChatContext";
-import "../chat/ChatAside.css"
+import "../chat/ChatAside.css";
+
 const getInitials = (name = "") => {
   const parts = name.trim().split(/\s+/);
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
@@ -17,7 +18,9 @@ const formatTime = (timestamp) => {
 };
 
 export default function GroupChatAside() {
-  const { filteredGroups, setSearchTerm, activeGroup, selectGroup } = useContext(GroupChatContext);
+  const { filteredGroups, setSearchTerm, activeGroup, selectGroup, groupUnreadCounts } =
+    useContext(GroupChatContext);
+
   return (
     <SimpleBar className="nk-chat-aside-body">
       <div className="nk-chat-aside-search">
@@ -39,36 +42,46 @@ export default function GroupChatAside() {
         <h6 className="title overline-title-alt">Groups</h6>
         <ul className="chat-list">
           {filteredGroups.length ? (
-            filteredGroups.map((g) => (
-              <li key={g.id} className={`chat-item ${activeGroup?.id === g.id ? "active" : ""}`}>
-                <a
-                  className="chat-link"
-                  href="#chat-link"
-                  onClick={(ev) => {
-                    ev.preventDefault();
-                    selectGroup(g.id);
-                  }}
-                >
-      
-                  <UserAvatar 
-                            theme="primary" 
-                            text={getInitials(g.name)}
-                            image={g.group_avatar || g.avatar_url}
-                          />
-                  <div className="chat-info px-2">
-                    <div className="chat-from">
-                      <div className="name">{g.name}</div>
-                      <span className="time">{formatTime(g.updated_at || g.created_at)}</span>
-                    </div>
-                    <div className="chat-context">
-                      <div className="text">
-                        <p>{g.last_message || "No messages yet"}</p>
+            filteredGroups.map((g) => {
+              const unread = groupUnreadCounts?.[g.id] || 0;
+              return (
+                <li key={g.id} className={`chat-item ${activeGroup?.id === g.id ? "active" : ""}`}>
+                  <a
+                    className="chat-link"
+                    href="#chat-link"
+                    onClick={(ev) => {
+                      ev.preventDefault();
+                      selectGroup(g.id);
+                    }}
+                  >
+                    <UserAvatar
+                      theme="primary"
+                      text={getInitials(g.name)}
+                      image={g.group_avatar || g.avatar_url}
+                    />
+                    <div className="chat-info px-2">
+                      <div className="chat-from">
+                        <div className="name">{g.name}</div>
+                        <span className="time">{formatTime(g.updated_at || g.created_at)}</span>
+                      </div>
+                      <div className="chat-context">
+                        <div className="text">
+                          <p>{g.last_message || "No messages yet"}</p>
+                        </div>
+                        {unread > 0 && (
+                          <span
+                            className="badge rounded-pill bg-primary"
+                            style={{ fontSize: "0.7rem", minWidth: "20px", textAlign: "center" }}
+                          >
+                            {unread > 99 ? "99+" : unread}
+                          </span>
+                        )}
                       </div>
                     </div>
-                  </div>
-                </a>
-              </li>
-            ))
+                  </a>
+                </li>
+              );
+            })
           ) : (
             <ul className="chat-list">
               {[...Array(10)].map((_, idx) => (
@@ -96,5 +109,3 @@ export default function GroupChatAside() {
     </SimpleBar>
   );
 }
-
-
