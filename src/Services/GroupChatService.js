@@ -63,12 +63,27 @@ class GroupChatService {
       });
       this.groups = response.data || [];
 
+      // Populate groupMetadata with initial unread counts from server
+      this.groups.forEach((g) => {
+        const gid = Number(g.id);
+        this.groupMetadata.set(gid, {
+          lastMessageTimestamp: g.updated_at || g.created_at || null,
+          unreadCount: g.unread_count || 0,
+        });
+      });
+
       // Notify subscribers of initial groups data
       this.notifySubscribers("initial_groups", {
         groups: this.groups,
       });
 
-      //   console.log(`[GroupChatService] Initial groups loaded: ${this.groups.length} groups`);
+      // Also notify about the seeded metadata
+      this.groupMetadata.forEach((meta, gid) => {
+        this.notifySubscribers("group_metadata_updated", {
+          groupId: gid,
+          metadata: meta,
+        });
+      });
     } catch (error) {
       console.error(
         "[GroupChatService] Failed to fetch initial groups:",
@@ -78,6 +93,31 @@ class GroupChatService {
         message: "Failed to load groups data",
       });
     }
+  }
+
+  // Centralized helper to update unread counts and timestamps
+  updateMetadata(groupId, timestamp) {
+    const gid = Number(groupId);
+    if (isNaN(gid)) return;
+
+    const currentMetadata = this.groupMetadata.get(gid) || {
+      lastMessageTimestamp: null,
+      unreadCount: 0,
+    };
+
+    const isGroupOpen = this.activeGroups.has(gid);
+    const newMetadata = {
+      lastMessageTimestamp: timestamp || new Date().toISOString(),
+      unreadCount: isGroupOpen ? 0 : (currentMetadata.unreadCount || 0) + 1,
+    };
+
+    this.groupMetadata.set(gid, newMetadata);
+
+    // Notify subscribers of metadata update
+    this.notifySubscribers("group_metadata_updated", {
+      groupId: gid,
+      metadata: newMetadata,
+    });
   }
 
   connectWebSocket() {
@@ -133,26 +173,7 @@ class GroupChatService {
           console.log("[GroupChatService] ✉️ Processing message type, group_id:", data.group_id);
           
           // Update group metadata for sorting and unread count
-          const groupId = data.group_id;
-          const currentMetadata = this.groupMetadata.get(groupId) || {
-            lastMessageTimestamp: null,
-            unreadCount: 0,
-          };
-
-          // Only increment unread count if group is not currently open/active
-          const isGroupOpen = this.activeGroups.has(groupId);
-          console.log("[GroupChatService] isGroupOpen:", isGroupOpen, "activeGroups:", Array.from(this.activeGroups));
-
-          this.groupMetadata.set(groupId, {
-            lastMessageTimestamp: data.created_at || new Date().toISOString(),
-            unreadCount: isGroupOpen ? 0 : currentMetadata.unreadCount + 1,
-          });
-
-          // Notify subscribers of metadata update
-          this.notifySubscribers("group_metadata_updated", {
-            groupId: groupId,
-            metadata: this.groupMetadata.get(groupId),
-          });
+          this.updateMetadata(data.group_id, data.created_at);
 
           // Smart Notification Logic
           // Only show notifications if:
@@ -238,11 +259,14 @@ class GroupChatService {
           });
         } else if (data.type === "group_message_reply") {
           console.log(data, "reply service");
+          this.updateMetadata(data.group_id || data.groupId, data.created_at);
           this.notifySubscribers("group_message_reply", data);
         } else if (data.type === "reply_on_reply") {
           console.log(data, "reply on reply service");
+          this.updateMetadata(data.group_id || data.groupId, data.created_at);
           this.notifySubscribers("reply_on_reply", data);
         } else if (data.type === "mention") {
+          this.updateMetadata(data.group_id, data.original_message?.created_at);
           this.notifySubscribers("group_mention", {
             mention: data.mention,
             original_message: data.original_message,
@@ -474,8 +498,9 @@ class GroupChatService {
 
   getGroupMetadata(groupId) {
     if (groupId) {
+      const gid = Number(groupId);
       return (
-        this.groupMetadata.get(groupId) || {
+        this.groupMetadata.get(gid) || {
           lastMessageTimestamp: null,
           unreadCount: 0,
         }
@@ -486,25 +511,27 @@ class GroupChatService {
   }
 
   markGroupAsRead(groupId) {
-    const metadata = this.groupMetadata.get(groupId);
+    const gid = Number(groupId);
+    const metadata = this.groupMetadata.get(gid);
     if (metadata) {
-      this.groupMetadata.set(groupId, {
+      this.groupMetadata.set(gid, {
         ...metadata,
         unreadCount: 0,
       });
 
       // Notify subscribers of metadata update
       this.notifySubscribers("group_metadata_updated", {
-        groupId: groupId,
-        metadata: this.groupMetadata.get(groupId),
+        groupId: gid,
+        metadata: this.groupMetadata.get(gid),
       });
     }
   }
 
   setGroupActive(groupId) {
-    this.activeGroups.add(groupId);
+    const gid = Number(groupId);
+    this.activeGroups.add(gid);
     // Also mark as read when setting active
-    this.markGroupAsRead(groupId);
+    this.markGroupAsRead(gid);
   }
 
   async openGroupChat(groupId) {
@@ -536,7 +563,7 @@ class GroupChatService {
   }
 
   setGroupInactive(groupId) {
-    this.activeGroups.delete(groupId);
+    this.activeGroups.delete(Number(groupId));
   }
 
   close() {

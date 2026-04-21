@@ -42,6 +42,39 @@ const AgentDashboard = () => {
   const chatBodyRef = useRef(null);
   const fileInputRef = useRef(null);
   const navigate = useNavigate();
+  // ── Linkify Helper ──
+  const linkifyText = (text) => {
+    if (!text) return text;
+    const urlRegex = /\b((https?:\/\/|www\.)[^\s]+|[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}[^\s]*)/gi;
+    const elements = [];
+    let lastIndex = 0;
+    let match;
+
+    while ((match = urlRegex.exec(text)) !== null) {
+      const url = match[0];
+      const start = match.index;
+      if (start > lastIndex) {
+        elements.push(text.substring(lastIndex, start));
+      }
+      const href = url.startsWith("http") ? url : `https://${url}`;
+      elements.push(
+        <a
+          key={start}
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {url}
+        </a>
+      );
+      lastIndex = start + url.length;
+    }
+
+    if (lastIndex < text.length) {
+      elements.push(text.substring(lastIndex));
+    }
+    return elements;
+  };
 
   // Handle sending messages
   const handleSendMessage = () => {
@@ -233,7 +266,7 @@ const AgentDashboard = () => {
       ) {
         const message = {
           message_type: "ticket_closed",
-          content: `Ticket ${ticketNumber} closed by agent with feedback: ${feedback}`,
+          content: `Conversation closed by agent with feedback: ${feedback}`,
           sender_type: "agent",
           sender_email: agentEmail,
           timestamp: new Date().toISOString(),
@@ -497,7 +530,7 @@ const AgentDashboard = () => {
       token,
       (message) => {
         if (message.message_type === "ticket_closed") {
-          toast.info(message.content || `Ticket ${ticketNumber} closed.`);
+          toast.info(message.content || `Conversation closed.`);
           setTickets((prev) =>
             prev.map((t) =>
               t.ticket_number === ticketNumber ? { ...t, status: "closed" } : t,
@@ -756,7 +789,7 @@ const AgentDashboard = () => {
                           ({msg.sender_email || "N/A"})
                         </div>
                         <div className="message-content">
-                          {msg.message_type === "text" && <p>{msg.content}</p>}
+                          {msg.message_type === "text" && <p>{linkifyText(msg.content)}</p>}
                           {msg.message_type === "file_upload" && (
                             <a
                               href={msg.content}

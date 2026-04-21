@@ -4,7 +4,7 @@ import { OverlayTrigger, Tooltip } from "react-bootstrap";
 import { BiUserPlus, BiXCircle } from "react-icons/bi";
 import { BsTicketDetailed, BsTicketPerforated } from "react-icons/bs";
 import { useDispatch, useSelector } from "react-redux";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { v4 as uuidv4 } from "uuid";
@@ -72,7 +72,8 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
   const chatBodyRef = useRef(null);
   const fileInputRef = useRef(null);
   const navigate = useNavigate();
-  const { ticketNumber: urlTicketNumber } = useParams();
+  const [searchParams] = useSearchParams();
+  const urlTicketNumber = searchParams.get("ticket");
   const fetchTicketsRef = useRef(null);
   const [usernameFilter, setUsernameFilter] = useState("");
   const [userEmailFilter, setUserEmailFilter] = useState("");
@@ -109,6 +110,21 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
     [selectedTicket?.ticket_number],
   );
   const [submitting, setSubmitting] = useState(false);
+  useEffect(() => {
+    // If we're supposed to be joined but have no socket, auto-reconnect
+    if (
+      ticketNumber &&
+      selectedTicket &&
+      hasJoined &&
+      !socket &&
+      !isConnectingRef.current &&
+      (selectedTicket.status === "agent_engaged" ||
+        selectedTicket.status === "transferred")
+    ) {
+      handleJoinOrRequestHuman();
+    }
+  }, [ticketNumber, selectedTicket, hasJoined, socket]);
+
   const markMessagesAsRead = useCallback(
     async (messageIds = [], ticketNumberParam = null) => {
       try {
@@ -384,7 +400,7 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
         clearTimeout(inactivityTimeoutRef.current);
         inactivityTimeoutRef.current = null;
       }
-      navigate("/support-chat", { replace: true });
+      navigate("/messages?tab=Support-Ticket", { replace: true });
       if (fetchTicketsRef.current) {
         setTimeout(() => fetchTicketsRef.current(), 1000);
       }
@@ -700,7 +716,7 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
     if (ticket) {
       setSelectedTicket(ticket);
       setTicketNumber(urlTicketNumber);
-      navigate(`/support-chat/${urlTicketNumber}`, { replace: true });
+      navigate(`/messages?tab=Support-Ticket&ticket=${urlTicketNumber}`, { replace: true });
     } else {
       console.warn(
         "[SupportChatWidget] No ticket found for URL ticket number:",
@@ -708,7 +724,7 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
       );
       setSelectedTicket(null);
       setTicketNumber(null);
-      navigate("/support-chat", { replace: true });
+      navigate("/messages?tab=Support-Ticket", { replace: true });
       //
     }
   }, [urlTicketNumber, tickets, filteredTickets, navigate]);
@@ -725,7 +741,6 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
       fetchTickets();
     }
   }, [
-    urlTicketNumber,
     isAgent,
     agentEmail,
     dateFilter,
@@ -832,7 +847,7 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
       return;
     }
     if (
-      joinedTickets.includes(ticketNumber) &&
+      joinedTickets.some((t) => t.ticketNumber === ticketNumber) &&
       socket?.readyState === WebSocket.OPEN
     ) {
       return;
@@ -965,11 +980,11 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
               );
               toast.warn(
                 message.content ||
-                  `Ticket ${ticketNumber} received a close signal, but remains active.`,
+                  `Conversation received a close signal, but remains active.`,
               );
               // Do not proceed with closing the chat
             } else {
-              toast.info(message.content || `Ticket ${ticketNumber} closed.`);
+              toast.info(message.content || `Conversation closed.`);
               updateTicketPartial(ticketNumber, { status: "closed" });
               setMessages([]);
               setSelectedTicket(null);
@@ -1150,7 +1165,7 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
             message_type: "notification",
             ticket_number: ticketNumber,
             agent_email: agentEmailToUse,
-            message: `${agentName} has joined ticket ${ticketNumber}`,
+            message: `${agentName} has joined the conversation`,
             timestamp: new Date().toISOString(),
           };
           newSocket.send(JSON.stringify(notificationMessage));
@@ -1164,7 +1179,7 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
             id: uuidv4(),
             ticket_number: ticketNumber,
             agent_email: agentEmailToUse,
-            message: `${agentName} has joined ticket ${ticketNumber}`,
+            message: `${agentName} has joined the conversation`,
             timestamp: new Date().toISOString(),
             priority: "medium",
             issue_description:
@@ -1649,8 +1664,9 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
                       {
                         tickets.filter(
                           (ticket) =>
-                            ticket.status.toLowerCase() ===
-                            ("agent_engaged" || "initiated"),
+                            ["agent_engaged", "initiated"].includes(
+                              ticket.status.toLowerCase(),
+                            ),
                         ).length
                       }
                     </span>
@@ -1796,9 +1812,12 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
                           }
                           setSelectedTicket(ticket);
                           setTicketNumber(ticket.ticket_number);
-                          navigate(`/support-chat/${ticket.ticket_number}`, {
-                            replace: true,
-                          });
+                          navigate(
+                            `/messages?tab=Support-Ticket&ticket=${ticket.ticket_number}`,
+                            {
+                              replace: true,
+                            }
+                          );
                         }
                       }}
                       aria-label={`Select ticket ${ticket.ticket_number}`}
@@ -2230,9 +2249,54 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
                     </strong>
                     <span className="issue-description">
                       {selectedTicket?.issue_description?.length > 30
-                        ? `${selectedTicket.issue_description.slice(0, 80)}...`
-                        : selectedTicket?.issue_description ||
-                          "No description available"}
+                        ? (() => {
+                            const text = `${selectedTicket.issue_description.slice(0, 80)}...`;
+                            const urlRegex = /\b((https?:\/\/|www\.)[^\s]+|[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}[^\s]*)/gi;
+                            const parts = text.split(urlRegex);
+                            return parts.map((part, i) => {
+                              if (part.match(urlRegex)) {
+                                const href = part.startsWith("http")
+                                  ? part
+                                  : `https://${part}`;
+                                return (
+                                  <a
+                                    key={i}
+                                    href={href}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                  >
+                                    {part}
+                                  </a>
+                                );
+                              }
+                              return part;
+                            });
+                          })()
+                        : (() => {
+                            const text =
+                              selectedTicket?.issue_description ||
+                              "No description available";
+                            const urlRegex = /\b((https?:\/\/|www\.)[^\s]+|[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}[^\s]*)/gi;
+                            const parts = text.split(urlRegex);
+                            return parts.map((part, i) => {
+                              if (part.match(urlRegex)) {
+                                const href = part.startsWith("http")
+                                  ? part
+                                  : `https://${part}`;
+                                return (
+                                  <a
+                                    key={i}
+                                    href={href}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                  >
+                                    {part}
+                                  </a>
+                                );
+                              }
+                              return part;
+                            });
+                          })()}
                       {selectedTicket?.issue_description?.length > 30 && (
                         <span className="issue-tooltip">
                           {selectedTicket.issue_description}

@@ -470,9 +470,11 @@ export function GroupChatProvider({ children }) {
   // Global subscription for unread counts — not tied to activeGroup
   useEffect(() => {
     const handleMetadataUpdate = (data) => {
+      const gid = Number(data.groupId);
+      if (isNaN(gid)) return;
       setGroupUnreadCounts((prev) => ({
         ...prev,
-        [data.groupId]: data.metadata?.unreadCount || 0,
+        [gid]: data.metadata?.unreadCount || 0,
       }));
     };
 

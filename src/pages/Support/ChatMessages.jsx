@@ -46,13 +46,36 @@ const ChatMessages = ({
 
   const renderMessageWithLinks = (text) => {
     if (!text) return text;
-    const urlRegex = /(https?:\/\/[^\s]+)/g;
-    return text.split(urlRegex).map((part, index) =>
-      part.match(urlRegex) ? (
-        <a key={index} href={part} target="_blank" rel="noopener noreferrer"
-          style={{ color: "#0056b3", textDecoration: "underline" }}>{part}</a>
-      ) : part
-    );
+    const urlRegex = /\b((https?:\/\/|www\.)[^\s]+|[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}[^\s]*)/gi;
+    const elements = [];
+    let lastIndex = 0;
+    let match;
+
+    while ((match = urlRegex.exec(text)) !== null) {
+      const url = match[0];
+      const start = match.index;
+      if (start > lastIndex) {
+        elements.push(text.substring(lastIndex, start));
+      }
+      const href = url.startsWith("http") ? url : `https://${url}`;
+      elements.push(
+        <a
+          key={start}
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: "#0056b3", textDecoration: "underline" }}
+        >
+          {url}
+        </a>
+      );
+      lastIndex = start + url.length;
+    }
+
+    if (lastIndex < text.length) {
+      elements.push(text.substring(lastIndex));
+    }
+    return elements;
   };
 
   const fetchAgentName = useCallback(async (email) => {
@@ -379,8 +402,12 @@ const ChatMessages = ({
           {typingStatus && (
             <div className="message message-left">
               <div className="message-sender">
-                {typingStatus.sender_type.charAt(0).toUpperCase() + typingStatus.sender_type.slice(1)}{" "}
-                ({typingStatus.sender_email})
+                {typingStatus.sender_type === "agent"
+                  ? "Support Agent"
+                  : typingStatus.sender_type === "user"
+                    ? "Customer"
+                    : "Someone"}{" "}
+                ({typingStatus.sender_email}) is typing...
               </div>
               <div className="message-contentt">
                 <div className="typing-bubble">

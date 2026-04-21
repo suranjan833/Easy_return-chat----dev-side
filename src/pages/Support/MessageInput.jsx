@@ -112,13 +112,15 @@ const MessageInput = ({
       return;
     }
 
+    const senderType = isAgentWithFallback || isHumanHandoff ? "agent" : "user";
     const senderEmail =
       isAgentWithFallback || isHumanHandoff
-        ? agentEmail || localAgentEmail || "humanstar@gmail.com"
-        : "humanstar@gmail.com";
+        ? agentEmail || localAgentEmail || "agent@gmail.com"
+        : "agent@gmail.com";
     const typingMessage = {
       type: "typing",
       status: status,
+      sender_type: senderType,
       sender_email: senderEmail,
     };
 
@@ -409,7 +411,7 @@ const MessageInput = ({
       if (socket && socket.readyState === WebSocket.CONNECTING) {
         toast.warn("Still connecting, please wait a moment and try again.");
       } else {
-        toast.error("Connection not established. Please join the ticket first.");
+        toast.error("Connection not established. Please join the conversation first.");
       }
       return;
     }
@@ -542,8 +544,8 @@ const MessageInput = ({
           sender_type: isAgentWithFallback || isHumanHandoff ? "agent" : "user",
           sender_email:
             isAgentWithFallback || isHumanHandoff
-              ? agentEmail || localAgentEmail || "humanstar@gmail.com"
-              : "humanstar@gmail.com",
+              ? agentEmail || localAgentEmail || "agent@gmail.com"
+              : "agent@gmail.com",
           sender_name:
             isAgentWithFallback || isHumanHandoff ? agentName : undefined,
           content: messageText.trim(),

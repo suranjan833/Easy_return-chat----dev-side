@@ -561,10 +561,11 @@ const Sidebar = ({
   // Subscribe to group metadata updates
   useEffect(() => {
     const handleGroupMetadataUpdate = (data) => {
-      if (data.groupId && data.metadata) {
+      const gid = Number(data.groupId);
+      if (gid && data.metadata) {
         setGroupMetadata((prev) => {
           const updated = new Map(prev);
-          updated.set(data.groupId, data.metadata);
+          updated.set(gid, data.metadata);
           return updated;
         });
       }
