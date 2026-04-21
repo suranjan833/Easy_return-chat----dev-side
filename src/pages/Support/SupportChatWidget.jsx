@@ -753,22 +753,6 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
     fetchSiteDetails();
   }, [memoizedSelectedTicket?.ticket_number]);
 
-  // Auto-join when a ticket is selected and botRepliesEnabled is resolved
-  useEffect(() => {
-    if (
-      botRepliesEnabled === null ||
-      !memoizedSelectedTicket ||
-      !isAgentWithFallback ||
-      !localAgentEmail ||
-      hasJoined ||
-      isConnectingRef.current ||
-      memoizedSelectedTicket.status === "closed" ||
-      memoizedSelectedTicket.status === "resolved"
-    ) return;
-
-    handleJoinOrRequestHuman();
-  }, [botRepliesEnabled, memoizedSelectedTicket?.ticket_number]);
-
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {

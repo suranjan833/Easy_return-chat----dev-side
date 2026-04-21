@@ -62,6 +62,8 @@ const Sidebar = ({
   const { openChatPopups, openGroupChatPopups, openSupportChatPopups } = useSelector(
     (state) => state.chatPopups,
   );
+  // Get recent chats from Redux store
+  const recentChatsFromRedux = useSelector((state) => state.recentChats.chats);
   const [groupMetadata, setGroupMetadata] = useState(new Map());
 
   // const [openChatPopups, setOpenChatPopups] = useState([]); // Replaces showChatPopup and selectedUser
@@ -496,6 +498,7 @@ const Sidebar = ({
     };
 
     const handleRecentChatsUpdate = (data) => {
+      console.log(`[Sidebar] 📬 recent_chats_updated received, chats count=${data.recentChats?.length}, unread counts:`, data.recentChats?.map(c => `uid=${c.recipient_id}:${c.unread_count}`));
       if (data.recentChats) {
         setRecentChats(data.recentChats);
       }
@@ -696,8 +699,8 @@ const Sidebar = ({
   const indexOfFirstUser = indexOfLastUser - usersPerPage;
   const currentUsers = filteredUsers
     .sort((a, b) => {
-      const chatA = recentChats.find((chat) => chat.recipient_id === a.id);
-      const chatB = recentChats.find((chat) => chat.recipient_id === b.id);
+      const chatA = recentChatsFromRedux.find((chat) => chat.recipient_id === a.id);
+      const chatB = recentChatsFromRedux.find((chat) => chat.recipient_id === b.id);
       const timeA = chatA?.last_message_timestamp
         ? new Date(chatA.last_message_timestamp).getTime()
         : 0;
@@ -1574,7 +1577,7 @@ const Sidebar = ({
 
                               </div>
                               {(() => {
-                                const chat = recentChats.find((c) => c.recipient_id === user.id);
+                                const chat = recentChatsFromRedux.find((c) => c.recipient_id === user.id);
                                 const unreadCount = chat?.unread_count || 0;
                                 return unreadCount > 0 ? (
                                   <span

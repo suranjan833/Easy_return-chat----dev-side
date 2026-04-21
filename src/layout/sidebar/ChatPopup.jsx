@@ -3,6 +3,8 @@ import EmojiPicker from "emoji-picker-react";
 import { useContext, useEffect, useRef, useState } from "react";
 import SimpleBar from "simplebar-react";
 import { toast } from "react-toastify";
+import { useDispatch } from "react-redux";
+import { clearUnreadCount } from "../../redux/slices/recentChatsSlice";
 import AttachmentDisplay from "../../components/custom/Attachment/AttachmentDisplay";
 import AttachmentInputPreview from "../../components/custom/Attachment/AttachmentInputPreview";
 import DeleteConfirmationModal from "../../components/custom/DeleteConfirmationModal";
@@ -11,6 +13,7 @@ import ReplyPreview from "../../components/custom/ReplyPreview";
 import { AttechmentSizeLimit, isOnlyEmojis } from "../../pages/comman/helper";
 import { DirectChatContext } from "../../pages/app/chat/DirectChatContext";
 import ForwardMessageModal from "../../pages/app/chat/modals/ForwardMessageModal";
+import chatService from "../../Services/ChatService";
 import "./ChatPopup.css";
 
 const formatTime = (t) =>
@@ -19,6 +22,7 @@ const formatTime = (t) =>
 const ChatPopup = ({ user, onClose, initialPosition, index }) => {
   // ── consume shared context ──
   const direct = useContext(DirectChatContext);
+  const dispatch = useDispatch();
 
   // ── drag state only ──
   const [position, setPosition]           = useState(initialPosition || { x: 20, y: 20 });
@@ -41,7 +45,11 @@ const ChatPopup = ({ user, onClose, initialPosition, index }) => {
   // ── select this user in the per-popup context on mount ──
   useEffect(() => {
     if (direct?.selectUser && user?.id) {
+      console.log(`[ChatPopup] 🚀 mount: calling selectUser(${user.id}), direct.ME_ID=${direct?.ME_ID}`);
       direct.selectUser(user.id);
+      // Clear unread count in Redux when popup opens
+      dispatch(clearUnreadCount(user.id));
+      chatService.markAsRead(user.id);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -241,7 +249,7 @@ const ChatPopup = ({ user, onClose, initialPosition, index }) => {
                     <i className="bi bi-pencil" />
                   </button>
                   <button className="popup-msg-action-btn popup-msg-action-delete"
-                    onClick={() => setDeleteModal({ isOpen: true, messageId: msg.id, content: displayContent })}
+                    onClick={() => { direct?.setDeleteType(""); setDeleteModal({ isOpen: true, messageId: msg.id, content: displayContent }); }}
                     title="Delete">
                     <i className="bi bi-trash" />
                   </button>

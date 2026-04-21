@@ -523,13 +523,17 @@ const ChatBody = ({ id, mobileView, setMobileView, setSelectedId }) => {
               <div style={{ textAlign: "center", padding: "10px 0", color: "#888", fontSize: "13px" }}>Loading more messages...</div>
             )}
             {groupMessagesByDate([...(direct?.hiddenMessages || []), ...(direct?.messages || [])]).length === 0 ? (
-              <div className="flex justify-center align-center items-center py-4">
-                <div className="flex space-x-2">
-                  <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                  <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: "0.2s" }}></div>
-                  <div className="w-2 h-2 bg-gray-600 rounded-full animate-bounce" style={{ animationDelay: "0.4s" }}></div>
+              direct?.isInitialLoading ? (
+                <div className="flex justify-center align-center items-center py-4">
+                  <div className="flex space-x-2">
+                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                    <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: "0.2s" }}></div>
+                    <div className="w-2 h-2 bg-gray-600 rounded-full animate-bounce" style={{ animationDelay: "0.4s" }}></div>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="flex justify-center items-center py-8 text-gray-400 text-sm">No messages yet. Say hello!</div>
+              )
             ) : (
               groupMessagesByDate([...(direct?.hiddenMessages || []), ...(direct?.messages || [])]).map((message, i) => renderMessage(message, i))
             )}

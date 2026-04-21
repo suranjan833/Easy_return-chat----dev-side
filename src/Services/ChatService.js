@@ -1,5 +1,7 @@
 import { toast } from "react-toastify";
 import ApiClient from "./DirectsmsApi"; // Import the configured ApiClient
+import { store } from "../redux/store";
+import { setRecentChats, clearUnreadCount, upsertRecentChat } from "../redux/slices/recentChatsSlice";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "https://chatsupport.fskindia.com";
@@ -176,6 +178,9 @@ class ChatService {
         `recentChats_${this.userId}`,
         JSON.stringify(this.recentChats),
       );
+
+      // 7. Dispatch to Redux store
+      store.dispatch(setRecentChats(this.recentChats));
 
       // Fetch total unread count
       const unreadResponse = await ApiClient.get(
@@ -629,9 +634,17 @@ class ChatService {
   // }
 
   markAsRead(userId) {
-    const idx = this.recentChats.findIndex((c) => c.recipient_id === userId);
+    const uid = Number(userId);
+    const idx = this.recentChats.findIndex((c) => Number(c.recipient_id) === uid);
+    console.log(`[ChatService] 🔍 markAsRead(${userId}) → uid=${uid}, found at idx=${idx}, recentChats count=${this.recentChats.length}`);
     if (idx >= 0) {
+      const before = this.recentChats[idx].unread_count;
       this.recentChats[idx] = { ...this.recentChats[idx], unread_count: 0 };
+      console.log(`[ChatService] ✅ markAsRead: cleared unread_count (was ${before}) for recipient_id=${this.recentChats[idx].recipient_id}, firing recent_chats_updated`);
+      
+      // Dispatch to Redux store
+      store.dispatch(clearUnreadCount(uid));
+      
       this.notifySubscribers("recent_chats_updated", {
         recentChats: this.recentChats,
       });
@@ -639,6 +652,8 @@ class ChatService {
         `recentChats_${this.userId}`,
         JSON.stringify(this.recentChats),
       );
+    } else {
+      console.warn(`[ChatService] ⚠️ markAsRead: no entry found for userId=${userId} (uid=${uid}) in recentChats. IDs present:`, this.recentChats.map(c => c.recipient_id));
     }
   }
 
