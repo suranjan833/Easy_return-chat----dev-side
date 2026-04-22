@@ -830,6 +830,7 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
   // Load messages whenever ticket changes
   useEffect(() => {
     if (!ticketNumber) return;
+    setMessages([]); // Clear previous ticket messages before loading new ones
     fetchMessages(ticketNumber);
   }, [ticketNumber]);
 
@@ -949,7 +950,6 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
         ticketNumber,
         response.token,
         (message) => {
-          console.log("log 1");
 
           // Handle server-side errors (e.g. edit/delete rejected)
           if (message.type === "error") {
@@ -1044,11 +1044,18 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
                   : msg,
               ),
             );
-          } else if (message.message_type === "update_status") {
+          } else if (
+            message.message_type === "update_status" ||
+            message.type === "status_updated" ||
+            message.message_type === "status_updated"
+          ) {
+            console.log("Message status updated", message);
+            const isRead = message.is_read || message.status === "read";
+            const readAt = message.read_at || message.updated_at || new Date().toISOString();
             setMessages((prev) =>
               prev.map((m) =>
                 m.id === message.message_id
-                  ? { ...m, is_read: message.status === "read" }
+                  ? { ...m, is_read: isRead, read_at: isRead ? readAt : m.read_at }
                   : m,
               ),
             );
@@ -1062,15 +1069,6 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
             )
           ) {
             setMessages((prev) => {
-              if (
-                prev.some(
-                  (m) =>
-                    m.id === message.message_id ||
-                    m.timestamp === message.timestamp,
-                )
-              ) {
-                return prev;
-              }
               let updatedContent = message.content;
               if (message.message_type === "file") {
                 updatedContent = `https://supportdesk.fskindia.com/support/serve-file/${message.filename}`;
@@ -1083,9 +1081,26 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
                 sender_type: message.sender_type || "unknown",
                 timestamp: message.timestamp || new Date().toISOString(),
               };
-              const newMessages = [...prev, messageWithId]
+
+              const existingIndex = prev.findIndex(
+                (m) =>
+                  m.id === message.message_id ||
+                  (String(m.id).startsWith("temp-") && m.content === message.content)
+              );
+
+              let newMessages;
+              if (existingIndex !== -1) {
+                // Replace optimistic or existing message to update its ID
+                newMessages = [...prev];
+                newMessages[existingIndex] = messageWithId;
+              } else {
+                newMessages = [...prev, messageWithId];
+              }
+
+              newMessages = newMessages
                 .slice(-100)
                 .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
               if (message.sender_type === "user") {
                 setLastUserMessageTime(Date.now());
               }

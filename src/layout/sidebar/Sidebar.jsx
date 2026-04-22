@@ -984,7 +984,7 @@ const Sidebar = ({
   const getView = (siteId) => ticketView[siteId] || "active";
 
   const totalTickets = ticketsBySite.reduce(
-    (sum, s) => sum + s.active.length + s.closed.length + s.solved.length,
+    (sum, s) => sum + s.active.length,
     0,
   );
 
@@ -1060,8 +1060,6 @@ const Sidebar = ({
 
                         const allTickets = [
                           ...site.active,
-                          ...site.closed,
-                          ...site.solved,
                         ];
 
                         const tickets = searchTerm
@@ -1111,16 +1109,6 @@ const Sidebar = ({
                                     key: "active",
                                     label: "Active",
                                     count: site.active.length,
-                                  },
-                                  {
-                                    key: "closed",
-                                    label: "Closed",
-                                    count: site.closed.length,
-                                  },
-                                  {
-                                    key: "solved",
-                                    label: "Solved",
-                                    count: site.solved.length,
                                   },
                                 ].map(({ key, label, count }) => (
                                   <button

@@ -75,7 +75,15 @@ export function DirectChatProvider({ children }) {
     (userId, convId) => {
       console.log(`[DirectChat] 👉 selectUser(userId=${userId}, convId=${convId})`);
       setActiveUserId(userId);
-      setActiveConversationId(convId || null);
+      
+      let finalConvId = convId;
+      if (!finalConvId && userId) {
+        // Try to find existing conversation to get its pairKey/id
+        const existing = usersRef.current.find(u => u.other_user?.id === userId);
+        finalConvId = existing?.pairKey || existing?.conversation_id;
+      }
+      
+      setActiveConversationId(finalConvId || null);
       setMessages([]);
       messageSkipRef.current = 0;
       setHasMore(false);
@@ -98,6 +106,16 @@ export function DirectChatProvider({ children }) {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(false);
   const messageSkipRef = useRef(0);
+
+  const usersRef = useRef(users);
+  useEffect(() => {
+    usersRef.current = users;
+  }, [users]);
+
+  const activeConversationIdRef = useRef(activeConversationId);
+  useEffect(() => {
+    activeConversationIdRef.current = activeConversationId;
+  }, [activeConversationId]);
   const PAGE_LIMIT = 500;
   // Split: hiddenMessages = messages before divider (loaded on scroll-up)
   const [hiddenMessages, setHiddenMessages] = useState([]);
@@ -290,9 +308,7 @@ export function DirectChatProvider({ children }) {
       const otherUser = (id1 !== ME_ID_local ? sender : recipient) || recipient || sender || {};
       
       const isAdminView = id1 !== ME_ID_local && id2 !== ME_ID_local;
-      const displayName = isAdminView 
-        ? `${sender?.first_name || "User"} & ${recipient?.first_name || "User"}`
-        : `${otherUser.first_name || "User"} ${otherUser.last_name || ""}`;
+      const displayName = `${otherUser.first_name || "User"} ${otherUser.last_name || ""}`;
 
       result.push({
         ...conv,
@@ -342,25 +358,29 @@ export function DirectChatProvider({ children }) {
 
   const handleNewMessage = useCallback(
     (data) => {
-      const { message, otherUserId, senderId } = data;
-      const currentActiveUser = activeUserRef.current;
+      const { message } = data;
+      const sId = Number(message.sender_id);
+      const rId = Number(message.recipient_id);
+      
+      // Use both sender and recipient for a robust pairKey (handles admin view correctly)
+      const pairKey = [sId, rId].sort((a, b) => a - b).join("_");
+      
+      // Determine otherUserId relative to ME, or fallback if admin
+      const otherUserId = (sId === ME_ID) ? rId : sId;
 
       // Update recent chats for all messages
       setRecentChats((prev) => {
         const next = [...prev];
         
-        // Use a pair key for deduplication: "min_max"
-        const pairKey = [Number(senderId), Number(otherUserId)].sort((a, b) => a - b).join("_");
-        
         const idx = next.findIndex((c) => {
-          const cPairKey = [Number(c.sender_id), Number(c.recipient_id)].sort((a, b) => a - b).join("_");
+          const cPairKey = [Number(c.sender_id || 0), Number(c.recipient_id || 0)].sort((a, b) => a - b).join("_");
           return cPairKey === pairKey;
         });
         
         const newChatEntry = {
           id: message.id,
-          recipient_id: otherUserId,
-          sender_id: senderId,
+          recipient_id: rId,
+          sender_id: sId,
           last_message:
             message.content ||
             (message.attachment ? `📎 ${message.attachment}` : ""),
@@ -370,8 +390,8 @@ export function DirectChatProvider({ children }) {
         if (idx >= 0) {
           const existing = next[idx];
           // Only update if this message is newer
-          if (new Date(message.timestamp) >= new Date(existing.last_message_timestamp)) {
-            next[idx] = newChatEntry;
+          if (new Date(message.timestamp) >= new Date(existing.last_message_timestamp || 0)) {
+            next[idx] = { ...existing, ...newChatEntry };
           }
           return next;
         }
@@ -382,61 +402,60 @@ export function DirectChatProvider({ children }) {
 
       // Dispatch to Redux store for sidebar
       dispatch(upsertRecentChat({
-        recipient_id: otherUserId,
+        recipient_id: rId,
+        sender_id: sId,
         last_message: message.content || (message.attachment ? `📎 ${message.attachment}` : ""),
         last_message_timestamp: message.timestamp,
-        sender_id: senderId,
         unread_count: undefined, // Will be handled separately
       }));
 
-      // Check if message should be marked as read immediately (either focus or popup open)
-      const isPopupOpen = openChatPopupsRef.current?.some((p) => Number(p.user?.id) === Number(otherUserId));
+      const currentActiveConvId = activeConversationIdRef.current;
+      const activeConv = usersRef.current.find(u => u.conversation_id === currentActiveConvId || u.pairKey === currentActiveConvId);
       
-      console.log(`[DirectChat] 📩 handleNewMessage from ${senderId}: otherUserId=${otherUserId}, activeUser=${currentActiveUser?.id}, isPopupOpen=${isPopupOpen}, openPopupsCount=${openChatPopupsRef.current?.length}`);
+      const isPopupOpen = openChatPopupsRef.current?.some((p) => {
+        const pId = Number(p.user?.id);
+        return pId === sId || pId === rId;
+      });
+      
+      const isActiveMainWindow = activeConv?.pairKey === pairKey;
+      const isActiveThread = isActiveMainWindow || isPopupOpen;
 
-      if (senderId !== ME_ID && (Number(currentActiveUser?.id) === Number(otherUserId) || isPopupOpen)) {
+      if (sId !== ME_ID && isActiveThread) {
         // Mark as read on server
         const idToMark = message.message_id || message.id;
         if (idToMark) {
           chatService.sendMessage({ type: "update_status", message_id: idToMark, status: "read" });
         }
         
-        // Ensure Redux count is 0 if it's currently active in a popup
         if (isPopupOpen) {
-          console.log(`[DirectChat] ✅ Popup is open for ${otherUserId}, clearing unread count`);
-          dispatch(clearUnreadCount(otherUserId));
+          const targetPopupId = (sId === ME_ID) ? rId : sId;
+          dispatch(clearUnreadCount(targetPopupId));
         }
-      } else if (senderId !== ME_ID) {
-        // Increment unread count in Redux if message is not from me and chat is not active
+      } else if (sId !== ME_ID) {
         dispatch(incrementUnreadCount(otherUserId));
       }
 
       setUsers((prevUsers) => {
         let found = false;
-        const isPopupOpen = openChatPopupsRef.current?.some((p) => Number(p.user?.id) === Number(otherUserId));
-        const isChatActive = (Number(currentActiveUser?.id) === Number(otherUserId)) || isPopupOpen;
-
-        const pairKey = [Number(senderId), Number(otherUserId)].sort((a, b) => a - b).join("_");
-
         const updated = prevUsers.map((conv) => {
           // Identify conversation by pair key (min_max)
-          if (conv.pairKey === pairKey || (!conv.pairKey && Number(conv.other_user?.id) === Number(otherUserId))) {
+          if (conv.pairKey === pairKey) {
             found = true;
 
-            const newUnreadCount = (senderId !== ME_ID && !isChatActive)
+            const newUnreadCount = (sId !== ME_ID && !isActiveThread)
               ? (conv.unread_count || 0) + 1
               : 0;
 
             return {
               ...conv,
-              pairKey: conv.pairKey || pairKey,
+              pairKey: conv.pairKey,
               latest_message: {
                 content:
                   message.content ||
                   (message.attachment ? "📎 Attachment" : "") ||
                   message.reply_content,
                 timestamp: message.timestamp || message.created_at,
-                sender_id: senderId,
+                sender_id: sId,
               },
               unread_count: newUnreadCount,
             };
@@ -445,20 +464,16 @@ export function DirectChatProvider({ children }) {
           return conv;
         });
 
-        // 🆕 If user not found → create new conversation
         if (!found) {
-          // Try to get user from allUsers
-          const otherUser = allUsers.find((u) => u.id === otherUserId) || { id: otherUserId, first_name: "User" };
-          const sender = allUsers.find((u) => u.id === senderId) || { id: senderId, first_name: "User" };
-          const recipient = allUsers.find((u) => u.id === otherUserId) || { id: otherUserId, first_name: "User" };
+          const sender = allUsers.find((u) => u.id === sId) || { id: sId, first_name: "User" };
+          const recipient = allUsers.find((u) => u.id === rId) || { id: rId, first_name: "User" };
+          const otherUser = (sId !== ME_ID ? sender : recipient) || recipient || sender;
 
-          const isAdminView = senderId !== ME_ID && otherUserId !== ME_ID;
-          const displayName = isAdminView 
-            ? `${sender.first_name} & ${recipient.first_name}`
-            : `${otherUser.first_name} ${otherUser.last_name || ""}`;
+          const isAdminView = sId !== ME_ID && rId !== ME_ID;
+          const displayName = `${otherUser.first_name} ${otherUser.last_name || ""}`;
 
           updated.unshift({
-            conversation_id: `temp_${pairKey}`,
+            conversation_id: pairKey,
             pairKey,
             other_user: otherUser,
             conv_sender: sender,
@@ -470,9 +485,9 @@ export function DirectChatProvider({ children }) {
                 message.content ||
                 (message.attachment ? "📎 Attachment" : ""),
               timestamp: message.timestamp,
-              sender_id: senderId,
+              sender_id: sId,
             },
-            unread_count: senderId !== ME_ID ? 1 : 0,
+            unread_count: sId !== ME_ID ? 1 : 0,
             messages: [],
           });
         }
@@ -495,12 +510,12 @@ export function DirectChatProvider({ children }) {
       });
 
       // Update total unread count when a new message arrives
-      if (senderId !== ME_ID && (!currentActiveUser || currentActiveUser.id !== senderId)) {
+      if (sId !== ME_ID && !isActiveThread) {
         setTotalUnreadCount((prev) => prev + 1);
       }
 
-      // Append to open thread if relevant
-      if (currentActiveUser && otherUserId === currentActiveUser.id) {
+      // Append to open thread if relevant (main window)
+      if (isActiveMainWindow) {
         setMessages((prev) => {
           const exists = prev.some((m) => m.id === message.id);
           if (exists) return prev;
@@ -889,18 +904,10 @@ export function DirectChatProvider({ children }) {
           }
         }
 
-        // ✅ 4. set final messages — split at divider for first-load UX
-        const dividerIndex = processed.findIndex((m) => m.id === "unread-divider");
-        if (dividerIndex > 0) {
-          // Show only from divider onwards; hide older messages
-          setHiddenMessages(processed.slice(0, dividerIndex));
-          setHasHidden(true);
-          setMessages(processed.slice(dividerIndex));
-        } else {
-          setHiddenMessages([]);
-          setHasHidden(false);
-          setMessages(processed);
-        }
+        // ✅ 4. set final messages — show all messages even if divider exists
+        setHiddenMessages([]);
+        setHasHidden(false);
+        setMessages(processed);
 
         // ✅ 5. mark latest opponent message as read on server
         const opponentMsgs = serverMessages.filter(

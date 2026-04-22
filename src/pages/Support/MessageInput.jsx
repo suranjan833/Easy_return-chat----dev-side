@@ -555,49 +555,21 @@ const MessageInput = ({
         };
 
         socket.send(JSON.stringify(messageData));
-
-        if (
-          !selectedTicket?.ticket_number ||
-          typeof selectedTicket.ticket_number !== "string" ||
-          selectedTicket.ticket_number.trim() === ""
-        ) {
-        } else {
-          // Fetch updated messages from server to get server-assigned ID
-          try {
-            const updatedMessages = await getMessages({
-              ticket_number: selectedTicket.ticket_number,
-            });
-            if (!Array.isArray(updatedMessages)) {
-              console.error(
-                "[MessageInput] Invalid messages data:",
-                updatedMessages,
-              );
-              toast.error("Failed to fetch updated messages.");
-            } else {
-              setMessages(
-                updatedMessages.sort(
-                  (a, b) => new Date(a.timestamp) - new Date(b.timestamp),
-                ),
-              );
-            }
-          } catch (err) {
-            console.error("[MessageInput] Fetch messages error:", {
-              message: err.message,
-              status: err.response?.status,
-              response: err.response?.data,
-              ticket_number: selectedTicket.ticket_number,
-            });
-            toast.error(
-              "Failed to fetch messages: " + (err.message || "Unknown error"),
-            );
-          }
-        }
+        
+        // Optimistically add the message to the UI
+        const optimisticMessage = {
+          ...messageData,
+          id: `temp-${Date.now()}`,
+          is_read: false,
+        };
+        setMessages((prev) => [...prev, optimisticMessage].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp)));
 
         setMessageText("");
         messageInputRef.current.value = "";
         setReplyToMessageId(null);
         setSubmitting(false);
       }
+      
       if (!isAgentWithFallback && !isHumanHandoff) {
         setLastUserMessageTime(Date.now());
       }

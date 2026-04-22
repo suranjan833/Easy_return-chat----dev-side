@@ -118,9 +118,12 @@ const SupportTicketPopup = ({ ticket, onClose, initialPosition, index }) => {
         }
 
         // ── read status ──
-        if (msg.message_type === "update_status") {
+        if (msg.message_type === "update_status" || msg.type === "status_updated" || msg.message_type === "status_updated") {
+          console.log("Message status updated", msg);
+          const isRead = msg.is_read || msg.status === "read";
+          const readAt = msg.read_at || msg.updated_at || new Date().toISOString();
           setMessages((prev) => prev.map((m) =>
-            m.id === msg.message_id ? { ...m, is_read: msg.status === "read" } : m
+            m.id === msg.message_id ? { ...m, is_read: isRead, read_at: isRead ? readAt : m.read_at } : m
           ));
           return;
         }
@@ -132,7 +135,6 @@ const SupportTicketPopup = ({ ticket, onClose, initialPosition, index }) => {
         // ── incoming messages: text, file, notification, agent_message, message ──
         if (["text", "file_upload", "file", "notification", "message", "agent_message"].includes(msg.message_type)) {
           setMessages((prev) => {
-            if (prev.some((m) => m.id === (msg.message_id || msg.id) || (m.content === msg.content && m.timestamp === msg.timestamp))) return prev;
             let content = msg.content;
             if (msg.message_type === "file") {
               content = `https://supportdesk.fskindia.com/support/serve-file/${msg.filename}`;
@@ -145,7 +147,22 @@ const SupportTicketPopup = ({ ticket, onClose, initialPosition, index }) => {
               sender_type: msg.sender_type || (msg.message_type === "agent_message" ? "agent" : "user"),
               timestamp: msg.timestamp || new Date().toISOString(),
             };
-            return [...prev, nm].slice(-100).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+            const existingIndex = prev.findIndex(
+              (m) =>
+                m.id === nm.id ||
+                (String(m.id).startsWith("temp-") && m.content === nm.content)
+            );
+
+            let newMessages;
+            if (existingIndex !== -1) {
+              newMessages = [...prev];
+              newMessages[existingIndex] = nm;
+            } else {
+              newMessages = [...prev, nm];
+            }
+
+            return newMessages.slice(-100).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
           });
           // Send update_status for incoming user messages so they're marked read
           const msgId = msg.message_id || msg.id;

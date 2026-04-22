@@ -117,11 +117,25 @@ class ChatService {
       if (Array.isArray(rawConversations)) {
         apiProcessedChats = rawConversations.map((chat) => {
           const lastMsg = chat.latest_message || {};
-          const otherParticipantId = chat.other_user?.id;
-          
+          let otherParticipantId = chat.other_user?.id;
+
+          // Handle array of participants (admin view)
+          if (!otherParticipantId && Array.isArray(chat.other_user)) {
+            const currentUserId = Number(this.userId);
+            const participants = chat.other_user
+              .map((entry) => entry.sender || entry.recipient)
+              .filter(Boolean);
+            // Find the participant who isn't "me", or just take the first one
+            const other =
+              participants.find((p) => Number(p.id) !== currentUserId) ||
+              participants[0];
+            otherParticipantId = other?.id;
+          }
+
           return {
             id: lastMsg.id,
             recipient_id: otherParticipantId,
+            sender_id: lastMsg.sender_id, // Ensure sender_id is present for pairKey
             last_message:
               lastMsg.content || (lastMsg.attachment ? `📎 Attachment` : ""),
             last_message_timestamp: lastMsg.timestamp,
@@ -352,15 +366,19 @@ class ChatService {
         ) {
           var payload = data.data || data;
 
-          const otherUserId =
-            payload.sender_id === this.userId
-              ? payload.recipient_id
-              : payload.sender_id;
+          const sId = Number(payload.sender_id);
+          const rId = Number(payload.recipient_id);
+          const mId = Number(this.userId);
+
+          // For legacy subscribers, calculate otherUserId relative to ME
+          // but for admins watching 3rd party chats, we provide both
+          const otherUserId = (sId === mId) ? rId : sId;
 
           this.notifySubscribers("new_message", {
             message: payload,
             otherUserId,
-            senderId: payload.sender_id,
+            senderId: sId,
+            recipientId: rId,
           });
           if (payload.sender_id !== this.userId) {
             const senderName = await this.fetchUserName(payload.sender_id);

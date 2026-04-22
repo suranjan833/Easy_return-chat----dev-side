@@ -62,7 +62,15 @@ const ChatBody = ({ id, mobileView, setMobileView, setSelectedId }) => {
   const hasScrolledToUnread = useRef(false);
 
   // ── Scroll helpers ──────────────────────────────────────────────────────────
-  const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  const scrollToBottom = (instant = false) => {
+    if (messagesContainerRef.current) {
+      const container = messagesContainerRef.current;
+      container.scrollTo({
+        top: container.scrollHeight,
+        behavior: instant ? "auto" : "smooth"
+      });
+    }
+  };
 
   const scrollToMessage = (messageId) => {
     const el = messageRefs.current[`message-${messageId}`];
@@ -200,22 +208,23 @@ const ChatBody = ({ id, mobileView, setMobileView, setSelectedId }) => {
 
     if (isInitialLoad && hasUnreadDivider && !hasScrolledToUnread.current) {
       const timer = setTimeout(() => {
-        if (unreadDividerRef.current) {
-          unreadDividerRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
-          setTimeout(() => {
-            if (messagesContainerRef.current) {
-              messagesContainerRef.current.scrollTop -= 50;
-            }
-          }, 400);
+        const divider = unreadDividerRef.current;
+        const container = messagesContainerRef.current;
+        if (divider && container) {
+          // Use offsetTop for a more reliable, non-conflicting scroll
+          // We subtract 60px to provide a nice buffer above the divider
+          const targetTop = divider.offsetTop - 60;
+          container.scrollTo({ top: targetTop, behavior: "smooth" });
           hasScrolledToUnread.current = true;
-        } else {
-          scrollToBottom();
+        } else if (!divider) {
+          scrollToBottom(true);
         }
-      }, 100);
+      }, 400); // Increased delay to ensure layout has stabilized
       return () => clearTimeout(timer);
     } else if ((isInitialLoad && !hasUnreadDivider) || isNewMessage) {
       if (isInitialLoad && hasScrolledToUnread.current) return;
-      const timer = setTimeout(() => scrollToBottom(), 50);
+      // Use a slight delay to ensure the new message is rendered
+      const timer = setTimeout(() => scrollToBottom(isInitialLoad), 100);
       return () => clearTimeout(timer);
     }
   }, [direct?.messages, direct?.hiddenMessages]);
@@ -516,9 +525,7 @@ const ChatBody = ({ id, mobileView, setMobileView, setSelectedId }) => {
                 onNext={goToNextResult}
               />
             )}
-            {!direct?.hasMore && direct?.messages?.length > 0 && (
-              <div style={{ textAlign: "center", padding: "8px 0", color: "#bbb", fontSize: "12px" }}>No more messages</div>
-            )}
+
             {direct?.isLoadingMore && (
               <div style={{ textAlign: "center", padding: "10px 0", color: "#888", fontSize: "13px" }}>Loading more messages...</div>
             )}
