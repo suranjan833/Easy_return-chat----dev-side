@@ -386,7 +386,7 @@ class ChatService {
             if (document.visibilityState === "visible") {
               //  USER IS ACTIVE → SHOW TOAST
               toast.info(
-                `💬 ${senderName}: ${payload.content || "📎 Attachment"}`,
+                `💬 ${senderName}: ${payload.content || payload.reply_content || "📎 Attachment"}`,
                 {
                   position: "top-right",
                   autoClose: 3000,
@@ -404,7 +404,7 @@ class ChatService {
                 const notification = new Notification(
                   `New Message from ${senderName}`,
                   {
-                    body: payload.content || "📎 Attachment",
+                    body: payload.content || payload.reply_content || "📎 Attachment",
                     icon: "/image1.png",
                     tag: `chat-${payload.id}`,
                   },
