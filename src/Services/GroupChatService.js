@@ -169,8 +169,8 @@ class GroupChatService {
         if (!data) return;
 
         // Handle different message types
-        if (data.type === "message") {
-          console.log("[GroupChatService] ✉️ Processing message type, group_id:", data.group_id);
+        if (data.type === "group_message") {
+          console.log("[GroupChatService] ✉️ Processing group_message type, group_id:", data.group_id);
           
           // Update group metadata for sorting and unread count
           this.updateMetadata(data.group_id, data.created_at);
@@ -185,8 +185,8 @@ class GroupChatService {
           if (!isGroupOpen && !isSelfMessage) {
             const groupName =
               this.groups.find((g) => Number(g.id) === Number(data.group_id))?.name || "Group";
-            const senderName = data.user?.first_name
-              ? `${data.user.first_name} ${data.user.last_name || ""}`.trim()
+            const senderName = data.sender?.first_name
+              ? `${data.sender.first_name} ${data.sender.last_name || ""}`.trim()
               : "Someone";
             const messagePreview =
               data.content?.substring(0, 50) || "📎 Attachment";
@@ -208,7 +208,7 @@ class GroupChatService {
                 //     draggable: true,
                 //     onClick: () => {
                 //       // Open group chat when toast is clicked
-                //       this.openGroupChat(groupId);
+                //       this.openGroupChat(data.group_id);
                 //     },
                 //   },
                 // );
@@ -225,7 +225,7 @@ class GroupChatService {
                     body: messagePreview,
                     icon: "/logo.png", // Update with your app logo path
                     badge: "/logo.png",
-                    tag: `group-${groupId}`, // Prevents duplicate notifications
+                    tag: `group-${data.group_id}`, // Prevents duplicate notifications
                     requireInteraction: false,
                   },
                 );
@@ -235,7 +235,7 @@ class GroupChatService {
                   window.focus();
                   notification.close();
                   // Open group chat when notification is clicked
-                  this.openGroupChat(groupId);
+                  this.openGroupChat(data.group_id);
                 };
               }
             }
@@ -246,49 +246,26 @@ class GroupChatService {
             message: data,
             groupId: data.group_id,
           });
-        } else if (data.type === "edit_group_message") {
-          this.notifySubscribers("group_message_edit", {
-            messageId: data.message_id,
-            newContent: data.new_content,
-            updatedAt: data.updated_at,
-            groupId: data.group_id,
-          });
-        } else if (data.type === "delete_group_message") {
-          this.notifySubscribers("group_message_delete", {
-            messageId: data.message_id,
-            groupId: data.group_id,
-          });
-        } else if (data.type === "group_message_reply") {
-          console.log(data, "reply service");
-          this.updateMetadata(data.group_id || data.groupId, data.created_at);
+        } else if (data.type === "group_reply") {
+          console.log("[GroupChatService] 💬 Processing group_reply, group_id:", data.group_id);
+          this.updateMetadata(data.group_id, data.created_at);
           this.notifySubscribers("group_message_reply", data);
-        } else if (data.type === "reply_on_reply") {
-          console.log(data, "reply on reply service");
-          this.updateMetadata(data.group_id || data.groupId, data.created_at);
-          this.notifySubscribers("reply_on_reply", data);
-        } else if (data.type === "mention") {
-          this.updateMetadata(data.group_id, data.original_message?.created_at);
-          this.notifySubscribers("group_mention", {
-            mention: data.mention,
-            original_message: data.original_message,
-            mentioned_user: data.mentioned_user,
-            mentioned_by_user: data.mentioned_by_user,
-            groupId: data.group_id,
-            notification_message: data.notification_message,
-          });
+        } else if (data.type === "group_mention") {
+          console.log("[GroupChatService] 📢 Processing group_mention, group_id:", data.group_id);
+          this.updateMetadata(data.group_id, data.created_at);
+          this.notifySubscribers("group_mention", data);
 
           // Global Mention Notification Logic
           const isGroupOpen = this.activeGroups.has(data.group_id);
           const isMentionedUser =
-            data.mentioned_user_id === this.userId ||
-            (data.mentioned_user && data.mentioned_user.id === this.userId);
+            data.mentioned_user?.id === this.userId;
 
           if (!isGroupOpen && isMentionedUser) {
             const groupName =
               this.groups.find((g) => g.id === data.group_id)?.name || "Group";
             const mentionedBy = data.mentioned_by_user?.first_name || "Someone";
             const notificationText =
-              data.notification_message ||
+              data.mention_message ||
               `${mentionedBy} mentioned you in ${groupName}`;
 
             // Check if tab/window is active
@@ -327,16 +304,6 @@ class GroupChatService {
               }
             }
           }
-        } else if (data.type === "edit_group_reply") {
-          this.notifySubscribers("group_reply_edit", {
-            reply: data.reply,
-            groupId: data.group_id,
-          });
-        } else if (data.type === "delete_group_reply") {
-          this.notifySubscribers("group_reply_delete", {
-            replyId: data.reply_id,
-            groupId: data.group_id,
-          });
         } else if (data.type === "typing") {
           this.notifySubscribers("group_typing", {
             senderId: data.sender_id,
@@ -344,11 +311,25 @@ class GroupChatService {
             status: data.status,
             user: data.user,
           });
+        } else if (data.type === "delete_group_message") {
+          this.notifySubscribers("group_message_delete", {
+            messageId: data.message_id,
+            groupId: data.group_id,
+          });
+        } else if (data.type === "delete_group_reply") {
+          this.notifySubscribers("group_reply_delete", {
+            replyId: data.reply_id,
+            groupId: data.group_id,
+          });
         } else if (data.type === "read_group_message") {
           console.log("[ReadReceipt] Received read_group_message from server →", data);
           this.notifySubscribers("group_message_read", data);
+        } else if (data.type === "system_message") {
+          console.log("[GroupChatService] 🔔 System message:", data);
+          this.updateMetadata(data.group_id, data.created_at);
+          this.notifySubscribers("system_message", data);
         } else {
-          //  console.log("[GroupChatService] Unhandled message type:", data.type, data);
+          console.log("[GroupChatService] ⚠️ Unhandled message type:", data.type, data);
         }
       } catch (error) {
         console.error(
@@ -439,13 +420,16 @@ class GroupChatService {
       return false;
     }
 
+    // Normalize status: "started" -> "start", "stopped" -> "stop"
+    const normalizedStatus = status === "started" ? "start" : status === "stopped" ? "stop" : status;
+
     try {
       this.ws.send(
         JSON.stringify({
           type: "typing",
           group_id: groupId,
           sender_id: this.userId,
-          status: status,
+          status: normalizedStatus, // "start" or "stop" per docs
         }),
       );
       return true;

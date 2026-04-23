@@ -162,30 +162,31 @@ export function GroupChatProvider({ children }) {
       const m = data.message || data;
       console.log("[GroupChat] 📦 Raw message object:", m);
 
-      // ✅ NORMAL MESSAGE
+      // ✅ Server sends "group_message" type, normalize to "message"
       const newMsg = {
         id: m.id,
-        type: m.type || "message",
+        type: "message", // Normalize server's "group_message" to "message"
         group_id: m.group_id,
-        message:
-          m.message || m.content || m.reply_message || m.reply_content || "",
+        message: m.content || m.message || "", // Server uses "content"
         attachment: m.attachment || null,
         created_at: m.created_at || new Date().toISOString(),
         updated_at: m.updated_at,
         user: {
-          id: normalizeId(m.sender?.id || m.sender_id || m.user?.id),
-          first_name: m.sender?.first_name || m.user?.first_name,
-          last_name: m.sender?.last_name || m.user?.last_name,
-          profile_picture: m.sender?.profile_picture || m.user?.profile_picture,
+          id: normalizeId(m.sender?.id || m.sender_id),
+          first_name: m.sender?.first_name,
+          last_name: m.sender?.last_name,
+          profile_picture: m.sender?.profile_picture,
+          email: m.sender?.email,
         },
-        sender_id: normalizeId(m.sender_id || m.sender?.id || m.user?.id),
-        parentMsg: m.parentMsg || null,
-        original_message_id: m.original_message_id || null,
+        sender_id: normalizeId(m.sender_id || m.sender?.id),
+        parentMsg: null, // Root messages don't have parents
+        original_message_id: null,
         is_deleted: m.is_deleted || false,
         is_edited: m.is_edited || false,
         is_forwarded: m.is_forwarded || false,
         forwarded_from_message_id: m.forwarded_from_message_id || null,
         forwarded_from_group_id: m.forwarded_from_group_id || null,
+        read_receipts: m.read_receipts || [],
       };
 
       console.log("[GroupChat] ✅ Normalized message:", newMsg);
@@ -214,7 +215,7 @@ export function GroupChatProvider({ children }) {
       });
     };
     const handleGroupReply = (data) => {
-      if ((data.group_id || data.groupId) !== activeGroup.id) return;
+      if (data.group_id !== activeGroup.id) return;
 
       const m = data;
 
@@ -224,40 +225,37 @@ export function GroupChatProvider({ children }) {
         return;
       }
 
+      console.log("[GroupChat] 💬 Processing group_reply:", m);
+
       setMessages((prev) => {
         const replyMsg = {
           id: m.id,
-          type: m.type,
-          group_id: m.group_id || m.groupId,
-
-          message:
-            m.message || m.content || m.reply_message || m.reply_content || "",
-
+          type: "group_message_reply", // Normalize server's "group_reply" to "group_message_reply"
+          group_id: m.group_id,
+          message: m.content || m.message || "", // Server uses "content"
           attachment: m.attachment || null,
-
           created_at: m.created_at || new Date().toISOString(),
           updated_at: m.updated_at,
-
           user: {
             id: normalizeId(m.sender?.id || m.sender_id),
             first_name: m.sender?.first_name,
             last_name: m.sender?.last_name,
             profile_picture: m.sender?.profile_picture,
+            email: m.sender?.email,
           },
-
           sender_id: normalizeId(m.sender_id || m.sender?.id),
-
           original_message_id: m.original_message_id || m.parent_reply_id,
-
-          // 🔥 MOST IMPORTANT FIX
-          parentMsg:
-            m.parentMsg ||
-            prev.find(
-              (msg) => msg.id === (m.original_message_id || m.parent_reply_id),
-            ),
-
+          // Server sends parentMsg in the response
+          parentMsg: m.parentMsg || prev.find(
+            (msg) => msg.id === (m.original_message_id || m.parent_reply_id),
+          ),
           is_deleted: m.is_deleted || false,
           is_edited: m.is_edited || false,
+          is_read: m.is_read || false,
+          read_at: m.read_at || null,
+          is_forwarded: m.is_forwarded || false,
+          forwarded_from_reply_id: m.forwarded_from_reply_id || null,
+          forwarded_from_message_id: m.forwarded_from_message_id || null,
         };
 
         // Remove optimistic reply if exists
@@ -282,6 +280,12 @@ export function GroupChatProvider({ children }) {
           return updated.map((msg) =>
             msg.id === replyMsg.id ? { ...msg, ...replyMsg } : msg,
           );
+        }
+
+        // Mark as read if it's from another user
+        if (replyMsg.sender_id && replyMsg.sender_id !== userId) {
+          console.log(`[ReadReceipt] New reply from other user, marking read — replyId:${replyMsg.id}`);
+          groupChatService.markReplyRead(activeGroup.id, replyMsg.id);
         }
 
         return [...updated, replyMsg].sort(
@@ -361,7 +365,8 @@ export function GroupChatProvider({ children }) {
     const handleTyping = (data) => {
       if (data.groupId !== activeGroup.id) return;
 
-      if (data.senderId !== userId && data.status === "started") {
+      // Server sends "start" or "stop" per docs
+      if (data.senderId !== userId && data.status === "start") {
         setTypingUsers((prev) => {
           if (prev.some((u) => u.id === data.senderId)) return prev;
 
@@ -403,7 +408,7 @@ export function GroupChatProvider({ children }) {
         setTimeout(() => {
           setTypingUsers((prev) => prev.filter((u) => u.id !== data.senderId));
         }, 2000);
-      } else if (data.status === "stopped") {
+      } else if (data.status === "stop") {
         setTypingUsers((prev) => prev.filter((u) => u.id !== data.senderId));
       }
     };
@@ -430,17 +435,44 @@ export function GroupChatProvider({ children }) {
       );
     };
 
+    const handleSystemMessage = (data) => {
+      if (data.group_id !== activeGroup.id) return;
+      
+      console.log("[GroupChat] 🔔 System message:", data);
+      
+      // Add system message to the chat
+      const systemMsg = {
+        id: data.id,
+        type: "system_message",
+        group_id: data.group_id,
+        message: data.content,
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+        is_system: true,
+        new_members: data.new_members || [],
+      };
+
+      setMessages((prev) => {
+        const exists = prev.find((msg) => msg.id === systemMsg.id);
+        if (exists) return prev;
+        
+        return [...prev, systemMsg].sort(
+          (a, b) => new Date(a.created_at) - new Date(b.created_at),
+        );
+      });
+    };
+
     // Subscribe to GroupChatService events
     groupChatService.subscribe("new_group_message", handleNewMessage);
     groupChatService.subscribe("group_message_edit", handleMessageEdit);
     groupChatService.subscribe("delete_group_message", handleMessageDelete);
     groupChatService.subscribe("group_message_reply", handleGroupReply);
-    groupChatService.subscribe("reply_on_reply", handleGroupReply);
     groupChatService.subscribe("group_reply_edit", handleReplyEdit);
     groupChatService.subscribe("group_reply_delete", handleReplyDelete);
     groupChatService.subscribe("group_typing", handleTyping);
     groupChatService.subscribe("connection", handleConnection);
     groupChatService.subscribe("group_message_read", handleGroupMessageRead);
+    groupChatService.subscribe("system_message", handleSystemMessage);
 
     // Set initial connection status
     setConnectionStatus(groupChatService.getConnectionStatus());
@@ -456,12 +488,12 @@ export function GroupChatProvider({ children }) {
       groupChatService.unsubscribe("group_message_edit", handleMessageEdit);
       groupChatService.unsubscribe("delete_group_message", handleMessageDelete);
       groupChatService.unsubscribe("group_message_reply", handleGroupReply);
-      groupChatService.unsubscribe("reply_on_reply", handleGroupReply);
       groupChatService.unsubscribe("group_reply_edit", handleReplyEdit);
       groupChatService.unsubscribe("group_reply_delete", handleReplyDelete);
       groupChatService.unsubscribe("group_typing", handleTyping);
       groupChatService.unsubscribe("connection", handleConnection);
       groupChatService.unsubscribe("group_message_read", handleGroupMessageRead);
+      groupChatService.unsubscribe("system_message", handleSystemMessage);
     };
   }, [activeGroup, userId]);
 
