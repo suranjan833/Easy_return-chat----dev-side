@@ -1,10 +1,12 @@
 # Group Chat Message Fix - WebSocket Event Alignment
 
 ## Problem
-New messages were not appearing in the group chat because the client code was listening for incorrect WebSocket event types that didn't match the server documentation.
+New messages and replies were not appearing in the group chat because the client code was listening for incorrect WebSocket event types that didn't match what the server actually sends.
 
 ## Root Cause
-The client was listening for `type: "message"` but the server sends `type: "group_message"` according to the WebSocket documentation.
+1. The client was listening for `type: "message"` but the server sends `type: "group_message"`
+2. The client was listening for `type: "group_reply"` but the server sends `type: "group_message_reply"`
+3. The documentation doesn't match the actual server implementation
 
 ## Changes Made
 
@@ -12,14 +14,21 @@ The client was listening for `type: "message"` but the server sends `type: "grou
 
 **Fixed event type mismatches:**
 
-| Old (Client) | New (Server Spec) | Description |
+| Documentation Says | Server Actually Sends | Client Now Handles |
 |---|---|---|
-| `"message"` | `"group_message"` | Root messages |
-| `"group_message_reply"` | `"group_reply"` | Reply messages |
-| `"reply_on_reply"` | `"group_reply"` | Nested replies (same as group_reply) |
-| `"mention"` | `"group_mention"` | User mentions |
-| `"edit_group_message"` | ❌ Removed | Not in server spec |
-| `"edit_group_reply"` | ❌ Removed | Not in server spec |
+| `"group_message"` | `"group_message"` | ✅ Both |
+| `"group_reply"` | `"group_message_reply"` | ✅ Both |
+
+**Updated event handlers:**
+```javascript
+// Now handles BOTH documented and actual server responses
+if (data.type === "group_message") {
+  // Handle root messages
+}
+else if (data.type === "group_reply" || data.type === "group_message_reply") {
+  // Handle replies - server sends "group_message_reply"
+}
+```
 
 **Added new event handler:**
 - `"system_message"` - For system events (member added, etc.)

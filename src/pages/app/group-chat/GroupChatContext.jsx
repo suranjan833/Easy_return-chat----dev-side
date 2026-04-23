@@ -83,40 +83,72 @@ export function GroupChatProvider({ children }) {
 
     // Load messages for the active group
     getGroupMessages(activeGroup.id).then((serverMessages) => {
-      const normalized = serverMessages.map((msg) => ({
-        id: msg.id,
-        type: msg.type, // "message" or "reply"
+      console.log("[GroupChat] 📥 Loaded", serverMessages.length, "messages from API");
+      
+      const normalized = serverMessages.map((msg) => {
+        // Normalize type: API returns "message" or "reply", UI expects "message" or "group_message_reply"
+        const normalizedType = msg.type === "reply" ? "group_message_reply" : msg.type;
+        
+        // Deduplicate read_receipts - keep only the latest read_at for each user
+        const receiptsMap = new Map();
+        (msg.read_receipts || []).forEach((receipt) => {
+          const userId = receipt.reader_id || receipt.user_id;
+          if (!userId) return;
+          
+          const existing = receiptsMap.get(userId);
+          const currentReadAt = new Date(receipt.read_at || 0);
+          
+          if (!existing || new Date(existing.read_at || 0) < currentReadAt) {
+            receiptsMap.set(userId, {
+              reader_id: userId,
+              user_id: userId, // Keep both for compatibility
+              reader: receipt.reader,
+              read_at: receipt.read_at,
+              is_read: true,
+            });
+          }
+        });
+        const deduplicatedReceipts = Array.from(receiptsMap.values());
+        
+        return {
+          id: msg.id,
+          type: normalizedType, // Normalize "reply" -> "group_message_reply"
+          group_id: msg.group_id,
 
-        group_id: msg.group_id,
+          // Server uses "content" field
+          message: msg.content || msg.message || "",
+          attachment: msg.attachment || null,
 
-        // ✅ backend changed → use content
-        message: msg.message || msg.content || "",
+          created_at: msg.created_at,
+          updated_at: msg.updated_at,
 
-        attachment: msg.attachment || null,
+          // Server uses "sender" object
+          user: {
+            id: normalizeId(msg.sender?.id || msg.sender_id),
+            first_name: msg.sender?.first_name,
+            last_name: msg.sender?.last_name,
+            profile_picture: msg.sender?.profile_picture,
+            email: msg.sender?.email,
+          },
 
-        created_at: msg.created_at,
-        updated_at: msg.updated_at,
+          sender_id: normalizeId(msg.sender_id || msg.sender?.id),
 
-        // ✅ sender instead of user
-        user: {
-          id: normalizeId(msg.sender?.id || msg.sender_id),
-          first_name: msg.sender?.first_name,
-          last_name: msg.sender?.last_name,
-          profile_picture: msg.sender?.profile_picture,
-        },
+          // Reply fields
+          original_message_id: msg.original_message_id || null,
+          parent_reply_id: msg.parent_reply_id || null,
+          parentMsg: msg.parentMsg || null,
 
-        sender_id: normalizeId(msg.sender_id || msg.sender?.id),
-
-        // ✅ reply support
-        original_message_id: msg.original_message_id || null,
-        parentMsg: msg.parentMsg || null,
-
-        is_deleted: msg.is_deleted,
-        is_edited: msg.is_edited || false,
-        is_forwarded: msg.is_forwarded || false,
-        forwarded_from_message_id: msg.forwarded_from_message_id || null,
-        forwarded_from_group_id: msg.forwarded_from_group_id || null,
-      }));
+          is_deleted: msg.is_deleted,
+          is_edited: msg.is_edited || false,
+          is_read: msg.is_read || false,
+          read_at: msg.read_at || null,
+          is_forwarded: msg.is_forwarded || false,
+          forwarded_from_message_id: msg.forwarded_from_message_id || null,
+          forwarded_from_group_id: msg.forwarded_from_group_id || null,
+          forwarded_from_reply_id: msg.forwarded_from_reply_id || null,
+          read_receipts: deduplicatedReceipts, // Use deduplicated receipts
+        };
+      });
 
       setMessages(
         normalized.sort(
@@ -215,7 +247,13 @@ export function GroupChatProvider({ children }) {
       });
     };
     const handleGroupReply = (data) => {
-      if (data.group_id !== activeGroup.id) return;
+      console.log("[GroupChat] 🔔 handleGroupReply fired, data:", data);
+      console.log("[GroupChat] activeGroup.id:", activeGroup?.id, "data.group_id:", data.group_id);
+      
+      if (data.group_id !== activeGroup.id) {
+        console.log("[GroupChat] ⚠️ Ignoring reply — groupId mismatch");
+        return;
+      }
 
       const m = data;
 
@@ -225,12 +263,14 @@ export function GroupChatProvider({ children }) {
         return;
       }
 
-      console.log("[GroupChat] 💬 Processing group_reply:", m);
+      console.log("[GroupChat] 💬 Processing reply, id:", m.id);
 
       setMessages((prev) => {
+        console.log("[GroupChat] 📋 Current messages count:", prev.length);
+        
         const replyMsg = {
           id: m.id,
-          type: "group_message_reply", // Normalize server's "group_reply" to "group_message_reply"
+          type: "group_message_reply", // Keep as "group_message_reply" for UI
           group_id: m.group_id,
           message: m.content || m.message || "", // Server uses "content"
           attachment: m.attachment || null,
@@ -245,6 +285,7 @@ export function GroupChatProvider({ children }) {
           },
           sender_id: normalizeId(m.sender_id || m.sender?.id),
           original_message_id: m.original_message_id || m.parent_reply_id,
+          parent_reply_id: m.parent_reply_id || null,
           // Server sends parentMsg in the response
           parentMsg: m.parentMsg || prev.find(
             (msg) => msg.id === (m.original_message_id || m.parent_reply_id),
@@ -256,7 +297,10 @@ export function GroupChatProvider({ children }) {
           is_forwarded: m.is_forwarded || false,
           forwarded_from_reply_id: m.forwarded_from_reply_id || null,
           forwarded_from_message_id: m.forwarded_from_message_id || null,
+          read_receipts: m.read_receipts || [], // Include read receipts for replies
         };
+
+        console.log("[GroupChat] ✅ Normalized reply:", replyMsg);
 
         // Remove optimistic reply if exists
         const optimisticIndex = prev.findIndex(
@@ -277,10 +321,13 @@ export function GroupChatProvider({ children }) {
 
         const exists = updated.find((msg) => msg.id === replyMsg.id);
         if (exists) {
+          console.log("[GroupChat] 🔄 Reply already exists, updating:", replyMsg.id);
           return updated.map((msg) =>
             msg.id === replyMsg.id ? { ...msg, ...replyMsg } : msg,
           );
         }
+
+        console.log("[GroupChat] ➕ Adding new reply:", replyMsg.id);
 
         // Mark as read if it's from another user
         if (replyMsg.sender_id && replyMsg.sender_id !== userId) {
@@ -288,11 +335,14 @@ export function GroupChatProvider({ children }) {
           groupChatService.markReplyRead(activeGroup.id, replyMsg.id);
         }
 
-        return [...updated, replyMsg].sort(
+        const newMessages = [...updated, replyMsg].sort(
           (a, b) =>
             new Date(a.created_at || Date.now()) -
             new Date(b.created_at || Date.now()),
         );
+        
+        console.log("[GroupChat] 📋 New messages count:", newMessages.length);
+        return newMessages;
       });
     };
     const handleMessageEdit = (data) => {
@@ -426,11 +476,89 @@ export function GroupChatProvider({ children }) {
       setMessages((prev) =>
         prev.map((m) => {
           if (m.id !== data.message_id) return m;
+          
           const receipts = m.read_receipts || [];
-          const alreadyExists = receipts.some((r) => r.reader_id === data.reader_id);
-          if (alreadyExists) return m;
-          console.log(`[ReadReceipt] Updating read_receipts for msgId:${m.id}`, data);
-          return { ...m, read_receipts: [...receipts, { reader_id: data.reader_id, reader: data.reader, read_at: data.read_at, is_read: true }] };
+          
+          // Check if this user already has a read receipt
+          const existingIndex = receipts.findIndex((r) => r.reader_id === data.reader_id || r.user_id === data.reader_id);
+          
+          if (existingIndex !== -1) {
+            // Update existing receipt with latest read_at
+            console.log(`[ReadReceipt] Updating existing receipt for msgId:${m.id}, reader:${data.reader_id}`);
+            const updatedReceipts = [...receipts];
+            updatedReceipts[existingIndex] = {
+              reader_id: data.reader_id,
+              user_id: data.reader_id, // Keep both for compatibility
+              reader: data.reader,
+              read_at: data.read_at,
+              is_read: true,
+            };
+            return { ...m, read_receipts: updatedReceipts };
+          }
+          
+          // Add new receipt
+          console.log(`[ReadReceipt] Adding new receipt for msgId:${m.id}, reader:${data.reader_id}`);
+          return {
+            ...m,
+            read_receipts: [
+              ...receipts,
+              {
+                reader_id: data.reader_id,
+                user_id: data.reader_id, // Keep both for compatibility
+                reader: data.reader,
+                read_at: data.read_at,
+                is_read: true,
+              },
+            ],
+          };
+        })
+      );
+    };
+
+    const handleGroupReplyRead = (data) => {
+      console.log("[ReadReceipt] handleGroupReplyRead fired →", data);
+      if (data.group_id !== activeGroup.id) {
+        console.log(`[ReadReceipt] Ignoring — data.group_id:${data.group_id} !== activeGroup.id:${activeGroup.id}`);
+        return;
+      }
+      setMessages((prev) =>
+        prev.map((m) => {
+          if (m.id !== data.reply_id) return m;
+          
+          const receipts = m.read_receipts || [];
+          
+          // Check if this user already has a read receipt
+          const existingIndex = receipts.findIndex((r) => r.reader_id === data.reader_id || r.user_id === data.reader_id);
+          
+          if (existingIndex !== -1) {
+            // Update existing receipt with latest read_at
+            console.log(`[ReadReceipt] Updating existing receipt for replyId:${m.id}, reader:${data.reader_id}`);
+            const updatedReceipts = [...receipts];
+            updatedReceipts[existingIndex] = {
+              reader_id: data.reader_id,
+              user_id: data.reader_id, // Keep both for compatibility
+              reader: data.reader,
+              read_at: data.read_at,
+              is_read: true,
+            };
+            return { ...m, read_receipts: updatedReceipts };
+          }
+          
+          // Add new receipt
+          console.log(`[ReadReceipt] Adding new receipt for replyId:${m.id}, reader:${data.reader_id}`);
+          return {
+            ...m,
+            read_receipts: [
+              ...receipts,
+              {
+                reader_id: data.reader_id,
+                user_id: data.reader_id, // Keep both for compatibility
+                reader: data.reader,
+                read_at: data.read_at,
+                is_read: true,
+              },
+            ],
+          };
         })
       );
     };
@@ -472,6 +600,7 @@ export function GroupChatProvider({ children }) {
     groupChatService.subscribe("group_typing", handleTyping);
     groupChatService.subscribe("connection", handleConnection);
     groupChatService.subscribe("group_message_read", handleGroupMessageRead);
+    groupChatService.subscribe("group_reply_read", handleGroupReplyRead);
     groupChatService.subscribe("system_message", handleSystemMessage);
 
     // Set initial connection status
@@ -493,6 +622,7 @@ export function GroupChatProvider({ children }) {
       groupChatService.unsubscribe("group_typing", handleTyping);
       groupChatService.unsubscribe("connection", handleConnection);
       groupChatService.unsubscribe("group_message_read", handleGroupMessageRead);
+      groupChatService.unsubscribe("group_reply_read", handleGroupReplyRead);
       groupChatService.unsubscribe("system_message", handleSystemMessage);
     };
   }, [activeGroup, userId]);

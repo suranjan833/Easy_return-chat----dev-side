@@ -9,12 +9,29 @@ const chatPopupsSlice = createSlice({
   },
   reducers: {
     addUserChatPopup: (state, action) => {
-      const user = action.payload;
+      const payload = action.payload;
+      
+      // Normalize: extract user object from conversation or use directly
+      let user;
+      if (payload.other_user) {
+        // It's a conversation object, extract other_user
+        user = payload.other_user;
+      } else if (payload.id && payload.first_name) {
+        // It's already a user object
+        user = payload;
+      } else {
+        // Invalid payload
+        console.error('[chatPopupsSlice] Invalid payload for addUserChatPopup:', payload);
+        return;
+      }
+      
       // Prevent duplicate
       if (state.openChatPopups.some((popup) => popup.user.id === user.id)) return;
+      
       // Combined limit across all three popup types
       const total = state.openChatPopups.length + state.openGroupChatPopups.length + state.openSupportChatPopups.length;
       if (total >= 4) return;
+      
       state.openChatPopups.push({
         user,
         key: `chat-${user.id}-${Date.now()}`,

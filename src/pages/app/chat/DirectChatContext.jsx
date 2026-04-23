@@ -73,7 +73,8 @@ export function DirectChatProvider({ children }) {
 
   const selectUser = useCallback(
     (userId, convId) => {
-      console.log(`[DirectChat] 👉 selectUser(userId=${userId}, convId=${convId})`);
+      const instanceId = 'popup'; // Will be enhanced later with unique ID
+      console.log(`[DirectChat:${instanceId}] 👉 selectUser(userId=${userId}, convId=${convId})`);
       setActiveUserId(userId);
       
       let finalConvId = convId;

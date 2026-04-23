@@ -86,18 +86,29 @@ const ChatPopupsContainer = () => {
       }}
     >
       {/* Direct Chat Popups */}
-      {openChatPopups.map((popup, index) => (
-        <div key={popup.key} style={{ pointerEvents: "all", width: 0, height: 0 }}>
-          <DirectChatProvider>
-            <ChatPopup
-              user={popup.user}
-              onClose={() => dispatch(removeUserChatPopup(popup.user.id))}
-              initialPosition={getInitialPosition(index)}
-              index={index}
-            />
-          </DirectChatProvider>
-        </div>
-      ))}
+      {openChatPopups.map((popup, index) => {
+        console.log(`[ChatPopupsContainer] 🔍 Rendering direct chat popup ${index}:`, popup.user);
+        
+        // After Redux normalization, popup.user should always be valid
+        // But keep validation as safety check
+        if (!popup.user || !popup.user.id) {
+          console.error('[ChatPopupsContainer] ❌ Invalid user object after Redux normalization:', popup);
+          return null;
+        }
+        
+        return (
+          <div key={popup.key} style={{ pointerEvents: "all", width: 0, height: 0 }}>
+            <DirectChatProvider>
+              <ChatPopup
+                user={popup.user}
+                onClose={() => dispatch(removeUserChatPopup(popup.user.id))}
+                initialPosition={getInitialPosition(index)}
+                index={index}
+              />
+            </DirectChatProvider>
+          </div>
+        );
+      })}
 
       {/* Group Chat Popups */}
       {openGroupChatPopups.map((popup, index) => (

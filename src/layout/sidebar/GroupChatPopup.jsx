@@ -1049,27 +1049,6 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
-          {onMaximize && (
-            <button
-              onClick={onMaximize}
-              title="Drag to move"
-              style={{
-                background: "none",
-                border: "none",
-                color: "#fff",
-                fontSize: "14px",
-                cursor: "pointer",
-                padding: "0",
-                width: "24px",
-                height: "24px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center"
-              }}
-            >
-              <i className="bi bi-arrows-move" />
-            </button>
-          )}
           <button
             onClick={() => onClose(group.id)}
             style={{

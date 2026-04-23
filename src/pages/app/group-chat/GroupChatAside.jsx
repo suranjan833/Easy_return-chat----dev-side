@@ -3,6 +3,9 @@ import SimpleBar from "simplebar-react";
 import { Input } from "reactstrap";
 import { Icon, UserAvatar } from "@/components/Component";
 import { GroupChatContext } from "./GroupChatContext";
+import { useDispatch, useSelector } from "react-redux";
+import { addGroupChatPopup } from "@/redux/slices/chatPopupsSlice";
+import { toast } from "react-toastify";
 import "../chat/ChatAside.css";
 
 const getInitials = (name = "") => {
@@ -20,6 +23,31 @@ const formatTime = (timestamp) => {
 export default function GroupChatAside() {
   const { filteredGroups, setSearchTerm, activeGroup, selectGroup, groupUnreadCounts } =
     useContext(GroupChatContext);
+  
+  const dispatch = useDispatch();
+  const { openChatPopups, openGroupChatPopups, openSupportChatPopups } = useSelector((s) => s.chatPopups);
+  
+  const total = openChatPopups.length + openGroupChatPopups.length + openSupportChatPopups.length;
+  
+  const handleGroupClick = (ev, group) => {
+    ev.preventDefault();
+    
+    // If any popups are open, open as popup
+    if (total > 0) {
+      if (openGroupChatPopups.some((p) => p.group.id === group.id)) {
+        toast.warning("Group chat already open.");
+        return;
+      }
+      if (total >= 4) {
+        toast.error("Maximum of 4 chat windows can be open at a time.");
+        return;
+      }
+      dispatch(addGroupChatPopup(group));
+    } else {
+      // No popups open, use inline view
+      selectGroup(group.id);
+    }
+  };
 
   return (
     <SimpleBar className="nk-chat-aside-body">
@@ -49,10 +77,7 @@ export default function GroupChatAside() {
                   <a
                     className="chat-link"
                     href="#chat-link"
-                    onClick={(ev) => {
-                      ev.preventDefault();
-                      selectGroup(g.id);
-                    }}
+                    onClick={(ev) => handleGroupClick(ev, g)}
                   >
                     <UserAvatar
                       theme="primary"

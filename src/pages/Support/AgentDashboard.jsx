@@ -3,8 +3,10 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import { useEffect, useRef, useState } from "react";
 import { BiPaperclip, BiSend, BiUserPlus, BiXCircle } from "react-icons/bi";
 import { useNavigate } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import { addSupportChatPopup } from "../../redux/slices/chatPopupsSlice";
 import {
   closeConversation,
   connectWebSocket,
@@ -20,6 +22,9 @@ const SUPPORT_API_URL =
   "https://supportdesk.fskindia.com/support-messages/support_requests";
 
 const AgentDashboard = () => {
+  const dispatch = useDispatch();
+  const { openChatPopups, openGroupChatPopups, openSupportChatPopups } = useSelector((s) => s.chatPopups);
+  
   const [tickets, setTickets] = useState([]);
   const [filteredTickets, setFilteredTickets] = useState([]);
   const [selectedTicket, setSelectedTicket] = useState(null);
@@ -42,6 +47,8 @@ const AgentDashboard = () => {
   const chatBodyRef = useRef(null);
   const fileInputRef = useRef(null);
   const navigate = useNavigate();
+  
+  const total = openChatPopups.length + openGroupChatPopups.length + openSupportChatPopups.length;
   // ── Linkify Helper ──
   const linkifyText = (text) => {
     if (!text) return text;
@@ -190,6 +197,30 @@ const AgentDashboard = () => {
       toast.error("Invalid ticket: Ticket number missing.");
       return;
     }
+    
+    // If any popups are open, open as popup
+    if (total > 0) {
+      if (openSupportChatPopups.some((p) => p.ticket.ticket_number === ticket.ticket_number)) {
+        toast.warning("Support ticket already open.");
+        return;
+      }
+      if (total >= 4) {
+        toast.error("Maximum of 4 chat windows can be open at a time.");
+        return;
+      }
+      dispatch(addSupportChatPopup({
+        ticket,
+        _messages: messages,
+        _websocketUrl: websocketUrl,
+        _token: token,
+      }));
+      // Clear inline view
+      setSelectedTicket(null);
+      setTicketNumber(null);
+      return;
+    }
+    
+    // No popups open, use inline view
     setSelectedTicket(ticket);
     setTicketNumber(ticket.ticket_number);
     setMessages([]);

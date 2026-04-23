@@ -44,12 +44,25 @@ const ChatPopup = ({ user, onClose, initialPosition, index }) => {
 
   // ── select this user in the per-popup context on mount ──
   useEffect(() => {
+    console.log('[ChatPopup] 🔍 Mount effect triggered');
+    console.log('[ChatPopup] 📦 user object:', user);
+    console.log('[ChatPopup] 🆔 user.id:', user?.id);
+    console.log('[ChatPopup] 🎯 direct context exists:', !!direct);
+    console.log('[ChatPopup] 🎯 direct.selectUser exists:', !!direct?.selectUser);
+    console.log('[ChatPopup] 🎯 direct.ME_ID:', direct?.ME_ID);
+    
     if (direct?.selectUser && user?.id) {
-      console.log(`[ChatPopup] 🚀 mount: calling selectUser(${user.id}), direct.ME_ID=${direct?.ME_ID}`);
+      console.log(`[ChatPopup] ✅ Calling selectUser(${user.id})`);
       direct.selectUser(user.id);
       // Clear unread count in Redux when popup opens
       dispatch(clearUnreadCount(user.id));
       chatService.markAsRead(user.id);
+    } else {
+      console.error('[ChatPopup] ❌ Cannot select user:', { 
+        hasSelectUser: !!direct?.selectUser, 
+        hasUserId: !!user?.id,
+        user: user
+      });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
