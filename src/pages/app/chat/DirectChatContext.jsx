@@ -300,6 +300,12 @@ export function DirectChatProvider({ children }) {
         continue;
       }
 
+      // ✅ Skip conversations where current user is NOT a participant
+      if (id1 !== ME_ID_local && id2 !== ME_ID_local) {
+        console.log(`[DirectChat] 🚫 Skipping third-party conversation: ${id1} ↔ ${id2} (ME=${ME_ID_local})`);
+        continue;
+      }
+
       // Create a unique key regardless of order: "min_max"
       const uniqueKey = [id1, id2].sort((a, b) => a - b).join("_");
       if (seenConvs.has(uniqueKey)) continue;
@@ -308,7 +314,7 @@ export function DirectChatProvider({ children }) {
       // Determine who to display as "other_user"
       const otherUser = (id1 !== ME_ID_local ? sender : recipient) || recipient || sender || {};
       
-      const isAdminView = id1 !== ME_ID_local && id2 !== ME_ID_local;
+      const isAdminView = false; // No longer needed since we filter out third-party chats
       const displayName = `${otherUser.first_name || "User"} ${otherUser.last_name || ""}`;
 
       result.push({
@@ -336,7 +342,16 @@ export function DirectChatProvider({ children }) {
         .sort((a, b) => new Date(b.last_message_timestamp) - new Date(a.last_message_timestamp))
         .filter((c) => {
           if (!c.recipient_id || !c.sender_id) return false;
-          const pairKey = [Number(c.sender_id), Number(c.recipient_id)].sort((a, b) => a - b).join("_");
+          
+          // ✅ Filter out conversations where current user is NOT a participant
+          const sId = Number(c.sender_id);
+          const rId = Number(c.recipient_id);
+          if (sId !== ME_ID && rId !== ME_ID) {
+            console.log(`[DirectChat] 🚫 Filtering out third-party recent chat: ${sId} ↔ ${rId}`);
+            return false;
+          }
+          
+          const pairKey = [sId, rId].sort((a, b) => a - b).join("_");
           if (seenPairs.has(pairKey)) return false;
           seenPairs.add(pairKey);
           return true;
@@ -344,7 +359,7 @@ export function DirectChatProvider({ children }) {
       setRecentChats(deduped);
     }
     setTotalUnreadCount(data.totalUnreadCount || 0);
-  }, [normalizeConversations]);
+  }, [normalizeConversations, ME_ID]);
 
   const handleConnection = useCallback((data) => {
     setConnectionStatus(data.status);
@@ -372,6 +387,12 @@ export function DirectChatProvider({ children }) {
       // Update recent chats for all messages
       setRecentChats((prev) => {
         const next = [...prev];
+        
+        // ✅ Skip if current user is not a participant
+        if (sId !== ME_ID && rId !== ME_ID) {
+          console.log(`[DirectChat] 🚫 Skipping recent chat update for third-party message: ${sId} → ${rId}`);
+          return prev;
+        }
         
         const idx = next.findIndex((c) => {
           const cPairKey = [Number(c.sender_id || 0), Number(c.recipient_id || 0)].sort((a, b) => a - b).join("_");
@@ -402,13 +423,16 @@ export function DirectChatProvider({ children }) {
       });
 
       // Dispatch to Redux store for sidebar
-      dispatch(upsertRecentChat({
-        recipient_id: rId,
-        sender_id: sId,
-        last_message: message.content || (message.attachment ? `📎 ${message.attachment}` : ""),
-        last_message_timestamp: message.timestamp,
-        unread_count: undefined, // Will be handled separately
-      }));
+      // ✅ Only dispatch if current user is a participant
+      if (sId === ME_ID || rId === ME_ID) {
+        dispatch(upsertRecentChat({
+          recipient_id: rId,
+          sender_id: sId,
+          last_message: message.content || (message.attachment ? `📎 ${message.attachment}` : ""),
+          last_message_timestamp: message.timestamp,
+          unread_count: undefined, // Will be handled separately
+        }));
+      }
 
       const currentActiveConvId = activeConversationIdRef.current;
       const activeConv = usersRef.current.find(u => u.conversation_id === currentActiveConvId || u.pairKey === currentActiveConvId);
@@ -466,11 +490,19 @@ export function DirectChatProvider({ children }) {
         });
 
         if (!found) {
+          // ✅ Only create new conversation if current user is a participant
+          const isParticipant = sId === ME_ID || rId === ME_ID;
+          
+          if (!isParticipant) {
+            console.log(`[DirectChat] 🚫 Ignoring third-party message: ${sId} → ${rId} (ME=${ME_ID})`);
+            return updated; // Don't add this conversation
+          }
+
           const sender = allUsers.find((u) => u.id === sId) || { id: sId, first_name: "User" };
           const recipient = allUsers.find((u) => u.id === rId) || { id: rId, first_name: "User" };
           const otherUser = (sId !== ME_ID ? sender : recipient) || recipient || sender;
 
-          const isAdminView = sId !== ME_ID && rId !== ME_ID;
+          const isAdminView = false; // No longer needed
           const displayName = `${otherUser.first_name} ${otherUser.last_name || ""}`;
 
           updated.unshift({
@@ -691,7 +723,16 @@ export function DirectChatProvider({ children }) {
           .sort((a, b) => new Date(b.last_message_timestamp) - new Date(a.last_message_timestamp))
           .filter((c) => {
             if (!c.recipient_id || !c.sender_id) return false;
-            const pairKey = [Number(c.sender_id), Number(c.recipient_id)].sort((a, b) => a - b).join("_");
+            
+            // ✅ Filter out conversations where current user is NOT a participant
+            const sId = Number(c.sender_id);
+            const rId = Number(c.recipient_id);
+            if (sId !== ME_ID && rId !== ME_ID) {
+              console.log(`[DirectChat] 🚫 Filtering out third-party chat in initial fetch: ${sId} ↔ ${rId}`);
+              return false;
+            }
+            
+            const pairKey = [sId, rId].sort((a, b) => a - b).join("_");
             if (seenPairs.has(pairKey)) return false;
             seenPairs.add(pairKey);
             return true;

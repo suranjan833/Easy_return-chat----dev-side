@@ -113,35 +113,54 @@ class ChatService {
       // 3. Process the API response - it returns an object with a 'conversations' array
       let apiProcessedChats = [];
       const rawConversations = rawChatsData?.conversations || [];
+      const currentUserId = Number(this.userId);
       
       if (Array.isArray(rawConversations)) {
         apiProcessedChats = rawConversations.map((chat) => {
           const lastMsg = chat.latest_message || {};
           let otherParticipantId = chat.other_user?.id;
+          let senderId = lastMsg.sender_id;
+          let recipientId = null;
 
           // Handle array of participants (admin view)
           if (!otherParticipantId && Array.isArray(chat.other_user)) {
-            const currentUserId = Number(this.userId);
             const participants = chat.other_user
               .map((entry) => entry.sender || entry.recipient)
               .filter(Boolean);
-            // Find the participant who isn't "me", or just take the first one
-            const other =
-              participants.find((p) => Number(p.id) !== currentUserId) ||
-              participants[0];
+            
+            // Extract sender and recipient IDs
+            const sender = participants.find((p) => Number(p.id) === Number(senderId));
+            const recipient = participants.find((p) => Number(p.id) !== Number(senderId));
+            
+            if (sender) senderId = sender.id;
+            if (recipient) recipientId = recipient.id;
+            
+            // Find the participant who isn't "me"
+            const other = participants.find((p) => Number(p.id) !== currentUserId);
             otherParticipantId = other?.id;
+          } else {
+            // For flat structure, derive recipientId
+            recipientId = otherParticipantId;
           }
 
           return {
             id: lastMsg.id,
-            recipient_id: otherParticipantId,
-            sender_id: lastMsg.sender_id, // Ensure sender_id is present for pairKey
+            recipient_id: recipientId || otherParticipantId,
+            sender_id: senderId,
             last_message:
               lastMsg.content || (lastMsg.attachment ? `📎 Attachment` : ""),
             last_message_timestamp: lastMsg.timestamp,
             unread_count: chat.unread_count || 0,
           };
-        }).filter(c => c.recipient_id);
+        })
+        // ✅ Filter out conversations where current user is NOT a participant
+        .filter(c => {
+          if (!c.recipient_id || !c.sender_id) return false;
+          const sId = Number(c.sender_id);
+          const rId = Number(c.recipient_id);
+          // Only include if current user is either sender or recipient
+          return sId === currentUserId || rId === currentUserId;
+        });
       }
 
       // 4. Merge API chats into currentRecentChats
