@@ -246,7 +246,10 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
             type: 'reply',
             messageType: 'reply',
             parentMessageId: message.id,
-            parentMessageContent: message.content
+            parentMessageContent: message.content,
+            parentMessageSender: message.user
+              ? `${message.user.first_name || ""} ${message.user.last_name || ""}`.trim()
+              : "User",
           });
         });
       }
@@ -484,10 +487,10 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
     // Subscribe to GroupChatService events
     groupChatService.subscribe("new_group_message", handleNewMessage);
     groupChatService.subscribe("group_message_edit", handleMessageEdit);
-    groupChatService.subscribe("group_message_delete", handleMessageDelete);
+    groupChatService.subscribe("delete_group_message", handleMessageDelete);
     groupChatService.subscribe("group_message_reply", handleMessageReply);
     groupChatService.subscribe("group_reply_edit", handleReplyEdit);
-    groupChatService.subscribe("group_reply_delete", handleReplyDelete);
+    groupChatService.subscribe("delete_group_reply", handleReplyDelete);
     groupChatService.subscribe("group_mention", handleMention);
     groupChatService.subscribe("group_typing", handleTyping);
     groupChatService.subscribe("connection", handleConnection);
@@ -501,10 +504,10 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
 
       groupChatService.unsubscribe("new_group_message", handleNewMessage);
       groupChatService.unsubscribe("group_message_edit", handleMessageEdit);
-      groupChatService.unsubscribe("group_message_delete", handleMessageDelete);
+      groupChatService.unsubscribe("delete_group_message", handleMessageDelete);
       groupChatService.unsubscribe("group_message_reply", handleMessageReply);
       groupChatService.unsubscribe("group_reply_edit", handleReplyEdit);
-      groupChatService.unsubscribe("group_reply_delete", handleReplyDelete);
+      groupChatService.unsubscribe("delete_group_reply", handleReplyDelete);
       groupChatService.unsubscribe("group_mention", handleMention);
       groupChatService.unsubscribe("group_typing", handleTyping);
       groupChatService.unsubscribe("connection", handleConnection);
@@ -565,6 +568,42 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
       );
       setMessages(sortedMessages);
       setInitialLoadComplete(true);
+
+      // Mark all unread messages and replies from other users as read
+      const unreadMessages = sortedMessages.filter(
+        (msg) => msg.sender_id !== userId && !msg.is_read
+      );
+      const unreadReplies = sortedMessages.flatMap((msg) =>
+        (msg.replies_mentions || []).filter(
+          (r) => parseInt(r.user_id) !== userId && !r.is_read
+        )
+      );
+
+      const markAll = () => {
+        unreadMessages.forEach((msg) => {
+          groupChatService.markMessageRead(group.id, msg.id);
+        });
+        unreadReplies.forEach((reply) => {
+          groupChatService.markReplyRead(group.id, reply.id);
+        });
+        if (unreadMessages.length + unreadReplies.length > 0) {
+          console.log(`[ReadReceipt] Popup: marked ${unreadMessages.length} messages + ${unreadReplies.length} replies as read`);
+        }
+      };
+
+      if (groupChatService.ws?.readyState === WebSocket.OPEN) {
+        markAll();
+      } else {
+        let attempts = 0;
+        const intervalId = setInterval(() => {
+          if (groupChatService.ws?.readyState === WebSocket.OPEN) {
+            clearInterval(intervalId);
+            markAll();
+          } else if (++attempts >= 10) {
+            clearInterval(intervalId);
+          }
+        }, 300);
+      }
     } catch (err) {
       console.error("Error fetching group messages:", err);
       setError("Failed to load messages");
@@ -646,57 +685,35 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
         return;
       }
 
-      // Handle reply to message
+      // Handle reply to message or reply-on-reply
       if (replyingTo) {
-        const payload = {
-          type: "group_message_reply",
-          original_message_id: parseInt(replyingTo.id),
-          reply_message: messageText
-          // group_id: group.id // Removed as per backend schema
-        };
+        const isReplyingToReply =
+          replyingTo.messageType === "reply" ||
+          replyingTo.type === "reply" ||
+          replyingTo.type === "group_message_reply";
+
+        const payload = isReplyingToReply
+          ? {
+              type: "reply_on_reply",
+              group_id: group.id,
+              parent_reply_id: parseInt(replyingTo.id),
+              reply_content: messageText,
+            }
+          : {
+              type: "group_message_reply",
+              group_id: group.id,
+              original_message_id: parseInt(replyingTo.id),
+              reply_message: messageText,
+            };
+
+        console.log("[GroupChatPopup] Sending reply payload:", payload);
 
         if (groupChatService.sendMessage(payload)) {
-          // Optimistically add the reply to the messages state
-          const tempReplyId = `temp-${Date.now()}`; // Temporary ID for optimistic update
-          const originalMessage = messages.find(m => m.id === replyingTo.id);
-          const currentUser = group.group_members.find(member => member.id === userId);
-          const newReply = {
-            id: tempReplyId,
-            type: 'reply',
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-            user: currentUser ? {
-              id: currentUser.id,
-              first_name: currentUser.first_name,
-              last_name: currentUser.last_name,
-              email: currentUser.email,
-              profile_picture: currentUser.profile_picture
-            } : { id: userId, first_name: 'You', last_name: '', email: '', profile_picture: '' },
-            user_id: userId,
-            original_message_id: replyingTo.id,
-            original_message_content: originalMessage ? originalMessage.content : "Original message not found", // Add original message content
-            reply_message: messageText,
-            tempId: true, // Mark as temporary
-          };
-
-          setMessages((prev) => {
-            const updatedMessages = prev.map((msg) => {
-              if (msg.id === replyingTo.id) {
-                return {
-                  ...msg,
-                  replies_mentions: [...(msg.replies_mentions || []), newReply].sort((a, b) => new Date(a.created_at) - new Date(b.created_at)),
-                };
-              }
-              return msg;
-            });
-            return updatedMessages;
-          });
-
           setReplyingTo(null);
           setMessageText("");
           setAttachment(null);
           setAttachmentPreview(null);
-          scrollToBottom(); // Scroll to bottom after optimistic update
+          scrollToBottom();
         } else {
           setError("Failed to send reply");
         }
@@ -1362,7 +1379,6 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
                           marginBottom: "8px",
                           fontSize: "11px",
                           borderLeft: "3px solid rgba(0,0,0,0.3)",
-                          fontStyle: "italic",
                           cursor: "pointer",
                           transition: "all 0.2s ease",
                         }}
@@ -1375,7 +1391,12 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
                           e.currentTarget.style.borderLeftColor = "rgba(0,0,0,0.3)";
                         }}
                       >
-                        <strong>Replying to:</strong> {item.parentMessageContent}
+                        <div style={{ fontWeight: 600, color: isMe ? "rgba(255,255,255,0.9)" : "#6576ff", marginBottom: "2px" }}>
+                          {item.parentMessageSender || "User"}
+                        </div>
+                        <div style={{ fontStyle: "italic", opacity: 0.85 }}>
+                          {item.parentMessageContent}
+                        </div>
                       </div>
                     )}
 

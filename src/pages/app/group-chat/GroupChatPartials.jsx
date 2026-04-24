@@ -24,16 +24,26 @@ export const GroupMeChat = ({
   const messageDropdownRefs = useRef({});
   const [showDropdownForMessageId, setShowDropdownForMessageId] = useState(null);
 
-  // Calculate read status
+  // Calculate read status — works for both root messages (read_receipts array)
+  // and replies (is_read / read_at fields, no read_receipts array)
   const readReceipts = message.read_receipts || [];
   const totalMembers = groupMembers?.length || 0;
-  // Exclude the sender from the count
   const otherMembersCount = Math.max(0, totalMembers - 1);
-  const readByCount = readReceipts.filter(r => r.reader_id !== currentUserId).length;
-  const isReadByAll = otherMembersCount > 0 && readByCount >= otherMembersCount;
-  const isReadBySome = readByCount > 0;
 
-  console.log(`[ReadReceipt] Message ${message.id}: totalMembers=${totalMembers}, otherMembers=${otherMembersCount}, readBy=${readByCount}, isReadByAll=${isReadByAll}`);
+  const isReplyType = message.type === "group_message_reply" || message.type === "reply";
+
+  let isReadByAll, isReadBySome;
+
+  if (isReplyType) {
+    // Replies: server sends is_read + read_at directly, no read_receipts array
+    isReadBySome = message.is_read === true || !!message.read_at;
+    isReadByAll  = isReadBySome; // For replies there's only one "read" state
+  } else {
+    // Root messages: use read_receipts array
+    const readByCount = readReceipts.filter(r => r.reader_id !== currentUserId && r.user_id !== currentUserId).length;
+    isReadByAll  = otherMembersCount > 0 && readByCount >= otherMembersCount;
+    isReadBySome = readByCount > 0;
+  }
 
   return (
     <div id={`message-${message.id}`} className={`chat is-me my-1 ${highlightedMessageId === message.id ? 'highlight-message' : ''}`}>
@@ -184,6 +194,13 @@ export const GroupMeChat = ({
                           style={{ cursor: 'pointer' }}
                           onClick={() => onScrollToMessage(message.parentMsg.id)}
                         >
+                          <div style={{ fontSize: "0.75em", fontWeight: 600, color: "#6576ff", marginBottom: "2px" }}>
+                            {message.parentMsg?.user?.first_name
+                              ? `${message.parentMsg.user.first_name} ${message.parentMsg.user.last_name || ""}`.trim()
+                              : message.parentMsg?.sender?.first_name
+                              ? `${message.parentMsg.sender.first_name} ${message.parentMsg.sender.last_name || ""}`.trim()
+                              : "User"}
+                          </div>
                           <div style={{ fontSize: "0.85em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                             {(message.parentMsg?.message || message.parentMsg?.content || "")?.slice(0, 50)}
                             {(message.parentMsg?.message || message.parentMsg?.content || "").length > 50 ? "..." : ""}
@@ -486,9 +503,9 @@ export const GroupMeChat = ({
                         {/* Read receipt tick */}
                         <span style={{ marginLeft: "4px", lineHeight: 1 }}>
                           {isReadByAll ? (
-                            <i className="bi bi-check2-all" style={{ color: "#1ee0ac", fontSize: "13px" }} title={`Read by all ${readByCount} members`} />
+                            <i className="bi bi-check2-all" style={{ color: "#1ee0ac", fontSize: "13px" }} title={isReplyType ? "Read" : `Read by all members`} />
                           ) : isReadBySome ? (
-                            <i className="bi bi-check2-all" style={{ color: "rgba(255,255,255,0.6)", fontSize: "13px" }} title={`Read by ${readByCount} of ${otherMembersCount} members`} />
+                            <i className="bi bi-check2-all" style={{ color: "rgba(255,255,255,0.6)", fontSize: "13px" }} title={isReplyType ? "Read" : `Read by some members`} />
                           ) : (
                             <i className="bi bi-check2" style={{ color: "rgba(255,255,255,0.6)", fontSize: "13px" }} title="Delivered" />
                           )}
@@ -568,6 +585,13 @@ export const GroupYouChat = ({
                         style={{ cursor: 'pointer' }}
                         onClick={() => onScrollToMessage(message.parentMsg.id)}
                       >
+                        <div style={{ fontSize: "0.75em", fontWeight: 600, color: "#6576ff", marginBottom: "2px" }}>
+                          {message.parentMsg?.user?.first_name
+                            ? `${message.parentMsg.user.first_name} ${message.parentMsg.user.last_name || ""}`.trim()
+                            : message.parentMsg?.sender?.first_name
+                            ? `${message.parentMsg.sender.first_name} ${message.parentMsg.sender.last_name || ""}`.trim()
+                            : "User"}
+                        </div>
                         <div style={{ fontSize: "0.85em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                           {(message.parentMsg?.message || message.parentMsg?.content || "")?.slice(0, 50)}
                           {(message.parentMsg?.message || message.parentMsg?.content || "").length > 50 ? "..." : ""}

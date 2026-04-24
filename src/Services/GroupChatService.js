@@ -339,12 +339,14 @@ class GroupChatService {
             user: data.user,
           });
         } else if (data.type === "delete_group_message") {
-          this.notifySubscribers("group_message_delete", {
+          console.log("[GroupChatService] 🗑️ Delete message event:", data);
+          this.notifySubscribers("delete_group_message", {
             messageId: data.message_id,
             groupId: data.group_id,
           });
         } else if (data.type === "delete_group_reply") {
-          this.notifySubscribers("group_reply_delete", {
+          console.log("[GroupChatService] 🗑️ Delete reply event:", data);
+          this.notifySubscribers("delete_group_reply", {
             replyId: data.reply_id,
             groupId: data.group_id,
           });

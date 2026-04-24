@@ -14,23 +14,42 @@ const ReplyPreview = ({ replyingTo, editingReply, messages, cancelReply }) => {
                     margin: "0 16px 8px 16px",
                     borderRadius: "8px"
                 }}>
-
                     <div className="d-flex align-items-center justify-content-between">
-                        <span style={{ fontSize: "14px", color: "#606770" }}>
-                            {editingReply
-                                ? `Editing reply to ${messages?.find((msg) => msg.id === editingReply.id)?.user?.first_name || 'User'}: ${messages?.find((msg) => msg.id === editingReply.id)?.reply_message?.slice(0, 50) || ''}${messages?.find((msg) => msg.id === editingReply.id)?.reply_message?.length > 50 ? '...' : ''}`
-                                : `Replying to ${replyingTo.user?.first_name || 'User'}: ${replyingTo?.message ? replyingTo?.message?.slice(0, 50) : replyingTo?.reply_message?.slice(0, 50)}${replyingTo.message?.length > 50 ? '...' : ''}`}
-                        </span>
-
+                        <div style={{ fontSize: "14px", color: "#606770", overflow: "hidden" }}>
+                            {editingReply ? (
+                                <>
+                                    <div style={{ fontSize: "12px", fontWeight: 600, color: "#6576ff", marginBottom: "2px" }}>
+                                        {messages?.find((msg) => msg.id === editingReply.id)?.user?.first_name || "User"}
+                                    </div>
+                                    <div style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                        {messages?.find((msg) => msg.id === editingReply.id)?.reply_message?.slice(0, 50) || ""}
+                                        {messages?.find((msg) => msg.id === editingReply.id)?.reply_message?.length > 50 ? "..." : ""}
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <div style={{ fontSize: "12px", fontWeight: 600, color: "#6576ff", marginBottom: "2px" }}>
+                                        {replyingTo?.user?.first_name
+                                            ? `${replyingTo.user.first_name} ${replyingTo.user.last_name || ""}`.trim()
+                                            : replyingTo?.sender?.first_name
+                                            ? `${replyingTo.sender.first_name} ${replyingTo.sender.last_name || ""}`.trim()
+                                            : "User"}
+                                    </div>
+                                    <div style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                        {(replyingTo?.message || replyingTo?.reply_message || "").slice(0, 50)}
+                                        {(replyingTo?.message || replyingTo?.reply_message || "").length > 50 ? "..." : ""}
+                                    </div>
+                                </>
+                            )}
+                        </div>
                         <Button
                             color="link"
-                            className="text-danger p-0"
+                            className="text-danger p-0 ms-2 flex-shrink-0"
                             onClick={cancelReply}
                             style={{ fontSize: "14px" }}
                         >
                             ✕
                         </Button>
-
                     </div>
                 </div>
             )}
