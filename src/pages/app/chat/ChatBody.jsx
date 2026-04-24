@@ -378,10 +378,10 @@ const ChatBody = ({ id, mobileView, setMobileView, setSelectedId }) => {
                     const isEmojiOnly = message.message_type !== "attachment" && !message.reply_to_id && isOnlyEmojis(message.content);
                     return (
                       <div style={{ display: "inline-block" }}>
-                        {(message.type === "forward_message" || message.forwarded || message.forwarded_from_message_id) && (
+                        {(message.type === "forward_message" || message.type === "forward_to_dm" || message.forwarded || message.is_forwarded || message.forwarded_from_message_id) && (
                           <div style={{ fontSize: "11px", opacity: 0.7, marginBottom: "2px", display: "flex", alignItems: "center", gap: "4px" }}>
                             <i className="bi bi-reply-fill" style={{ fontSize: "11px", transform: "scaleX(-1)" }}></i>
-                            <span>Forwarded</span>
+                            <span>Forwarded{message.source_system ? ` from ${message.source_system === 'dm' ? 'DM' : message.source_system === 'group_message' ? 'Group' : message.source_system === 'group_reply' ? 'Group Reply' : message.source_system}` : ''}</span>
                           </div>
                         )}
                         <span style={{ fontSize: isEmojiOnly ? "40px" : "inherit", lineHeight: isEmojiOnly ? "1.2" : "inherit", display: "inline-block" }}>
@@ -496,9 +496,12 @@ const ChatBody = ({ id, mobileView, setMobileView, setSelectedId }) => {
                 return;
               }
               const conv = direct.users?.find((u) => u.other_user?.id === direct.activeUser.id);
-              const payload = conv?.conversation_id
-                ? { ...direct.activeUser, conversation_id: conv.conversation_id }
-                : direct.activeUser;
+              const payload = {
+                ...direct.activeUser,
+                conversation_id: conv?.conversation_id || conv?.pairKey,
+                pairKey: conv?.pairKey,
+              };
+              console.log('[ChatBody] 📤 Minimizing to popup with payload:', payload);
               dispatch(addUserChatPopup(payload));
               direct.selectUser(null);
             }}

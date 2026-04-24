@@ -82,8 +82,16 @@ export function DirectChatProvider({ children }) {
         // Try to find existing conversation to get its pairKey/id
         const existing = usersRef.current.find(u => u.other_user?.id === userId);
         finalConvId = existing?.pairKey || existing?.conversation_id;
+        
+        // If still not found, create a pairKey from ME_ID and userId
+        if (!finalConvId) {
+          const ME_ID_local = parseInt(localStorage.getItem("userId")) || -1;
+          finalConvId = [ME_ID_local, userId].sort((a, b) => a - b).join("_");
+          console.log(`[DirectChat:${instanceId}] 🔑 Created pairKey from ME_ID and userId:`, finalConvId);
+        }
       }
       
+      console.log(`[DirectChat:${instanceId}] 🎯 Setting activeConversationId:`, finalConvId);
       setActiveConversationId(finalConvId || null);
       setMessages([]);
       messageSkipRef.current = 0;
@@ -374,12 +382,23 @@ export function DirectChatProvider({ children }) {
 
   const handleNewMessage = useCallback(
     (data) => {
+      console.log('[DirectChat] 🎯 handleNewMessage CALLED with data:', data);
+      
       const { message } = data;
       const sId = Number(message.sender_id);
       const rId = Number(message.recipient_id);
       
+      console.log('[DirectChat] 📊 Message details:', {
+        messageId: message.id,
+        sId,
+        rId,
+        ME_ID,
+        content: message.content?.substring(0, 50),
+      });
+      
       // Use both sender and recipient for a robust pairKey (handles admin view correctly)
       const pairKey = [sId, rId].sort((a, b) => a - b).join("_");
+      console.log('[DirectChat] 🔑 pairKey:', pairKey);
       
       // Determine otherUserId relative to ME, or fallback if admin
       const otherUserId = (sId === ME_ID) ? rId : sId;
@@ -437,6 +456,13 @@ export function DirectChatProvider({ children }) {
       const currentActiveConvId = activeConversationIdRef.current;
       const activeConv = usersRef.current.find(u => u.conversation_id === currentActiveConvId || u.pairKey === currentActiveConvId);
       
+      console.log('[DirectChat] 🔍 Active conversation check:', {
+        currentActiveConvId,
+        activeConvPairKey: activeConv?.pairKey,
+        messagePairKey: pairKey,
+        match: activeConv?.pairKey === pairKey,
+      });
+      
       const isPopupOpen = openChatPopupsRef.current?.some((p) => {
         const pId = Number(p.user?.id);
         return pId === sId || pId === rId;
@@ -444,6 +470,12 @@ export function DirectChatProvider({ children }) {
       
       const isActiveMainWindow = activeConv?.pairKey === pairKey;
       const isActiveThread = isActiveMainWindow || isPopupOpen;
+      
+      console.log('[DirectChat] 🎯 Thread status:', {
+        isActiveMainWindow,
+        isPopupOpen,
+        isActiveThread,
+      });
 
       if (sId !== ME_ID && isActiveThread) {
         // Mark as read on server
@@ -549,27 +581,52 @@ export function DirectChatProvider({ children }) {
 
       // Append to open thread if relevant (main window)
       if (isActiveMainWindow) {
+        console.log('[DirectChat] ✅ Message is for active window, adding to messages');
         setMessages((prev) => {
+          console.log('[DirectChat] 📝 Current messages count:', prev.length);
+          
+          // Check if this is a server confirmation of a temp message
+          const tempMsg = prev.find(m => 
+            typeof m.id === 'string' && 
+            m.id.startsWith('temp-') &&
+            Number(m.sender_id) === Number(message.sender_id) &&
+            Number(m.recipient_id) === Number(message.recipient_id) &&
+            Math.abs(new Date(m.timestamp) - new Date(message.timestamp)) < 5000 // Within 5 seconds
+          );
+          
+          if (tempMsg) {
+            console.log('[DirectChat] 🔄 Replacing temp message', tempMsg.id, 'with real message', message.id);
+            // Replace temp message with real one
+            return prev.map(m => m.id === tempMsg.id ? {
+              ...message,
+              timestamp: message.timestamp || message.created_at || new Date().toISOString(),
+              forwarded: message.forwarded === true || message.forwarded_from_message_id !== undefined,
+            } : m).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+          }
+          
+          // Check for exact duplicate
           const exists = prev.some((m) => m.id === message.id);
-          if (exists) return prev;
+          if (exists) {
+            console.log('[DirectChat] ⏭️ Skipping duplicate message:', message.id);
+            return prev;
+          }
 
+          console.log('[DirectChat] ➕ Adding new message to thread:', message.id);
           const newMsg = {
             ...message,
-
-            timestamp:
-              message.timestamp ||
-              message.created_at ||
-              new Date().toISOString(),
-
-            forwarded:
-              message.forwarded === true ||
-              message.forwarded_from_message_id !== undefined,
+            timestamp: message.timestamp || message.created_at || new Date().toISOString(),
+            forwarded: message.forwarded === true || message.forwarded_from_message_id !== undefined,
           };
 
-          return [...prev, newMsg].sort(
+          const updated = [...prev, newMsg].sort(
             (a, b) => new Date(a.timestamp) - new Date(b.timestamp),
           );
+          
+          console.log('[DirectChat] 📝 Updated messages count:', updated.length);
+          return updated;
         });
+      } else {
+        console.log('[DirectChat] ❌ Message NOT for active window, skipping UI update');
       }
     },
     [ME_ID, allUsers, dispatch],
@@ -757,8 +814,14 @@ export function DirectChatProvider({ children }) {
 
   // Effect for chat service subscriptions
   useEffect(() => {
-    if (!ME_ID || !TOKEN || isNaN(ME_ID)) return;
+    console.log('[DirectChat] 🔧 Setting up ChatService subscriptions, ME_ID:', ME_ID, 'TOKEN:', TOKEN ? 'present' : 'missing');
+    
+    if (!ME_ID || !TOKEN || isNaN(ME_ID)) {
+      console.warn('[DirectChat] ⚠️ Cannot subscribe - invalid ME_ID or TOKEN');
+      return;
+    }
 
+    console.log('[DirectChat] ✅ Subscribing to ChatService events');
     chatService.subscribe("initial_data", handleInitialData);
     chatService.subscribe("connection", handleConnection);
     chatService.subscribe("new_message", handleNewMessage);
@@ -769,10 +832,18 @@ export function DirectChatProvider({ children }) {
     chatService.subscribe("message_delete", handleMessageDelete);
     chatService.subscribe("update_status", handleStatusUpdate);
 
+    console.log('[DirectChat] 📊 Subscription complete, checking current state...');
     const currentUsers = chatService.getUsers();
     const currentChats = chatService.getRecentChats();
     const currentStatus = chatService.getConnectionStatus();
     const currentAllUsers = chatService.getAllUsers();
+    
+    console.log('[DirectChat] 📊 Current ChatService state:', {
+      usersCount: currentUsers.length,
+      chatsCount: currentChats.length,
+      status: currentStatus,
+      allUsersCount: currentAllUsers.length,
+    });
 
     if (currentUsers.length > 0 && users.length === 0) {
       const normalized = normalizeConversations(currentUsers);
@@ -812,6 +883,7 @@ export function DirectChatProvider({ children }) {
     handleMessageEdit,
     handleStatusUpdate,
     handleOnlineUpdates,
+    normalizeConversations,
   ]);
 
   //search by name and date
@@ -1096,8 +1168,10 @@ export function DirectChatProvider({ children }) {
       type: "forward_message",
       message_id: messageId,
       recipient_id: recipientId,
-      is_reply: false,
+      source_type: "dm"
     });
+    
+    toast.success("Message forwarded");
   }, []);
 
   const forwardMessageToGroup = useCallback((message, targetGroupId) => {
@@ -1108,28 +1182,17 @@ export function DirectChatProvider({ children }) {
 
     // Import GroupChatService dynamically to avoid circular dependencies
     import("../../../Services/GroupChatService").then(({ default: groupChatService }) => {
-      const isReply = message.type === "message_reply" || message.reply_content;
+      // Forward DM to Group - always creates root message
+      const payload = {
+        type: "forward_message",
+        message_id: message.id,
+        target_group_id: targetGroupId,
+        source_type: "dm"
+      };
       
-      if (isReply) {
-        const payload = {
-          type: "forward_reply",
-          source_reply_id: message.id,
-          target_group_id: targetGroupId,
-          is_reply: false,
-          original_message_id: null,
-          parent_reply_id: null,
-        };
-        console.log("[Forward] DM reply → Group payload:", JSON.stringify(payload, null, 2));
-        groupChatService.sendMessage(payload);
-      } else {
-        const payload = {
-          type: "forward_message",
-          source_message_id: message.id,
-          target_group_id: targetGroupId,
-        };
-        console.log("[Forward] DM message → Group payload:", JSON.stringify(payload, null, 2));
-        groupChatService.sendMessage(payload);
-      }
+      console.log("[Forward] DM → Group payload:", JSON.stringify(payload, null, 2));
+      groupChatService.sendMessage(payload);
+      toast.success("Message forwarded to group");
     });
   }, []);
 

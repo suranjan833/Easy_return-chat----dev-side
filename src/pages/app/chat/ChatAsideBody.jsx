@@ -49,11 +49,14 @@ export const ChatAsideBody = ({}) => {
         toast.error("Maximum of 4 chat windows can be open at a time.");
         return;
       }
-      // Find conversation to get conversation_id
+      // Find conversation to get conversation_id and pairKey
       const conv = users?.find((u) => u.other_user?.id === userId);
-      const payload = conv?.conversation_id
-        ? { ...userObj, conversation_id: conv.conversation_id }
-        : userObj;
+      const payload = {
+        ...userObj,
+        conversation_id: conv?.conversation_id || conv?.pairKey,
+        pairKey: conv?.pairKey,
+      };
+      console.log('[ChatAsideBody] 📤 Opening popup with payload:', payload);
       dispatch(addUserChatPopup(payload));
       // Clear inline chat so it doesn't stay open alongside popups
       selectUser(null, null);

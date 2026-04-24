@@ -50,10 +50,11 @@ const ChatPopup = ({ user, onClose, initialPosition, index }) => {
     console.log('[ChatPopup] 🎯 direct context exists:', !!direct);
     console.log('[ChatPopup] 🎯 direct.selectUser exists:', !!direct?.selectUser);
     console.log('[ChatPopup] 🎯 direct.ME_ID:', direct?.ME_ID);
+    console.log('[ChatPopup] 📊 direct.users count:', direct?.users?.length || 0);
     
     if (direct?.selectUser && user?.id) {
-      console.log(`[ChatPopup] ✅ Calling selectUser(${user.id})`);
-      direct.selectUser(user.id);
+      console.log(`[ChatPopup] ✅ Calling selectUser(${user.id}, ${user.conversation_id || user.pairKey || 'null'})`);
+      direct.selectUser(user.id, user.conversation_id || user.pairKey);
       // Clear unread count in Redux when popup opens
       dispatch(clearUnreadCount(user.id));
       chatService.markAsRead(user.id);
@@ -66,6 +67,14 @@ const ChatPopup = ({ user, onClose, initialPosition, index }) => {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ✅ Re-select user when users array is populated (fixes race condition)
+  useEffect(() => {
+    if (direct?.users?.length > 0 && user?.id && direct?.activeConversationId === null) {
+      console.log('[ChatPopup] 🔄 Users loaded, re-selecting user:', user.id);
+      direct.selectUser(user.id, user.conversation_id || user.pairKey);
+    }
+  }, [direct?.users?.length, user?.id, direct?.activeConversationId, direct, user?.conversation_id, user?.pairKey]);
 
   // ── drag ──
   const handleMouseDown = (e) => {
@@ -196,10 +205,10 @@ const ChatPopup = ({ user, onClose, initialPosition, index }) => {
             wordBreak: "break-word",
           }}>
             {/* Forwarded label */}
-            {(msg.type === "forward_message" || msg.forwarded || msg.forwarded_from_message_id) && !msg.is_deleted && (
+            {(msg.type === "forward_message" || msg.type === "forward_to_dm" || msg.forwarded || msg.is_forwarded || msg.forwarded_from_message_id) && !msg.is_deleted && (
               <div style={{ fontSize: "10px", opacity: 0.65, marginBottom: "4px", display: "flex", alignItems: "center", gap: "3px" }}>
                 <i className="bi bi-reply-fill" style={{ fontSize: "10px", transform: "scaleX(-1)" }} />
-                <span>Forwarded</span>
+                <span>Forwarded{msg.source_system ? ` from ${msg.source_system === 'dm' ? 'DM' : msg.source_system === 'group_message' ? 'Group' : msg.source_system === 'group_reply' ? 'Group Reply' : msg.source_system}` : ''}</span>
               </div>
             )}
 

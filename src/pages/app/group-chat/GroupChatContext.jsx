@@ -878,42 +878,54 @@ export function GroupChatProvider({ children }) {
   // Forward a root message to a group
   const forwardMessageToGroup = useCallback((message, targetGroupId) => {
     if (!groupChatService.isInitialized()) return;
+    
     const isReply = message.type === "group_message_reply" || message.type === "reply";
+    
     if (isReply) {
+      // Forward Group Reply to Group
       const payload = {
         type: "forward_reply",
         source_reply_id: message.id,
         target_group_id: targetGroupId,
-        is_reply: false,
-        original_message_id: null,
-        parent_reply_id: null,
+        is_reply: true,
+        original_message_id: message.original_message_id || message.message_id,
+        parent_reply_id: message.parent_reply_id || null
       };
-      console.log("[Forward] forward_reply payload →", JSON.stringify(payload, null, 2));
+      console.log("[Forward] Group Reply → Group payload:", JSON.stringify(payload, null, 2));
       groupChatService.sendMessage(payload);
     } else {
+      // Forward Group Message to Group
       const payload = {
         type: "forward_message",
         source_message_id: message.id,
         target_group_id: targetGroupId,
+        source_type: "group_message"
       };
-      console.log("[Forward] forward_message payload →", JSON.stringify(payload, null, 2));
-      console.log("[Forward] message object →", JSON.stringify(message, null, 2));
+      console.log("[Forward] Group Message → Group payload:", JSON.stringify(payload, null, 2));
       groupChatService.sendMessage(payload);
     }
+    
+    toast.success("Message forwarded to group");
   }, []);
 
   // Forward a group message to a DM user (via direct chat service)
   const forwardMessageToUser = useCallback((message, recipientId) => {
     if (!groupChatService.isInitialized()) return;
+    
     import("../../../Services/ChatService").then(({ default: chatService }) => {
+      const isReply = message.type === "group_message_reply" || message.type === "reply";
+      
+      // Both Group Message and Group Reply use forward_to_dm
       const payload = {
-        type: "forward_message",
-        message_id: message.id,
-        recipient_id: recipientId,
-        is_reply: false,
+        type: "forward_to_dm",
+        source_message_id: message.id,
+        source_type: isReply ? "group_reply" : "group_message",
+        recipient_id: recipientId
       };
-      console.log("[Forward] group → DM payload →", JSON.stringify(payload, null, 2));
+      
+      console.log("[Forward] Group → DM payload:", JSON.stringify(payload, null, 2));
       chatService.sendMessage(payload);
+      toast.success("Message forwarded to user");
     });
   }, []);
 

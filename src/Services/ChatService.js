@@ -360,6 +360,7 @@ class ChatService {
         const data = JSON.parse(event.data);
 
         console.log("[ChatService] ⬅️ RECEIVED from server:", data);
+        console.log("[ChatService] 📊 Current subscribers for 'new_message':", this.subscribers.get('new_message')?.size || 0);
 
         // Log server response specifically for sent messages (confirmation)
         if (
@@ -381,7 +382,8 @@ class ChatService {
           data.type === "direct_message" ||
           data.type === "message_with_attachment" ||
           data.type === "message_reply" ||
-          data.type === "forward_message"
+          data.type === "forward_message" ||
+          data.type === "forward_to_dm"  // New: Handle group-to-DM forwards
         ) {
           var payload = data.data || data;
 
