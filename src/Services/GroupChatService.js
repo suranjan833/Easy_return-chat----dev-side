@@ -17,7 +17,7 @@ class GroupChatService {
     this.connectionStatus = "disconnected";
     this.activeGroups = new Set();
     this.groupMetadata = new Map(); // Track last message timestamp and unread count per group
-    
+
     // Heartbeat mechanism
     this.heartbeatInterval = null;
     this.heartbeatTimeout = null;
@@ -161,12 +161,14 @@ class GroupChatService {
     );
 
     this.ws.onopen = () => {
-      console.log(`[GroupChatService] ✅ WebSocket opened for user ${this.userId}`);
+      console.log(
+        `[GroupChatService] ✅ WebSocket opened for user ${this.userId}`,
+      );
       this.connectionStatus = "connected";
       this.notifySubscribers("connection", { status: "connected" });
       this.retryCount = 0;
       this.isConnecting = false;
-      
+
       // Start heartbeat to keep connection alive
       this.startHeartbeat();
     };
@@ -175,28 +177,20 @@ class GroupChatService {
       try {
         const data = JSON.parse(event.data);
         console.log("[GroupChatService] 📨 Received from server:", data);
-        
+
         // Reset heartbeat on any message received
         this.resetHeartbeat();
         this.lastMessageTime = Date.now();
-        
-        if (!data) return;
 
-        // Handle ping/pong for heartbeat
-        if (data.type === "ping") {
-          this.ws.send(JSON.stringify({ type: "pong" }));
-          return;
-        }
-        
-        if (data.type === "pong") {
-          // Server acknowledged our ping
-          return;
-        }
+        if (!data) return;
 
         // Handle different message types
         if (data.type === "group_message") {
-          console.log("[GroupChatService] ✉️ Processing group_message type, group_id:", data.group_id);
-          
+          console.log(
+            "[GroupChatService] ✉️ Processing group_message type, group_id:",
+            data.group_id,
+          );
+
           // Update group metadata for sorting and unread count
           this.updateMetadata(data.group_id, data.created_at);
 
@@ -209,7 +203,8 @@ class GroupChatService {
 
           if (!isGroupOpen && !isSelfMessage) {
             const groupName =
-              this.groups.find((g) => Number(g.id) === Number(data.group_id))?.name || "Group";
+              this.groups.find((g) => Number(g.id) === Number(data.group_id))
+                ?.name || "Group";
             const senderName = data.sender?.first_name
               ? `${data.sender.first_name} ${data.sender.last_name || ""}`.trim()
               : "Someone";
@@ -266,26 +261,44 @@ class GroupChatService {
             }
           }
 
-          console.log("[GroupChatService] 🔔 Notifying subscribers: new_group_message, groupId:", data.group_id);
+          console.log(
+            "[GroupChatService] 🔔 Notifying subscribers: new_group_message, groupId:",
+            data.group_id,
+          );
           this.notifySubscribers("new_group_message", {
             message: data,
             groupId: data.group_id,
           });
-        } else if (data.type === "group_reply" || data.type === "group_message_reply") {
-          console.log("[GroupChatService] 💬 Processing reply, type:", data.type, "group_id:", data.group_id);
-          console.log("[GroupChatService] 💬 Reply data:", JSON.stringify(data, null, 2));
+        } else if (
+          data.type === "group_reply" ||
+          data.type === "group_message_reply"
+        ) {
+          console.log(
+            "[GroupChatService] 💬 Processing reply, type:",
+            data.type,
+            "group_id:",
+            data.group_id,
+          );
+          console.log(
+            "[GroupChatService] 💬 Reply data:",
+            JSON.stringify(data, null, 2),
+          );
           this.updateMetadata(data.group_id, data.created_at);
-          console.log("[GroupChatService] 🔔 Notifying subscribers: group_message_reply");
+          console.log(
+            "[GroupChatService] 🔔 Notifying subscribers: group_message_reply",
+          );
           this.notifySubscribers("group_message_reply", data);
         } else if (data.type === "group_mention") {
-          console.log("[GroupChatService] 📢 Processing group_mention, group_id:", data.group_id);
+          console.log(
+            "[GroupChatService] 📢 Processing group_mention, group_id:",
+            data.group_id,
+          );
           this.updateMetadata(data.group_id, data.created_at);
           this.notifySubscribers("group_mention", data);
 
           // Global Mention Notification Logic
           const isGroupOpen = this.activeGroups.has(data.group_id);
-          const isMentionedUser =
-            data.mentioned_user?.id === this.userId;
+          const isMentionedUser = data.mentioned_user?.id === this.userId;
 
           if (!isGroupOpen && isMentionedUser) {
             const groupName =
@@ -351,17 +364,27 @@ class GroupChatService {
             groupId: data.group_id,
           });
         } else if (data.type === "read_group_message") {
-          console.log("[ReadReceipt] Received read_group_message from server →", data);
+          console.log(
+            "[ReadReceipt] Received read_group_message from server →",
+            data,
+          );
           this.notifySubscribers("group_message_read", data);
         } else if (data.type === "read_group_reply") {
-          console.log("[ReadReceipt] Received read_group_reply from server →", data);
+          console.log(
+            "[ReadReceipt] Received read_group_reply from server →",
+            data,
+          );
           this.notifySubscribers("group_reply_read", data);
         } else if (data.type === "system_message") {
           console.log("[GroupChatService] 🔔 System message:", data);
           this.updateMetadata(data.group_id, data.created_at);
           this.notifySubscribers("system_message", data);
         } else {
-          console.log("[GroupChatService] ⚠️ Unhandled message type:", data.type, data);
+          console.log(
+            "[GroupChatService] ⚠️ Unhandled message type:",
+            data.type,
+            data,
+          );
         }
       } catch (error) {
         console.error(
@@ -381,17 +404,24 @@ class GroupChatService {
     };
 
     this.ws.onclose = (event) => {
-      console.warn(`[GroupChatService] ⚠️ WebSocket closed - Code: ${event.code}, Reason: ${event.reason || 'No reason'}`);
+      console.warn(
+        `[GroupChatService] ⚠️ WebSocket closed - Code: ${event.code}, Reason: ${event.reason || "No reason"}`,
+      );
       this.stopHeartbeat();
       this.connectionStatus = "disconnected";
       this.notifySubscribers("connection", { status: "disconnected" });
       this.isConnecting = false;
 
       // Infinite retry with exponential backoff (capped at 30s)
-      const delay = Math.min(30000, 1000 * Math.pow(2, Math.min(this.retryCount, 5)));
-      console.log(`[GroupChatService] 🔄 Reconnecting in ${delay}ms (attempt ${this.retryCount + 1})`);
+      const delay = Math.min(
+        30000,
+        1000 * Math.pow(2, Math.min(this.retryCount, 5)),
+      );
+      console.log(
+        `[GroupChatService] 🔄 Reconnecting in ${delay}ms (attempt ${this.retryCount + 1})`,
+      );
       this.retryCount++;
-      
+
       setTimeout(() => this.connectWebSocket(), delay);
     };
   }
@@ -399,15 +429,20 @@ class GroupChatService {
   sendMessage(messageData) {
     console.log(messageData, "messageData");
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
-      console.error("[GroupChatService] ❌ WebSocket not connected, state:", this.ws?.readyState);
-      this.notifySubscribers("error", { message: "Connection lost. Reconnecting..." });
-      
+      console.error(
+        "[GroupChatService] ❌ WebSocket not connected, state:",
+        this.ws?.readyState,
+      );
+      this.notifySubscribers("error", {
+        message: "Connection lost. Reconnecting...",
+      });
+
       // Trigger reconnection if closed
       if (!this.ws || this.ws.readyState === WebSocket.CLOSED) {
         console.log("[GroupChatService] 🔄 Attempting to reconnect...");
         this.connectWebSocket();
       }
-      
+
       return false;
     }
     console.log(messageData, "messageData 1");
@@ -421,24 +456,30 @@ class GroupChatService {
     } catch (error) {
       console.error("[GroupChatService] ❌ Error sending message:", error);
       this.notifySubscribers("error", { message: "Failed to send message" });
-      
+
       // Force reconnect on send error
       if (this.ws) {
         this.ws.close();
       }
-      
+
       return false;
     }
   }
 
   markMessageRead(groupId, messageId) {
-    console.log(`[ReadReceipt] markMessageRead called — groupId:${groupId} messageId:${messageId} wsState:${this.ws?.readyState}`);
+    console.log(
+      `[ReadReceipt] markMessageRead called — groupId:${groupId} messageId:${messageId} wsState:${this.ws?.readyState}`,
+    );
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
       console.warn(`[ReadReceipt] WS not open, skipping markMessageRead`);
       return;
     }
     try {
-      const payload = { type: "read_group_message", group_id: groupId, message_id: messageId };
+      const payload = {
+        type: "read_group_message",
+        group_id: groupId,
+        message_id: messageId,
+      };
       console.log("[ReadReceipt] Sending →", JSON.stringify(payload));
       this.ws.send(JSON.stringify(payload));
     } catch (e) {
@@ -447,13 +488,19 @@ class GroupChatService {
   }
 
   markReplyRead(groupId, replyId) {
-    console.log(`[ReadReceipt] markReplyRead called — groupId:${groupId} replyId:${replyId} wsState:${this.ws?.readyState}`);
+    console.log(
+      `[ReadReceipt] markReplyRead called — groupId:${groupId} replyId:${replyId} wsState:${this.ws?.readyState}`,
+    );
     if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
       console.warn(`[ReadReceipt] WS not open, skipping markReplyRead`);
       return;
     }
     try {
-      const payload = { type: "read_group_reply", group_id: groupId, reply_id: replyId };
+      const payload = {
+        type: "read_group_reply",
+        group_id: groupId,
+        reply_id: replyId,
+      };
       console.log("[ReadReceipt] Sending →", JSON.stringify(payload));
       this.ws.send(JSON.stringify(payload));
     } catch (e) {
@@ -467,7 +514,8 @@ class GroupChatService {
     }
 
     // Normalize status: "started" -> "start", "stopped" -> "stop"
-    const normalizedStatus = status === "started" ? "start" : status === "stopped" ? "stop" : status;
+    const normalizedStatus =
+      status === "started" ? "start" : status === "stopped" ? "stop" : status;
 
     try {
       this.ws.send(
@@ -597,40 +645,44 @@ class GroupChatService {
     this.activeGroups.delete(Number(groupId));
   }
 
-  startHeartbeat() {
-    this.stopHeartbeat();
-    this.missedHeartbeats = 0;
-    
-    console.log("[GroupChatService] 💓 Starting heartbeat");
-    
-    // Send ping every 30 seconds
-    this.heartbeatInterval = setInterval(() => {
-      if (this.ws?.readyState === WebSocket.OPEN) {
-        try {
-          this.ws.send(JSON.stringify({ type: "ping" }));
-          console.log("[GroupChatService] 💓 Ping sent");
-          
-          // Expect pong or any message within 10 seconds
-          this.heartbeatTimeout = setTimeout(() => {
-            const timeSinceLastMessage = Date.now() - this.lastMessageTime;
-            
-            if (timeSinceLastMessage > 10000) {
-              this.missedHeartbeats++;
-              console.warn(`[GroupChatService] ⚠️ Missed heartbeat ${this.missedHeartbeats}/${this.maxMissedHeartbeats}`);
-              
-              if (this.missedHeartbeats >= this.maxMissedHeartbeats) {
-                console.error("[GroupChatService] ❌ Connection appears dead, forcing reconnect");
-                this.ws.close(4000, "Heartbeat timeout"); // Custom close code
-              }
-            }
-          }, 10000);
-        } catch (error) {
-          console.error("[GroupChatService] Error sending ping:", error);
-        }
-      }
-    }, 30000);
-  }
-  
+  // startHeartbeat() {
+  //   this.stopHeartbeat();
+  //   this.missedHeartbeats = 0;
+
+  //   console.log("[GroupChatService] 💓 Starting heartbeat");
+
+  //   // Send ping every 30 seconds
+  //   this.heartbeatInterval = setInterval(() => {
+  //     if (this.ws?.readyState === WebSocket.OPEN) {
+  //       try {
+  //         this.ws.send(JSON.stringify({ type: "ping" }));
+  //         console.log("[GroupChatService] 💓 Ping sent");
+
+  //         // Expect pong or any message within 10 seconds
+  //         this.heartbeatTimeout = setTimeout(() => {
+  //           const timeSinceLastMessage = Date.now() - this.lastMessageTime;
+
+  //           if (timeSinceLastMessage > 10000) {
+  //             this.missedHeartbeats++;
+  //             console.warn(
+  //               `[GroupChatService] ⚠️ Missed heartbeat ${this.missedHeartbeats}/${this.maxMissedHeartbeats}`,
+  //             );
+
+  //             if (this.missedHeartbeats >= this.maxMissedHeartbeats) {
+  //               console.error(
+  //                 "[GroupChatService] ❌ Connection appears dead, forcing reconnect",
+  //               );
+  //               this.ws.close(4000, "Heartbeat timeout"); // Custom close code
+  //             }
+  //           }
+  //         }, 10000);
+  //       } catch (error) {
+  //         console.error("[GroupChatService] Error sending ping:", error);
+  //       }
+  //     }
+  //   }, 30000);
+  // }
+
   resetHeartbeat() {
     this.missedHeartbeats = 0;
     if (this.heartbeatTimeout) {
@@ -638,18 +690,18 @@ class GroupChatService {
       this.heartbeatTimeout = null;
     }
   }
-  
-  stopHeartbeat() {
-    if (this.heartbeatInterval) {
-      clearInterval(this.heartbeatInterval);
-      this.heartbeatInterval = null;
-      console.log("[GroupChatService] 💔 Heartbeat stopped");
-    }
-    if (this.heartbeatTimeout) {
-      clearTimeout(this.heartbeatTimeout);
-      this.heartbeatTimeout = null;
-    }
-  }
+
+  // stopHeartbeat() {
+  //   if (this.heartbeatInterval) {
+  //     clearInterval(this.heartbeatInterval);
+  //     this.heartbeatInterval = null;
+  //     console.log("[GroupChatService] 💔 Heartbeat stopped");
+  //   }
+  //   if (this.heartbeatTimeout) {
+  //     clearTimeout(this.heartbeatTimeout);
+  //     this.heartbeatTimeout = null;
+  //   }
+  // }
 
   close() {
     console.log("[GroupChatService] 🔌 Closing connection");

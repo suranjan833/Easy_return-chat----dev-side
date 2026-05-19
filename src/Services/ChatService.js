@@ -1,7 +1,11 @@
 import { toast } from "react-toastify";
 import ApiClient from "./DirectsmsApi"; // Import the configured ApiClient
 import { store } from "../redux/store";
-import { setRecentChats, clearUnreadCount, upsertRecentChat } from "../redux/slices/recentChatsSlice";
+import {
+  setRecentChats,
+  clearUnreadCount,
+  upsertRecentChat,
+} from "../redux/slices/recentChatsSlice";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "https://chatsupport.fskindia.com";
@@ -114,53 +118,60 @@ class ChatService {
       let apiProcessedChats = [];
       const rawConversations = rawChatsData?.conversations || [];
       const currentUserId = Number(this.userId);
-      
+
       if (Array.isArray(rawConversations)) {
-        apiProcessedChats = rawConversations.map((chat) => {
-          const lastMsg = chat.latest_message || {};
-          let otherParticipantId = chat.other_user?.id;
-          let senderId = lastMsg.sender_id;
-          let recipientId = null;
+        apiProcessedChats = rawConversations
+          .map((chat) => {
+            const lastMsg = chat.latest_message || {};
+            let otherParticipantId = chat.other_user?.id;
+            let senderId = lastMsg.sender_id;
+            let recipientId = null;
 
-          // Handle array of participants (admin view)
-          if (!otherParticipantId && Array.isArray(chat.other_user)) {
-            const participants = chat.other_user
-              .map((entry) => entry.sender || entry.recipient)
-              .filter(Boolean);
-            
-            // Extract sender and recipient IDs
-            const sender = participants.find((p) => Number(p.id) === Number(senderId));
-            const recipient = participants.find((p) => Number(p.id) !== Number(senderId));
-            
-            if (sender) senderId = sender.id;
-            if (recipient) recipientId = recipient.id;
-            
-            // Find the participant who isn't "me"
-            const other = participants.find((p) => Number(p.id) !== currentUserId);
-            otherParticipantId = other?.id;
-          } else {
-            // For flat structure, derive recipientId
-            recipientId = otherParticipantId;
-          }
+            // Handle array of participants (admin view)
+            if (!otherParticipantId && Array.isArray(chat.other_user)) {
+              const participants = chat.other_user
+                .map((entry) => entry.sender || entry.recipient)
+                .filter(Boolean);
 
-          return {
-            id: lastMsg.id,
-            recipient_id: recipientId || otherParticipantId,
-            sender_id: senderId,
-            last_message:
-              lastMsg.content || (lastMsg.attachment ? `📎 Attachment` : ""),
-            last_message_timestamp: lastMsg.timestamp,
-            unread_count: chat.unread_count || 0,
-          };
-        })
-        // ✅ Filter out conversations where current user is NOT a participant
-        .filter(c => {
-          if (!c.recipient_id || !c.sender_id) return false;
-          const sId = Number(c.sender_id);
-          const rId = Number(c.recipient_id);
-          // Only include if current user is either sender or recipient
-          return sId === currentUserId || rId === currentUserId;
-        });
+              // Extract sender and recipient IDs
+              const sender = participants.find(
+                (p) => Number(p.id) === Number(senderId),
+              );
+              const recipient = participants.find(
+                (p) => Number(p.id) !== Number(senderId),
+              );
+
+              if (sender) senderId = sender.id;
+              if (recipient) recipientId = recipient.id;
+
+              // Find the participant who isn't "me"
+              const other = participants.find(
+                (p) => Number(p.id) !== currentUserId,
+              );
+              otherParticipantId = other?.id;
+            } else {
+              // For flat structure, derive recipientId
+              recipientId = otherParticipantId;
+            }
+
+            return {
+              id: lastMsg.id,
+              recipient_id: recipientId || otherParticipantId,
+              sender_id: senderId,
+              last_message:
+                lastMsg.content || (lastMsg.attachment ? `📎 Attachment` : ""),
+              last_message_timestamp: lastMsg.timestamp,
+              unread_count: chat.unread_count || 0,
+            };
+          })
+          // ✅ Filter out conversations where current user is NOT a participant
+          .filter((c) => {
+            if (!c.recipient_id || !c.sender_id) return false;
+            const sId = Number(c.sender_id);
+            const rId = Number(c.recipient_id);
+            // Only include if current user is either sender or recipient
+            return sId === currentUserId || rId === currentUserId;
+          });
       }
 
       // 4. Merge API chats into currentRecentChats
@@ -360,12 +371,17 @@ class ChatService {
         const data = JSON.parse(event.data);
 
         console.log("[ChatService] ⬅️ RECEIVED from server:", data);
-        console.log("[ChatService] 📊 Current subscribers for 'new_message':", this.subscribers.get('new_message')?.size || 0);
+        console.log(
+          "[ChatService] 📊 Current subscribers for 'new_message':",
+          this.subscribers.get("new_message")?.size || 0,
+        );
 
         // Log server response specifically for sent messages (confirmation)
         if (
-          (data.type === "message" || data.type === "message_with_attachment") &&
-          (data.sender_id === this.userId || data?.data?.sender_id === this.userId)
+          (data.type === "message" ||
+            data.type === "message_with_attachment") &&
+          (data.sender_id === this.userId ||
+            data?.data?.sender_id === this.userId)
         ) {
           console.log("[ChatService] ✅ Server confirmed sent message:", data);
         }
@@ -383,7 +399,7 @@ class ChatService {
           data.type === "message_with_attachment" ||
           data.type === "message_reply" ||
           data.type === "forward_message" ||
-          data.type === "forward_to_dm"  // New: Handle group-to-DM forwards
+          data.type === "forward_to_dm" // New: Handle group-to-DM forwards
         ) {
           var payload = data.data || data;
 
@@ -393,7 +409,7 @@ class ChatService {
 
           // For legacy subscribers, calculate otherUserId relative to ME
           // but for admins watching 3rd party chats, we provide both
-          const otherUserId = (sId === mId) ? rId : sId;
+          const otherUserId = sId === mId ? rId : sId;
 
           this.notifySubscribers("new_message", {
             message: payload,
@@ -425,7 +441,10 @@ class ChatService {
                 const notification = new Notification(
                   `New Message from ${senderName}`,
                   {
-                    body: payload.content || payload.reply_content || "📎 Attachment",
+                    body:
+                      payload.content ||
+                      payload.reply_content ||
+                      "📎 Attachment",
                     icon: "/image1.png",
                     tag: `chat-${payload.id}`,
                   },
@@ -671,22 +690,28 @@ class ChatService {
 
   markAsRead(userId) {
     const uid = Number(userId);
-    const idx = this.recentChats.findIndex((c) => Number(c.recipient_id) === uid);
-    console.log(`[ChatService] 🔍 markAsRead(${userId}) → uid=${uid}, found at idx=${idx}, recentChats count=${this.recentChats.length}`);
-    
+    const idx = this.recentChats.findIndex(
+      (c) => Number(c.recipient_id) === uid,
+    );
+    console.log(
+      `[ChatService] 🔍 markAsRead(${userId}) → uid=${uid}, found at idx=${idx}, recentChats count=${this.recentChats.length}`,
+    );
+
     // Always dispatch to Redux to ensure UI consistency
     store.dispatch(clearUnreadCount(uid));
 
     if (idx >= 0) {
       const before = this.recentChats[idx].unread_count;
-      
+
       // Update immutably to avoid "read only property" errors
-      this.recentChats = this.recentChats.map((chat, i) => 
-        i === idx ? { ...chat, unread_count: 0 } : chat
+      this.recentChats = this.recentChats.map((chat, i) =>
+        i === idx ? { ...chat, unread_count: 0 } : chat,
       );
-      
-      console.log(`[ChatService] ✅ markAsRead: cleared unread_count (was ${before}) for recipient_id=${uid}, firing recent_chats_updated`);
-      
+
+      console.log(
+        `[ChatService] ✅ markAsRead: cleared unread_count (was ${before}) for recipient_id=${uid}, firing recent_chats_updated`,
+      );
+
       this.notifySubscribers("recent_chats_updated", {
         recentChats: this.recentChats,
       });
@@ -695,7 +720,10 @@ class ChatService {
         JSON.stringify(this.recentChats),
       );
     } else {
-      console.warn(`[ChatService] ⚠️ markAsRead: no entry found for userId=${userId} (uid=${uid}) in recentChats. IDs present:`, this.recentChats.map(c => c.recipient_id));
+      console.warn(
+        `[ChatService] ⚠️ markAsRead: no entry found for userId=${userId} (uid=${uid}) in recentChats. IDs present:`,
+        this.recentChats.map((c) => c.recipient_id),
+      );
     }
   }
 
