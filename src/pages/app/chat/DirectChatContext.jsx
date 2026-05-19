@@ -12,13 +12,19 @@ import {
 } from "react";
 import { toast } from "react-toastify";
 import { useDispatch, useSelector } from "react-redux";
-import { upsertRecentChat, incrementUnreadCount, clearUnreadCount } from "@/redux/slices/recentChatsSlice";
+import {
+  upsertRecentChat,
+  incrementUnreadCount,
+  clearUnreadCount,
+} from "@/redux/slices/recentChatsSlice";
 
 export const DirectChatContext = createContext(null);
 
 export function DirectChatProvider({ children }) {
   const dispatch = useDispatch();
-  const openChatPopups = useSelector((state) => state.chatPopups.openChatPopups);
+  const openChatPopups = useSelector(
+    (state) => state.chatPopups.openChatPopups,
+  );
   const openChatPopupsRef = useRef(openChatPopups);
 
   useEffect(() => {
@@ -44,7 +50,9 @@ export function DirectChatProvider({ children }) {
     // 1. Try to find by conversation id first (more specific)
     if (activeConversationId) {
       const activeConv = users.find(
-        (u) => u.conversation_id === activeConversationId || u.pairKey === activeConversationId
+        (u) =>
+          u.conversation_id === activeConversationId ||
+          u.pairKey === activeConversationId,
       );
       if (activeConv) {
         returnUser = activeConv.other_user;
@@ -54,7 +62,7 @@ export function DirectChatProvider({ children }) {
     // 2. Fallback to activeUserId if not found or no conversationId
     if (!returnUser && activeUserId) {
       const fromConversations = users.find(
-        (u) => u.other_user?.id === activeUserId
+        (u) => u.other_user?.id === activeUserId,
       );
       if (fromConversations) {
         returnUser = fromConversations.other_user;
@@ -65,46 +73,55 @@ export function DirectChatProvider({ children }) {
     }
 
     if (returnUser?.id) {
-       localStorage.setItem("active_user_id", returnUser.id);
+      localStorage.setItem("active_user_id", returnUser.id);
     }
 
     return returnUser;
   }, [users, allUsers, activeUserId, activeConversationId]);
 
-  const selectUser = useCallback(
-    (userId, convId) => {
-      const instanceId = 'popup'; // Will be enhanced later with unique ID
-      console.log(`[DirectChat:${instanceId}] 👉 selectUser(userId=${userId}, convId=${convId})`);
-      setActiveUserId(userId);
-      
-      let finalConvId = convId;
-      if (!finalConvId && userId) {
-        // Try to find existing conversation to get its pairKey/id
-        const existing = usersRef.current.find(u => u.other_user?.id === userId);
-        finalConvId = existing?.pairKey || existing?.conversation_id;
-        
-        // If still not found, create a pairKey from ME_ID and userId
-        if (!finalConvId) {
-          const ME_ID_local = parseInt(localStorage.getItem("userId")) || -1;
-          finalConvId = [ME_ID_local, userId].sort((a, b) => a - b).join("_");
-          console.log(`[DirectChat:${instanceId}] 🔑 Created pairKey from ME_ID and userId:`, finalConvId);
-        }
+  const selectUser = useCallback((userId, convId) => {
+    const instanceId = "popup"; // Will be enhanced later with unique ID
+    console.log(
+      `[DirectChat:${instanceId}] 👉 selectUser(userId=${userId}, convId=${convId})`,
+    );
+    setActiveUserId(userId);
+
+    let finalConvId = convId;
+    if (!finalConvId && userId) {
+      // Try to find existing conversation to get its pairKey/id
+      const existing = usersRef.current.find(
+        (u) => u.other_user?.id === userId,
+      );
+      finalConvId = existing?.pairKey || existing?.conversation_id;
+
+      // If still not found, create a pairKey from ME_ID and userId
+      if (!finalConvId) {
+        const ME_ID_local = parseInt(localStorage.getItem("userId")) || -1;
+        finalConvId = [ME_ID_local, userId].sort((a, b) => a - b).join("_");
+        console.log(
+          `[DirectChat:${instanceId}] 🔑 Created pairKey from ME_ID and userId:`,
+          finalConvId,
+        );
       }
-      
-      console.log(`[DirectChat:${instanceId}] 🎯 Setting activeConversationId:`, finalConvId);
-      setActiveConversationId(finalConvId || null);
-      setMessages([]);
-      messageSkipRef.current = 0;
-      setHasMore(false);
-      setMessagesStatus("loading");
-    },
-    [],
-  );
+    }
+
+    console.log(
+      `[DirectChat:${instanceId}] 🎯 Setting activeConversationId:`,
+      finalConvId,
+    );
+    setActiveConversationId(finalConvId || null);
+    setMessages([]);
+    messageSkipRef.current = 0;
+    setHasMore(false);
+    setMessagesStatus("loading");
+  }, []);
 
   // Ref so callbacks can always read the latest activeUser without being in deps
   const activeUserRef = useRef(activeUser);
   useEffect(() => {
-    console.log(`[DirectChat] 🔄 activeUserRef updated → id=${activeUser?.id ?? 'null'}`);
+    console.log(
+      `[DirectChat] 🔄 activeUserRef updated → id=${activeUser?.id ?? "null"}`,
+    );
     activeUserRef.current = activeUser;
   }, [activeUser]);
 
@@ -145,10 +162,7 @@ export function DirectChatProvider({ children }) {
   const [replyingTo, setReplyingTo] = useState(null);
   const [editingReply, setEditingReply] = useState(null);
 
-  const ME_ID = useMemo(
-    () => parseInt(localStorage.getItem("userId")) || -1,
-    [],
-  );
+  const ME_ID = parseInt(localStorage.getItem("userId"));
   const TOKEN = useMemo(() => localStorage.getItem("accessToken"), []);
 
   // Custom setter for replyToMessage to persist in localStorage
@@ -206,17 +220,26 @@ export function DirectChatProvider({ children }) {
     if (!activeConversationId) return;
 
     // Find the conversation to get unread count
-    const activeConv = users.find(c => c.conversation_id === activeConversationId || c.pairKey === activeConversationId);
+    const activeConv = users.find(
+      (c) =>
+        c.conversation_id === activeConversationId ||
+        c.pairKey === activeConversationId,
+    );
     if (!activeConv) return;
 
-    console.log(`[DirectChat] 📌 activeConversation changed → id=${activeConversationId}, unread_count=${activeConv.unread_count}`);
+    console.log(
+      `[DirectChat] 📌 activeConversation changed → id=${activeConversationId}, unread_count=${activeConv.unread_count}`,
+    );
 
-    setTotalUnreadCount((prev) => Math.max(0, prev - (activeConv.unread_count || 0)));
+    setTotalUnreadCount((prev) =>
+      Math.max(0, prev - (activeConv.unread_count || 0)),
+    );
 
     // update local users state to clear unread
     setUsers((prev) =>
       prev.map((conv) =>
-        (conv.conversation_id === activeConversationId || conv.pairKey === activeConversationId)
+        conv.conversation_id === activeConversationId ||
+        conv.pairKey === activeConversationId
           ? { ...conv, unread_count: 0 }
           : conv,
       ),
@@ -224,7 +247,7 @@ export function DirectChatProvider({ children }) {
 
     // Update ChatService
     if (activeConv.other_user?.id) {
-       chatService.markAsRead(activeConv.other_user.id);
+      chatService.markAsRead(activeConv.other_user.id);
     }
   }, [activeConversationId]);
 
@@ -277,13 +300,13 @@ export function DirectChatProvider({ children }) {
   const normalizeConversations = useCallback((convs) => {
     if (!Array.isArray(convs)) return convs;
     const ME_ID_local = parseInt(localStorage.getItem("userId")) || -1;
-    
+
     const seenConvs = new Set();
     const result = [];
 
     for (const conv of convs) {
       if (!conv) continue;
-      
+
       let sender = null;
       let recipient = null;
 
@@ -310,7 +333,9 @@ export function DirectChatProvider({ children }) {
 
       // ✅ Skip conversations where current user is NOT a participant
       if (id1 !== ME_ID_local && id2 !== ME_ID_local) {
-        console.log(`[DirectChat] 🚫 Skipping third-party conversation: ${id1} ↔ ${id2} (ME=${ME_ID_local})`);
+        console.log(
+          `[DirectChat] 🚫 Skipping third-party conversation: ${id1} ↔ ${id2} (ME=${ME_ID_local})`,
+        );
         continue;
       }
 
@@ -320,8 +345,9 @@ export function DirectChatProvider({ children }) {
       seenConvs.add(uniqueKey);
 
       // Determine who to display as "other_user"
-      const otherUser = (id1 !== ME_ID_local ? sender : recipient) || recipient || sender || {};
-      
+      const otherUser =
+        (id1 !== ME_ID_local ? sender : recipient) || recipient || sender || {};
+
       const isAdminView = false; // No longer needed since we filter out third-party chats
       const displayName = `${otherUser.first_name || "User"} ${otherUser.last_name || ""}`;
 
@@ -339,35 +365,44 @@ export function DirectChatProvider({ children }) {
     return result;
   }, []);
 
-  const handleInitialData = useCallback((data) => {
-    const normalized = normalizeConversations(data.users);
-    setUsers(normalized);
-    setFilteredUsers(normalized);
-    if (data.recentChats) {
-      // Deduplicate by participant-pair, keep most recent
-      const seenPairs = new Set();
-      const deduped = data.recentChats
-        .sort((a, b) => new Date(b.last_message_timestamp) - new Date(a.last_message_timestamp))
-        .filter((c) => {
-          if (!c.recipient_id || !c.sender_id) return false;
-          
-          // ✅ Filter out conversations where current user is NOT a participant
-          const sId = Number(c.sender_id);
-          const rId = Number(c.recipient_id);
-          if (sId !== ME_ID && rId !== ME_ID) {
-            console.log(`[DirectChat] 🚫 Filtering out third-party recent chat: ${sId} ↔ ${rId}`);
-            return false;
-          }
-          
-          const pairKey = [sId, rId].sort((a, b) => a - b).join("_");
-          if (seenPairs.has(pairKey)) return false;
-          seenPairs.add(pairKey);
-          return true;
-        });
-      setRecentChats(deduped);
-    }
-    setTotalUnreadCount(data.totalUnreadCount || 0);
-  }, [normalizeConversations, ME_ID]);
+  const handleInitialData = useCallback(
+    (data) => {
+      const normalized = normalizeConversations(data.users);
+      setUsers(normalized);
+      setFilteredUsers(normalized);
+      if (data.recentChats) {
+        // Deduplicate by participant-pair, keep most recent
+        const seenPairs = new Set();
+        const deduped = data.recentChats
+          .sort(
+            (a, b) =>
+              new Date(b.last_message_timestamp) -
+              new Date(a.last_message_timestamp),
+          )
+          .filter((c) => {
+            if (!c.recipient_id || !c.sender_id) return false;
+
+            // ✅ Filter out conversations where current user is NOT a participant
+            const sId = Number(c.sender_id);
+            const rId = Number(c.recipient_id);
+            if (sId !== ME_ID && rId !== ME_ID) {
+              console.log(
+                `[DirectChat] 🚫 Filtering out third-party recent chat: ${sId} ↔ ${rId}`,
+              );
+              return false;
+            }
+
+            const pairKey = [sId, rId].sort((a, b) => a - b).join("_");
+            if (seenPairs.has(pairKey)) return false;
+            seenPairs.add(pairKey);
+            return true;
+          });
+        setRecentChats(deduped);
+      }
+      setTotalUnreadCount(data.totalUnreadCount || 0);
+    },
+    [normalizeConversations, ME_ID],
+  );
 
   const handleConnection = useCallback((data) => {
     setConnectionStatus(data.status);
@@ -382,42 +417,49 @@ export function DirectChatProvider({ children }) {
 
   const handleNewMessage = useCallback(
     (data) => {
-      console.log('[DirectChat] 🎯 handleNewMessage CALLED with data:', data);
-      
+      console.log("[DirectChat] 🎯 handleNewMessage CALLED with data:", data);
+
       const { message } = data;
       const sId = Number(message.sender_id);
       const rId = Number(message.recipient_id);
-      
-      console.log('[DirectChat] 📊 Message details:', {
+
+      console.log("[DirectChat] 📊 Message details:", {
         messageId: message.id,
         sId,
         rId,
         ME_ID,
         content: message.content?.substring(0, 50),
       });
-      
+
       // Use both sender and recipient for a robust pairKey (handles admin view correctly)
       const pairKey = [sId, rId].sort((a, b) => a - b).join("_");
-      console.log('[DirectChat] 🔑 pairKey:', pairKey);
-      
+      console.log("[DirectChat] 🔑 pairKey:", pairKey);
+
       // Determine otherUserId relative to ME, or fallback if admin
-      const otherUserId = (sId === ME_ID) ? rId : sId;
+      const otherUserId = sId === ME_ID ? rId : sId;
 
       // Update recent chats for all messages
       setRecentChats((prev) => {
         const next = [...prev];
-        
+
         // ✅ Skip if current user is not a participant
         if (sId !== ME_ID && rId !== ME_ID) {
-          console.log(`[DirectChat] 🚫 Skipping recent chat update for third-party message: ${sId} → ${rId}`);
+          console.log(
+            `[DirectChat] 🚫 Skipping recent chat update for third-party message: ${sId} → ${rId}`,
+          );
           return prev;
         }
-        
+
         const idx = next.findIndex((c) => {
-          const cPairKey = [Number(c.sender_id || 0), Number(c.recipient_id || 0)].sort((a, b) => a - b).join("_");
+          const cPairKey = [
+            Number(c.sender_id || 0),
+            Number(c.recipient_id || 0),
+          ]
+            .sort((a, b) => a - b)
+            .join("_");
           return cPairKey === pairKey;
         });
-        
+
         const newChatEntry = {
           id: message.id,
           recipient_id: rId,
@@ -431,12 +473,15 @@ export function DirectChatProvider({ children }) {
         if (idx >= 0) {
           const existing = next[idx];
           // Only update if this message is newer
-          if (new Date(message.timestamp) >= new Date(existing.last_message_timestamp || 0)) {
+          if (
+            new Date(message.timestamp) >=
+            new Date(existing.last_message_timestamp || 0)
+          ) {
             next[idx] = { ...existing, ...newChatEntry };
           }
           return next;
         }
-        
+
         next.unshift(newChatEntry);
         return next;
       });
@@ -444,34 +489,42 @@ export function DirectChatProvider({ children }) {
       // Dispatch to Redux store for sidebar
       // ✅ Only dispatch if current user is a participant
       if (sId === ME_ID || rId === ME_ID) {
-        dispatch(upsertRecentChat({
-          recipient_id: rId,
-          sender_id: sId,
-          last_message: message.content || (message.attachment ? `📎 ${message.attachment}` : ""),
-          last_message_timestamp: message.timestamp,
-          unread_count: undefined, // Will be handled separately
-        }));
+        dispatch(
+          upsertRecentChat({
+            recipient_id: rId,
+            sender_id: sId,
+            last_message:
+              message.content ||
+              (message.attachment ? `📎 ${message.attachment}` : ""),
+            last_message_timestamp: message.timestamp,
+            unread_count: undefined, // Will be handled separately
+          }),
+        );
       }
 
       const currentActiveConvId = activeConversationIdRef.current;
-      const activeConv = usersRef.current.find(u => u.conversation_id === currentActiveConvId || u.pairKey === currentActiveConvId);
-      
-      console.log('[DirectChat] 🔍 Active conversation check:', {
+      const activeConv = usersRef.current.find(
+        (u) =>
+          u.conversation_id === currentActiveConvId ||
+          u.pairKey === currentActiveConvId,
+      );
+
+      console.log("[DirectChat] 🔍 Active conversation check:", {
         currentActiveConvId,
         activeConvPairKey: activeConv?.pairKey,
         messagePairKey: pairKey,
         match: activeConv?.pairKey === pairKey,
       });
-      
+
       const isPopupOpen = openChatPopupsRef.current?.some((p) => {
         const pId = Number(p.user?.id);
         return pId === sId || pId === rId;
       });
-      
+
       const isActiveMainWindow = activeConv?.pairKey === pairKey;
       const isActiveThread = isActiveMainWindow || isPopupOpen;
-      
-      console.log('[DirectChat] 🎯 Thread status:', {
+
+      console.log("[DirectChat] 🎯 Thread status:", {
         isActiveMainWindow,
         isPopupOpen,
         isActiveThread,
@@ -481,11 +534,15 @@ export function DirectChatProvider({ children }) {
         // Mark as read on server
         const idToMark = message.message_id || message.id;
         if (idToMark) {
-          chatService.sendMessage({ type: "update_status", message_id: idToMark, status: "read" });
+          chatService.sendMessage({
+            type: "update_status",
+            message_id: idToMark,
+            status: "read",
+          });
         }
-        
+
         if (isPopupOpen) {
-          const targetPopupId = (sId === ME_ID) ? rId : sId;
+          const targetPopupId = sId === ME_ID ? rId : sId;
           dispatch(clearUnreadCount(targetPopupId));
         }
       } else if (sId !== ME_ID) {
@@ -499,9 +556,10 @@ export function DirectChatProvider({ children }) {
           if (conv.pairKey === pairKey) {
             found = true;
 
-            const newUnreadCount = (sId !== ME_ID && !isActiveThread)
-              ? (conv.unread_count || 0) + 1
-              : 0;
+            const newUnreadCount =
+              sId !== ME_ID && !isActiveThread
+                ? (conv.unread_count || 0) + 1
+                : 0;
 
             return {
               ...conv,
@@ -524,15 +582,24 @@ export function DirectChatProvider({ children }) {
         if (!found) {
           // ✅ Only create new conversation if current user is a participant
           const isParticipant = sId === ME_ID || rId === ME_ID;
-          
+
           if (!isParticipant) {
-            console.log(`[DirectChat] 🚫 Ignoring third-party message: ${sId} → ${rId} (ME=${ME_ID})`);
+            console.log(
+              `[DirectChat] 🚫 Ignoring third-party message: ${sId} → ${rId} (ME=${ME_ID})`,
+            );
             return updated; // Don't add this conversation
           }
 
-          const sender = allUsers.find((u) => u.id === sId) || { id: sId, first_name: "User" };
-          const recipient = allUsers.find((u) => u.id === rId) || { id: rId, first_name: "User" };
-          const otherUser = (sId !== ME_ID ? sender : recipient) || recipient || sender;
+          const sender = allUsers.find((u) => u.id === sId) || {
+            id: sId,
+            first_name: "User",
+          };
+          const recipient = allUsers.find((u) => u.id === rId) || {
+            id: rId,
+            first_name: "User",
+          };
+          const otherUser =
+            (sId !== ME_ID ? sender : recipient) || recipient || sender;
 
           const isAdminView = false; // No longer needed
           const displayName = `${otherUser.first_name} ${otherUser.last_name || ""}`;
@@ -547,8 +614,7 @@ export function DirectChatProvider({ children }) {
             displayName: displayName,
             latest_message: {
               content:
-                message.content ||
-                (message.attachment ? "📎 Attachment" : ""),
+                message.content || (message.attachment ? "📎 Attachment" : ""),
               timestamp: message.timestamp,
               sender_id: sId,
             },
@@ -563,10 +629,14 @@ export function DirectChatProvider({ children }) {
           const t2 = new Date(b.latest_message?.timestamp || 0).getTime();
           return t2 - t1;
         });
-        
+
         const seenPairs = new Set();
         return sorted.filter((conv) => {
-          const key = conv.pairKey || (conv.other_user?.id ? [ME_ID, conv.other_user.id].sort((a,b)=>a-b).join("_") : null);
+          const key =
+            conv.pairKey ||
+            (conv.other_user?.id
+              ? [ME_ID, conv.other_user.id].sort((a, b) => a - b).join("_")
+              : null);
           if (!key) return true;
           if (seenPairs.has(key)) return false;
           seenPairs.add(key);
@@ -581,52 +651,88 @@ export function DirectChatProvider({ children }) {
 
       // Append to open thread if relevant (main window)
       if (isActiveMainWindow) {
-        console.log('[DirectChat] ✅ Message is for active window, adding to messages');
+        console.log(
+          "[DirectChat] ✅ Message is for active window, adding to messages",
+        );
         setMessages((prev) => {
-          console.log('[DirectChat] 📝 Current messages count:', prev.length);
-          
+          console.log("[DirectChat] 📝 Current messages count:", prev.length);
+
           // Check if this is a server confirmation of a temp message
-          const tempMsg = prev.find(m => 
-            typeof m.id === 'string' && 
-            m.id.startsWith('temp-') &&
-            Number(m.sender_id) === Number(message.sender_id) &&
-            Number(m.recipient_id) === Number(message.recipient_id) &&
-            Math.abs(new Date(m.timestamp) - new Date(message.timestamp)) < 5000 // Within 5 seconds
+          const tempMsg = prev.find(
+            (m) =>
+              typeof m.id === "string" &&
+              m.id.startsWith("temp-") &&
+              Number(m.sender_id) === Number(message.sender_id) &&
+              Number(m.recipient_id) === Number(message.recipient_id) &&
+              Math.abs(new Date(m.timestamp) - new Date(message.timestamp)) <
+                5000, // Within 5 seconds
           );
-          
+
           if (tempMsg) {
-            console.log('[DirectChat] 🔄 Replacing temp message', tempMsg.id, 'with real message', message.id);
+            console.log(
+              "[DirectChat] 🔄 Replacing temp message",
+              tempMsg.id,
+              "with real message",
+              message.id,
+            );
             // Replace temp message with real one
-            return prev.map(m => m.id === tempMsg.id ? {
-              ...message,
-              timestamp: message.timestamp || message.created_at || new Date().toISOString(),
-              forwarded: message.forwarded === true || message.forwarded_from_message_id !== undefined,
-            } : m).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+            return prev
+              .map((m) =>
+                m.id === tempMsg.id
+                  ? {
+                      ...message,
+                      timestamp:
+                        message.timestamp ||
+                        message.created_at ||
+                        new Date().toISOString(),
+                      forwarded:
+                        message.forwarded === true ||
+                        message.forwarded_from_message_id !== undefined,
+                    }
+                  : m,
+              )
+              .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
           }
-          
+
           // Check for exact duplicate
           const exists = prev.some((m) => m.id === message.id);
           if (exists) {
-            console.log('[DirectChat] ⏭️ Skipping duplicate message:', message.id);
+            console.log(
+              "[DirectChat] ⏭️ Skipping duplicate message:",
+              message.id,
+            );
             return prev;
           }
 
-          console.log('[DirectChat] ➕ Adding new message to thread:', message.id);
+          console.log(
+            "[DirectChat] ➕ Adding new message to thread:",
+            message.id,
+          );
           const newMsg = {
             ...message,
-            timestamp: message.timestamp || message.created_at || new Date().toISOString(),
-            forwarded: message.forwarded === true || message.forwarded_from_message_id !== undefined,
+            timestamp:
+              message.timestamp ||
+              message.created_at ||
+              new Date().toISOString(),
+            forwarded:
+              message.forwarded === true ||
+              message.forwarded_from_message_id !== undefined,
           };
 
           const updated = [...prev, newMsg].sort(
             (a, b) => new Date(a.timestamp) - new Date(b.timestamp),
           );
-          
-          console.log('[DirectChat] 📝 Updated messages count:', updated.length);
+
+          console.log(
+            "[DirectChat] 📝 Updated messages count:",
+            updated.length,
+          );
           return updated;
         });
       } else {
-        console.log('[DirectChat] ❌ Message NOT for active window, skipping UI update');
+        console.log(
+          "[DirectChat] ❌ Message NOT for active window, skipping UI update",
+        );
       }
     },
     [ME_ID, allUsers, dispatch],
@@ -640,7 +746,10 @@ export function DirectChatProvider({ children }) {
       setMessages((prev) =>
         prev.map((m) => {
           // Mark the specific message and all previous messages from the same sender as read
-          if (m.id === data.message_id || (m.id < data.message_id && m.sender_id === ME_ID)) {
+          if (
+            m.id === data.message_id ||
+            (m.id < data.message_id && m.sender_id === ME_ID)
+          ) {
             return { ...m, read: true, read_at: readAt, delivered: true };
           }
           return m;
@@ -650,20 +759,29 @@ export function DirectChatProvider({ children }) {
       // Clear unread count for the active conversation in sidebar lists
       const currentActiveUser = activeUserRef.current;
       const openPopups = openChatPopupsRef.current || [];
-      
+
       // Determine which user(s) need clearing
       const activeIds = new Set();
       if (currentActiveUser?.id) activeIds.add(Number(currentActiveUser.id));
-      openPopups.forEach(p => { if (p.user?.id) activeIds.add(Number(p.user.id)); });
+      openPopups.forEach((p) => {
+        if (p.user?.id) activeIds.add(Number(p.user.id));
+      });
 
-      console.log(`[DirectChat] 👤 activeUserRef.current at status update:`, currentActiveUser?.id ?? 'null', 'Active IDs in popups:', Array.from(activeIds));
+      console.log(
+        `[DirectChat] 👤 activeUserRef.current at status update:`,
+        currentActiveUser?.id ?? "null",
+        "Active IDs in popups:",
+        Array.from(activeIds),
+      );
 
       if (activeIds.size > 0) {
         setUsers((prev) =>
           prev.map((conv) => {
             if (!activeIds.has(Number(conv.other_user?.id))) return conv;
             const cleared = conv.unread_count || 0;
-            console.log(`[DirectChat] 🧹 clearing unread_count=${cleared} for user=${conv.other_user.id} in users state`);
+            console.log(
+              `[DirectChat] 🧹 clearing unread_count=${cleared} for user=${conv.other_user.id} in users state`,
+            );
             setTotalUnreadCount((t) => Math.max(0, t - cleared));
             return { ...conv, unread_count: 0 };
           }),
@@ -671,17 +789,23 @@ export function DirectChatProvider({ children }) {
         setRecentChats((prev) =>
           prev.map((chat) => {
             if (!chat.recipient_id || !chat.sender_id) return chat;
-            const isMatch = activeIds.has(Number(chat.recipient_id)) || activeIds.has(Number(chat.sender_id));
+            const isMatch =
+              activeIds.has(Number(chat.recipient_id)) ||
+              activeIds.has(Number(chat.sender_id));
             return isMatch ? { ...chat, unread_count: 0 } : chat;
           }),
         );
         // Update ChatService singleton so Sidebar receives recent_chats_updated
-        activeIds.forEach(id => {
-          console.log(`[DirectChat] 🔔 calling chatService.markAsRead(${id}) from handleStatusUpdate`);
+        activeIds.forEach((id) => {
+          console.log(
+            `[DirectChat] 🔔 calling chatService.markAsRead(${id}) from handleStatusUpdate`,
+          );
           chatService.markAsRead(id);
         });
       } else {
-        console.warn(`[DirectChat] ⚠️ handleStatusUpdate: No active users/popups found — sidebar will NOT be updated`);
+        console.warn(
+          `[DirectChat] ⚠️ handleStatusUpdate: No active users/popups found — sidebar will NOT be updated`,
+        );
       }
     },
     [ME_ID],
@@ -691,9 +815,14 @@ export function DirectChatProvider({ children }) {
     (data) => {
       // Renamed to avoid conflict with handleTyping action
       const { sender_id, recipient_id, status } = data;
-      if (recipient_id === ME_ID) {
+      if (
+        Number(recipient_id) === Number(ME_ID) &&
+        Number(sender_id) === Number(activeUserRef.current?.id)
+      ) {
         if (status === "started") {
-          const conv = users.find((c) => Number(c.other_user?.id) === Number(sender_id));
+          const conv = users.find(
+            (c) => Number(c.other_user?.id) === Number(sender_id),
+          );
           const name = conv?.other_user
             ? `${conv.other_user.first_name} ${conv.other_user.last_name || ""}`
             : "User";
@@ -740,12 +869,20 @@ export function DirectChatProvider({ children }) {
     const deleteId = message_id || reply_id;
 
     setMessages((prev) =>
-      prev.map((m) => (m.id === deleteId ? { ...m, is_deleted: true, content: "", reply_content: "" } : m)),
+      prev.map((m) =>
+        m.id === deleteId
+          ? { ...m, is_deleted: true, content: "", reply_content: "" }
+          : m,
+      ),
     );
-    
+
     // Also update hidden messages if the deleted message is there
     setHiddenMessages((prev) =>
-      prev.map((m) => (m.id === deleteId ? { ...m, is_deleted: true, content: "", reply_content: "" } : m)),
+      prev.map((m) =>
+        m.id === deleteId
+          ? { ...m, is_deleted: true, content: "", reply_content: "" }
+          : m,
+      ),
     );
   }, []);
 
@@ -768,7 +905,8 @@ export function DirectChatProvider({ children }) {
             id: lastMsg.id,
             recipient_id: chat.other_user?.id,
             last_message:
-              lastMsg.content || (lastMsg.attachment ? `📎 ${lastMsg.attachment}` : ""),
+              lastMsg.content ||
+              (lastMsg.attachment ? `📎 ${lastMsg.attachment}` : ""),
             last_message_timestamp: lastMsg.timestamp,
             sender_id: lastMsg.sender_id,
           };
@@ -777,18 +915,24 @@ export function DirectChatProvider({ children }) {
         // Deduplicate by participant-pair, keep most recent
         const seenPairs = new Set();
         const deduped = chats
-          .sort((a, b) => new Date(b.last_message_timestamp) - new Date(a.last_message_timestamp))
+          .sort(
+            (a, b) =>
+              new Date(b.last_message_timestamp) -
+              new Date(a.last_message_timestamp),
+          )
           .filter((c) => {
             if (!c.recipient_id || !c.sender_id) return false;
-            
+
             // ✅ Filter out conversations where current user is NOT a participant
             const sId = Number(c.sender_id);
             const rId = Number(c.recipient_id);
             if (sId !== ME_ID && rId !== ME_ID) {
-              console.log(`[DirectChat] 🚫 Filtering out third-party chat in initial fetch: ${sId} ↔ ${rId}`);
+              console.log(
+                `[DirectChat] 🚫 Filtering out third-party chat in initial fetch: ${sId} ↔ ${rId}`,
+              );
               return false;
             }
-            
+
             const pairKey = [sId, rId].sort((a, b) => a - b).join("_");
             if (seenPairs.has(pairKey)) return false;
             seenPairs.add(pairKey);
@@ -814,14 +958,19 @@ export function DirectChatProvider({ children }) {
 
   // Effect for chat service subscriptions
   useEffect(() => {
-    console.log('[DirectChat] 🔧 Setting up ChatService subscriptions, ME_ID:', ME_ID, 'TOKEN:', TOKEN ? 'present' : 'missing');
-    
+    console.log(
+      "[DirectChat] 🔧 Setting up ChatService subscriptions, ME_ID:",
+      ME_ID,
+      "TOKEN:",
+      TOKEN ? "present" : "missing",
+    );
+
     if (!ME_ID || !TOKEN || isNaN(ME_ID)) {
-      console.warn('[DirectChat] ⚠️ Cannot subscribe - invalid ME_ID or TOKEN');
+      console.warn("[DirectChat] ⚠️ Cannot subscribe - invalid ME_ID or TOKEN");
       return;
     }
 
-    console.log('[DirectChat] ✅ Subscribing to ChatService events');
+    console.log("[DirectChat] ✅ Subscribing to ChatService events");
     chatService.subscribe("initial_data", handleInitialData);
     chatService.subscribe("connection", handleConnection);
     chatService.subscribe("new_message", handleNewMessage);
@@ -832,13 +981,15 @@ export function DirectChatProvider({ children }) {
     chatService.subscribe("message_delete", handleMessageDelete);
     chatService.subscribe("update_status", handleStatusUpdate);
 
-    console.log('[DirectChat] 📊 Subscription complete, checking current state...');
+    console.log(
+      "[DirectChat] 📊 Subscription complete, checking current state...",
+    );
     const currentUsers = chatService.getUsers();
     const currentChats = chatService.getRecentChats();
     const currentStatus = chatService.getConnectionStatus();
     const currentAllUsers = chatService.getAllUsers();
-    
-    console.log('[DirectChat] 📊 Current ChatService state:', {
+
+    console.log("[DirectChat] 📊 Current ChatService state:", {
       usersCount: currentUsers.length,
       chatsCount: currentChats.length,
       status: currentStatus,
@@ -913,8 +1064,12 @@ export function DirectChatProvider({ children }) {
     });
 
     const sorted = [...base].sort((a, b) => {
-      const chatA = recentChats.find((c) => c.recipient_id === a.other_user?.id);
-      const chatB = recentChats.find((c) => c.recipient_id === b.other_user?.id);
+      const chatA = recentChats.find(
+        (c) => c.recipient_id === a.other_user?.id,
+      );
+      const chatB = recentChats.find(
+        (c) => c.recipient_id === b.other_user?.id,
+      );
       const timeA = chatA?.last_message_timestamp
         ? new Date(chatA.last_message_timestamp).getTime()
         : 0;
@@ -933,12 +1088,17 @@ export function DirectChatProvider({ children }) {
 
     // Derive the two participant IDs from the conversation object.
     const activeConv = users.find(
-      (u) => u.conversation_id === activeConversationId || u.pairKey === activeConversationId
+      (u) =>
+        u.conversation_id === activeConversationId ||
+        u.pairKey === activeConversationId,
     );
     let userId1 = ME_ID;
     let userId2 = activeUser.id;
 
-    if (activeConv?.conversation_id && String(activeConv.conversation_id).includes("_")) {
+    if (
+      activeConv?.conversation_id &&
+      String(activeConv.conversation_id).includes("_")
+    ) {
       const parts = String(activeConv.conversation_id).split("_").map(Number);
       if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
         [userId1, userId2] = parts;
@@ -955,13 +1115,16 @@ export function DirectChatProvider({ children }) {
     let isCancelled = false;
     let intervalId = null;
 
-
-
     const fetchMessages = async () => {
       setIsInitialLoading(true);
       try {
         messageSkipRef.current = 0;
-        const serverMessages = await getDirectMessages(userId1, userId2, 0, PAGE_LIMIT);
+        const serverMessages = await getDirectMessages(
+          userId1,
+          userId2,
+          0,
+          PAGE_LIMIT,
+        );
         if (isCancelled) return;
 
         setHasMore(serverMessages.length === PAGE_LIMIT);
@@ -1033,14 +1196,20 @@ export function DirectChatProvider({ children }) {
           opponentMsgs[opponentMsgs.length - 1].type === "message" &&
           opponentMsgs[opponentMsgs.length - 1].read === false
         ) {
-          console.log(`[DirectChat] 📨 fetchMessages: unread messages found for user=${activeUser.id}, calling markAsRead`);
+          console.log(
+            `[DirectChat] 📨 fetchMessages: unread messages found for user=${activeUser.id}, calling markAsRead`,
+          );
           markMessageAsRead(opponentMsgs[opponentMsgs.length - 1].id);
           chatService.markAllRead(activeUser.id);
           // Update ChatService singleton so Sidebar badge clears immediately
-          console.log(`[DirectChat] 🔔 calling chatService.markAsRead(${activeUser.id}) from fetchMessages`);
+          console.log(
+            `[DirectChat] 🔔 calling chatService.markAsRead(${activeUser.id}) from fetchMessages`,
+          );
           chatService.markAsRead(activeUser.id);
         } else {
-          console.log(`[DirectChat] ✅ fetchMessages: no unread messages for user=${activeUser.id}, skipping markAsRead`);
+          console.log(
+            `[DirectChat] ✅ fetchMessages: no unread messages for user=${activeUser.id}, skipping markAsRead`,
+          );
         }
       } catch (err) {
         if (!isCancelled) console.error(err);
@@ -1071,7 +1240,12 @@ export function DirectChatProvider({ children }) {
 
     setIsLoadingMore(true);
     try {
-      const newer = await getDirectMessages(ME_ID, activeUser.id, messageSkipRef.current, PAGE_LIMIT);
+      const newer = await getDirectMessages(
+        ME_ID,
+        activeUser.id,
+        messageSkipRef.current,
+        PAGE_LIMIT,
+      );
       if (newer.length === 0) {
         setHasMore(false);
         return;
@@ -1168,9 +1342,9 @@ export function DirectChatProvider({ children }) {
       type: "forward_message",
       message_id: messageId,
       recipient_id: recipientId,
-      source_type: "dm"
+      source_type: "dm",
     });
-    
+
     toast.success("Message forwarded");
   }, []);
 
@@ -1181,19 +1355,24 @@ export function DirectChatProvider({ children }) {
     }
 
     // Import GroupChatService dynamically to avoid circular dependencies
-    import("../../../Services/GroupChatService").then(({ default: groupChatService }) => {
-      // Forward DM to Group - always creates root message
-      const payload = {
-        type: "forward_message",
-        message_id: message.id,
-        target_group_id: targetGroupId,
-        source_type: "dm"
-      };
-      
-      console.log("[Forward] DM → Group payload:", JSON.stringify(payload, null, 2));
-      groupChatService.sendMessage(payload);
-      toast.success("Message forwarded to group");
-    });
+    import("../../../Services/GroupChatService").then(
+      ({ default: groupChatService }) => {
+        // Forward DM to Group - always creates root message
+        const payload = {
+          type: "forward_message",
+          message_id: message.id,
+          target_group_id: targetGroupId,
+          source_type: "dm",
+        };
+
+        console.log(
+          "[Forward] DM → Group payload:",
+          JSON.stringify(payload, null, 2),
+        );
+        groupChatService.sendMessage(payload);
+        toast.success("Message forwarded to group");
+      },
+    );
   }, []);
 
   const sendMessage = useCallback(
@@ -1220,9 +1399,12 @@ export function DirectChatProvider({ children }) {
       if (editingMessageId) {
         // Find the message to determine if it's a reply or regular message
         const messageToEdit = messages.find((m) => m.id === editingMessageId);
-        
+
         if (messageToEdit) {
-          if (messageToEdit.type === "message_reply" || messageToEdit.reply_content) {
+          if (
+            messageToEdit.type === "message_reply" ||
+            messageToEdit.reply_content
+          ) {
             // It's a reply, send edit_reply
             chatService.sendMessage({
               type: "edit_reply",
@@ -1382,8 +1564,10 @@ export function DirectChatProvider({ children }) {
     // For attachment messages, only edit the text caption — not the "File: filename" content
     const isAttachment = !!message.attachment;
     const caption = isAttachment
-      ? (message.content?.startsWith("File:") ? "" : message.content || "")
-      : (message.content || message.reply_content || "");
+      ? message.content?.startsWith("File:")
+        ? ""
+        : message.content || ""
+      : message.content || message.reply_content || "";
     setEditContent(caption);
     setReplyingTo(null);
     setEditingReply(null);
@@ -1489,12 +1673,22 @@ export function DirectChatProvider({ children }) {
 
       // Find the message to determine if it's a reply or regular message
       const messageToDelete = messages.find((m) => m.id === messageId);
-      
+
       if (messageToDelete) {
-        if (deleteType === "delete_reply" || messageToDelete.type === "message_reply" || messageToDelete.type === "reply") {
-          chatService.sendMessage({ type: "delete_reply", reply_id: messageId });
+        if (
+          deleteType === "delete_reply" ||
+          messageToDelete.type === "message_reply" ||
+          messageToDelete.type === "reply"
+        ) {
+          chatService.sendMessage({
+            type: "delete_reply",
+            reply_id: messageId,
+          });
         } else {
-          chatService.sendMessage({ type: "delete_message", message_id: messageId });
+          chatService.sendMessage({
+            type: "delete_message",
+            message_id: messageId,
+          });
         }
       }
 

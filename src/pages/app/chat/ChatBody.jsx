@@ -30,9 +30,8 @@ const ChatBody = ({ id, mobileView, setMobileView, setSelectedId }) => {
   const groupChat = useContext(GroupChatContext);
 
   const dispatch = useDispatch();
-  const { openChatPopups, openGroupChatPopups, openSupportChatPopups } = useSelector(
-    (state) => state.chatPopups
-  );
+  const { openChatPopups, openGroupChatPopups, openSupportChatPopups } =
+    useSelector((state) => state.chatPopups);
 
   const [chat, setChat] = chatState;
   const [Uchat, setUchat] = useState({});
@@ -67,7 +66,7 @@ const ChatBody = ({ id, mobileView, setMobileView, setSelectedId }) => {
       const container = messagesContainerRef.current;
       container.scrollTo({
         top: container.scrollHeight,
-        behavior: instant ? "auto" : "smooth"
+        behavior: instant ? "auto" : "smooth",
       });
     }
   };
@@ -77,7 +76,9 @@ const ChatBody = ({ id, mobileView, setMobileView, setSelectedId }) => {
     if (el) {
       el.scrollIntoView({ behavior: "smooth", block: "center" });
       el.style.backgroundColor = "rgba(255, 193, 7, 0.3)";
-      setTimeout(() => { el.style.backgroundColor = ""; }, 2000);
+      setTimeout(() => {
+        el.style.backgroundColor = "";
+      }, 2000);
     }
   };
 
@@ -89,7 +90,8 @@ const ChatBody = ({ id, mobileView, setMobileView, setSelectedId }) => {
   // ── Linkify ─────────────────────────────────────────────────────────────────
   const linkifyText = (text) => {
     if (!text) return text;
-    const urlRegex = /\b((https?:\/\/|www\.)[^\s]+|[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}[^\s]*)/gi;
+    const urlRegex =
+      /\b((https?:\/\/|www\.)[^\s]+|[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}[^\s]*)/gi;
     const elements = [];
     let lastIndex = 0;
     let match;
@@ -99,10 +101,22 @@ const ChatBody = ({ id, mobileView, setMobileView, setSelectedId }) => {
       if (start > lastIndex) elements.push(text.substring(lastIndex, start));
       const href = url.startsWith("http") ? url : `https://${url}`;
       elements.push(
-        <span key={start} style={{ color: "#0d6efd", textDecoration: "underline", cursor: "pointer", wordBreak: "break-word" }}
-          onClick={(e) => { e.stopPropagation(); const t = window.open(href, "_blank", "noopener,noreferrer"); if (t) t.focus(); }}>
+        <span
+          key={start}
+          style={{
+            color: "#0d6efd",
+            textDecoration: "underline",
+            cursor: "pointer",
+            wordBreak: "break-word",
+          }}
+          onClick={(e) => {
+            e.stopPropagation();
+            const t = window.open(href, "_blank", "noopener,noreferrer");
+            if (t) t.focus();
+          }}
+        >
           {url}
-        </span>
+        </span>,
       );
       lastIndex = start + url.length;
     }
@@ -113,14 +127,20 @@ const ChatBody = ({ id, mobileView, setMobileView, setSelectedId }) => {
   // ── Search navigation ────────────────────────────────────────────────────────
   const goToNextResult = () => {
     if (!direct?.searchResults?.length) return;
-    const next = currentSearchIndex + 1 >= direct.searchResults.length ? 0 : currentSearchIndex + 1;
+    const next =
+      currentSearchIndex + 1 >= direct.searchResults.length
+        ? 0
+        : currentSearchIndex + 1;
     setCurrentSearchIndex(next);
     scrollToMessage(direct.searchResults[next].id);
   };
 
   const goToPrevResult = () => {
     if (!direct?.searchResults?.length) return;
-    const prev = currentSearchIndex - 1 < 0 ? direct.searchResults.length - 1 : currentSearchIndex - 1;
+    const prev =
+      currentSearchIndex - 1 < 0
+        ? direct.searchResults.length - 1
+        : currentSearchIndex - 1;
     setCurrentSearchIndex(prev);
     scrollToMessage(direct.searchResults[prev].id);
   };
@@ -129,46 +149,81 @@ const ChatBody = ({ id, mobileView, setMobileView, setSelectedId }) => {
   const recentForwardUsers = (direct?.recentChats || [])
     .map((c) => (direct?.allUsers || []).find((u) => u.id === c.recipient_id))
     .filter(Boolean)
-    .filter((u) => `${u.first_name} ${u.last_name}`.toLowerCase().includes(forwardSearch.toLowerCase()));
+    .filter((u) =>
+      `${u.first_name} ${u.last_name}`
+        .toLowerCase()
+        .includes(forwardSearch.toLowerCase()),
+    );
 
   const allForwardUsers = (direct?.allUsers || [])
-    .filter((u) => u.id !== direct?.ME_ID && !recentForwardUsers.some((r) => r.id === u.id))
-    .filter((u) => `${u.first_name} ${u.last_name}`.toLowerCase().includes(forwardSearch.toLowerCase()));
+    .filter(
+      (u) =>
+        u.id !== direct?.ME_ID &&
+        !recentForwardUsers.some((r) => r.id === u.id),
+    )
+    .filter((u) =>
+      `${u.first_name} ${u.last_name}`
+        .toLowerCase()
+        .includes(forwardSearch.toLowerCase()),
+    );
 
   // ── Handlers ─────────────────────────────────────────────────────────────────
   const onRemoveMessage = (messageId) => {
     const allChat = chat;
     const index = allChat.find((item) => item.id === id);
-    if (index !== -1) { allChat[index].convo[messageId].chat = ["deleted"]; setChat([...allChat]); }
+    if (index !== -1) {
+      allChat[index].convo[messageId].chat = ["deleted"];
+      setChat([...allChat]);
+    }
   };
 
   const handleConfirmDelete = () => {
-    if (messageToDelete) { direct.deleteMessage(messageToDelete.id); setMessageToDelete(null); }
+    if (messageToDelete) {
+      direct.deleteMessage(messageToDelete.id);
+      setMessageToDelete(null);
+    }
   };
 
   const resizeFunc = () => setsidebar(window.innerWidth > 1550);
 
   const onTextSubmit = (e) => {
     e.preventDefault();
-    if (direct && direct.activeUser) { direct.sendMessage(inputText); setInputText(""); return; }
+    if (direct && direct.activeUser) {
+      direct.sendMessage(inputText);
+      setInputText("");
+      return;
+    }
     const allChat = chat;
     const index = allChat.find((item) => item.id === id);
     const defaultChat = Uchat;
-    if (index !== -1) { allChat[index].convo.push({ me: true, chat: [inputText], date: currentTime() }); setChat([...allChat]); }
-    else { defaultChat.convo.push({ me: true, chat: [inputText], date: currentTime() }); setUchat({ ...defaultChat }); }
+    if (index !== -1) {
+      allChat[index].convo.push({
+        me: true,
+        chat: [inputText],
+        date: currentTime(),
+      });
+      setChat([...allChat]);
+    } else {
+      defaultChat.convo.push({
+        me: true,
+        chat: [inputText],
+        date: currentTime(),
+      });
+      setUchat({ ...defaultChat });
+    }
     setInputText("");
   };
 
   // ── Group messages by date ───────────────────────────────────────────────────
   const groupMessagesByDate = (messages) => {
     if (!messages || messages.length === 0) return [];
-    
+
     // Deduplicate messages by ID before grouping
     const seen = new Set();
     const deduped = messages.filter((msg) => {
       // Keep meta messages and unread dividers (they don't have numeric IDs)
       if (msg.meta || msg.type === "unread_divider") return true;
-      
+
       // For regular messages, deduplicate by ID
       if (seen.has(msg.id)) {
         return false;
@@ -176,11 +231,14 @@ const ChatBody = ({ id, mobileView, setMobileView, setSelectedId }) => {
       seen.add(msg.id);
       return true;
     });
-    
+
     const grouped = [];
     let currentDate = null;
     deduped.forEach((message) => {
-      if (!message.timestamp) { grouped.push(message); return; }
+      if (!message.timestamp) {
+        grouped.push(message);
+        return;
+      }
       const messageDate = new Date(message.timestamp).toDateString();
       if (messageDate !== currentDate) {
         currentDate = messageDate;
@@ -188,8 +246,16 @@ const ChatBody = ({ id, mobileView, setMobileView, setSelectedId }) => {
         const yesterday = new Date(Date.now() - 86400000).toDateString();
         grouped.push({
           meta: true,
-          metaText: messageDate === today ? "Today" : messageDate === yesterday ? "Yesterday"
-            : new Date(message.timestamp).toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" }),
+          metaText:
+            messageDate === today
+              ? "Today"
+              : messageDate === yesterday
+                ? "Yesterday"
+                : new Date(message.timestamp).toLocaleDateString("en-US", {
+                    weekday: "long",
+                    month: "short",
+                    day: "numeric",
+                  }),
         });
       }
       grouped.push(message);
@@ -197,46 +263,71 @@ const ChatBody = ({ id, mobileView, setMobileView, setSelectedId }) => {
     return grouped;
   };
 
-  // ── Effects ──────────────────────────────────────────────────────────────────
+  //first scroll
   useEffect(() => {
-    const allMessages = [...(direct?.hiddenMessages || []), ...(direct?.messages || [])];
+    const container = messagesContainerRef.current;
+    if (!container) return;
+
+    const allMessages = [
+      ...(direct?.hiddenMessages || []),
+      ...(direct?.messages || []),
+    ];
+
     const currentCount = allMessages.length;
-    const isInitialLoad = prevMessageCountRef.current === 0 && currentCount > 0;
-    const isNewMessage = currentCount === prevMessageCountRef.current + 1;
+    const isFirstLoad = prevMessageCountRef.current === 0 && currentCount > 0;
+
+    const isNewMessage = currentCount > prevMessageCountRef.current;
+
     prevMessageCountRef.current = currentCount;
-    const hasUnreadDivider = allMessages.some((msg) => msg.type === "unread_divider");
 
-    if (isInitialLoad && hasUnreadDivider && !hasScrolledToUnread.current) {
-      const timer = setTimeout(() => {
-        const divider = unreadDividerRef.current;
-        const container = messagesContainerRef.current;
-        if (divider && container) {
-          // Use offsetTop for a more reliable, non-conflicting scroll
-          // We subtract 60px to provide a nice buffer above the divider
-          const targetTop = divider.offsetTop - 60;
-          container.scrollTo({ top: targetTop, behavior: "smooth" });
-          hasScrolledToUnread.current = true;
-        } else if (!divider) {
-          scrollToBottom(true);
+    const hasUnreadDivider = allMessages.some(
+      (msg) => msg.type === "unread_divider",
+    );
+
+    // 🔥 wait for DOM render (VERY IMPORTANT)
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (!container) return;
+
+        // ✅ CASE 1: first load
+        if (isFirstLoad) {
+          if (hasUnreadDivider && unreadDividerRef.current) {
+            const top = unreadDividerRef.current.offsetTop - 60;
+
+            container.scrollTo({
+              top,
+              behavior: "auto",
+            });
+          } else {
+            container.scrollTo({
+              top: container.scrollHeight,
+              behavior: "auto",
+            });
+          }
         }
-      }, 400); // Increased delay to ensure layout has stabilized
-      return () => clearTimeout(timer);
-    } else if ((isInitialLoad && !hasUnreadDivider) || isNewMessage) {
-      if (isInitialLoad && hasScrolledToUnread.current) return;
-      // Use a slight delay to ensure the new message is rendered
-      const timer = setTimeout(() => scrollToBottom(isInitialLoad), 100);
-      return () => clearTimeout(timer);
-    }
-  }, [direct?.messages, direct?.hiddenMessages]);
 
+        // ✅ CASE 2: new message
+        else if (isNewMessage) {
+          container.scrollTo({
+            top: container.scrollHeight,
+            behavior: "smooth",
+          });
+        }
+      });
+    });
+  }, [direct?.messages, direct?.hiddenMessages]);
   useEffect(() => {
-    if (direct?.searchResults?.length && direct.searchResults[currentSearchIndex]) {
+    if (
+      direct?.searchResults?.length &&
+      direct.searchResults[currentSearchIndex]
+    ) {
       scrollToMessage(direct.searchResults[currentSearchIndex].id);
     }
   }, [currentSearchIndex, direct?.searchResults]);
 
   useEffect(() => {
-    if (direct?.searchResults?.length > 0) scrollToMessage(direct.searchResults[0].id);
+    if (direct?.searchResults?.length > 0)
+      scrollToMessage(direct.searchResults[0].id);
   }, [direct?.searchResults]);
 
   useEffect(() => {
@@ -251,14 +342,27 @@ const ChatBody = ({ id, mobileView, setMobileView, setSelectedId }) => {
       if (current < 80 && direct?.hasHidden && !direct?.isLoadingMore) {
         const prevHeight = container.scrollHeight;
         direct.prependHidden();
-        requestAnimationFrame(() => { container.scrollTop = container.scrollHeight - prevHeight; });
+        requestAnimationFrame(() => {
+          container.scrollTop = container.scrollHeight - prevHeight;
+        });
       }
-      if (current >= maxScroll - 80 && direct?.hasMore && !direct?.isLoadingMore) direct.loadMoreMessages();
+      if (
+        current >= maxScroll - 80 &&
+        direct?.hasMore &&
+        !direct?.isLoadingMore
+      )
+        direct.loadMoreMessages();
       lastScrollTop.current = current;
     };
     container.addEventListener("scroll", handleScroll);
     return () => container.removeEventListener("scroll", handleScroll);
-  }, [direct?.hasMore, direct?.isLoadingMore, direct?.loadMoreMessages, direct?.hasHidden, direct?.prependHidden]);
+  }, [
+    direct?.hasMore,
+    direct?.isLoadingMore,
+    direct?.loadMoreMessages,
+    direct?.hasHidden,
+    direct?.prependHidden,
+  ]);
 
   useEffect(() => {
     const container = messagesContainerRef.current;
@@ -271,7 +375,10 @@ const ChatBody = ({ id, mobileView, setMobileView, setSelectedId }) => {
   }, [direct?.messages]);
 
   useEffect(() => {
-    if (!showSearchBar) { direct?.setMessageSearchTerm(""); setCurrentSearchIndex(0); }
+    if (!showSearchBar) {
+      direct?.setMessageSearchTerm("");
+      setCurrentSearchIndex(0);
+    }
   }, [showSearchBar]);
 
   useEffect(() => {
@@ -279,13 +386,20 @@ const ChatBody = ({ id, mobileView, setMobileView, setSelectedId }) => {
       const openEl = dropdownRefs.current[openDropdown];
       if (openEl && !openEl.contains(e.target)) setOpenDropdown(null);
     };
-    if (openDropdown !== null) document.addEventListener("mousedown", handleClickOutside);
+    if (openDropdown !== null)
+      document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [openDropdown]);
 
   useEffect(() => {
-    if (direct?.replyToMessage && messageRefs.current[direct.replyToMessage.id]) {
-      messageRefs.current[direct.replyToMessage.id].scrollIntoView({ behavior: "smooth", block: "center" });
+    if (
+      direct?.replyToMessage &&
+      messageRefs.current[direct.replyToMessage.id]
+    ) {
+      messageRefs.current[direct.replyToMessage.id].scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
     }
   }, [direct?.replyToMessage, direct?.messages]);
 
@@ -294,7 +408,9 @@ const ChatBody = ({ id, mobileView, setMobileView, setSelectedId }) => {
 
   useEffect(() => {
     if (!direct) {
-      chat.forEach((item) => { if (item.id === id) setUchat(item); });
+      chat.forEach((item) => {
+        if (item.id === id) setUchat(item);
+      });
     }
 
     const currentActiveUserId = direct?.activeUser?.id ?? id;
@@ -315,19 +431,46 @@ const ChatBody = ({ id, mobileView, setMobileView, setSelectedId }) => {
   const renderMessage = (message, i) => {
     const meId = parseInt(localStorage.getItem("userId"));
     const isMe = message.sender_id === (meId || -1);
-    const isSearchMatch = direct?.searchResults?.some((m) => m.id === message.id);
-    const messageTime = new Date(message.timestamp).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+    const isSearchMatch = direct?.searchResults?.some(
+      (m) => m.id === message.id,
+    );
+    const messageTime = new Date(message.timestamp).toLocaleTimeString(
+      "en-US",
+      { hour: "numeric", minute: "2-digit", hour12: true },
+    );
 
     // Generate unique key - use ID if available, otherwise use index with prefix
     const messageKey = message.id ? `msg-${message.id}` : `idx-${i}`;
 
     if (message?.type === "unread_divider") {
       return (
-        <motion.div key={messageKey} id="unread-divider" ref={unreadDividerRef}
-          initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: "easeOut" }}
-          style={{ display: "flex", alignItems: "center", justifyContent: "center", margin: "12px 0", width: "100%" }}>
+        <motion.div
+          key={messageKey}
+          id="unread-divider"
+          ref={unreadDividerRef}
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, ease: "easeOut" }}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            margin: "12px 0",
+            width: "100%",
+          }}
+        >
           <div style={{ flex: 1, height: "1px", backgroundColor: "#e0e0e0" }} />
-          <span style={{ margin: "0 10px", fontSize: "12px", color: "#888", background: "#fff", padding: "2px 8px", borderRadius: "10px", border: "1px solid #e0e0e0" }}>
+          <span
+            style={{
+              margin: "0 10px",
+              fontSize: "12px",
+              color: "#888",
+              background: "#fff",
+              padding: "2px 8px",
+              borderRadius: "10px",
+              border: "1px solid #e0e0e0",
+            }}
+          >
             Unread messages
           </span>
           <div style={{ flex: 1, height: "1px", backgroundColor: "#e0e0e0" }} />
@@ -336,96 +479,312 @@ const ChatBody = ({ id, mobileView, setMobileView, setSelectedId }) => {
     }
 
     return !message?.meta ? (
-      <div key={messageKey} ref={(el) => { if (el) messageRefs.current[`message-${message.id}`] = el; }}
-        className={`d-flex mb-2 ${isMe ? "justify-content-end" : "justify-content-start"}`}>
-        <div className={`p-2 shadow-sm ${isMe ? "bg-primary text-white" : "bg-white"}`}
-          style={{ borderRadius: 12, maxWidth: "70%", outline: isSearchMatch ? "2px solid #ffc107" : "none", backgroundColor: isSearchMatch ? "#fff3cd" : undefined }}>
+      <div
+        key={messageKey}
+        ref={(el) => {
+          if (el) messageRefs.current[`message-${message.id}`] = el;
+        }}
+        className={`d-flex mb-2 ${isMe ? "justify-content-end" : "justify-content-start"}`}
+      >
+        <div
+          className={`p-2 shadow-sm ${isMe ? "bg-primary text-white" : "bg-white"}`}
+          style={{
+            borderRadius: 12,
+            maxWidth: "70%",
+            outline: isSearchMatch ? "2px solid #ffc107" : "none",
+            backgroundColor: isSearchMatch ? "#fff3cd" : undefined,
+          }}
+        >
           {message.is_deleted ? (
-            <span style={{ fontStyle: "italic", opacity: 0.6 }}>{isMe ? "You deleted this message" : "This message was deleted"}</span>
+            <span style={{ fontStyle: "italic", opacity: 0.6 }}>
+              {isMe ? "You deleted this message" : "This message was deleted"}
+            </span>
           ) : (
             <>
               {message.attachment ? (
-                <AttachmentDisplay attachment={message.attachment} isMe={isMe} message={message} />
+                <AttachmentDisplay
+                  attachment={message.attachment}
+                  isMe={isMe}
+                  message={message}
+                />
               ) : (
                 <>
-                  {(message.type === "message_reply" || message.type === "reply") && message.message_id && (() => {
-                    // Resolve original message content from loaded messages list
-                    const allMsgs = [...(direct?.hiddenMessages || []), ...(direct?.messages || [])];
-                    const originalMsg = allMsgs.find((m) => m.id === message.message_id);
-                    const originalContent = message.parent_content
-                      || originalMsg?.content
-                      || originalMsg?.reply_content
-                      || message.parentMsg?.content
-                      || "Original message";
-                    const originalSenderId = originalMsg?.sender_id ?? message.parentMsg?.sender_id;
-                    const originalSenderName = originalSenderId === meId ? "You" : (originalMsg?.sender?.first_name || user?.first_name || "User");
-                    return (
-                      <div className="reply-preview p-2 mb-2 rounded" onClick={() => scrollToMessage(message.message_id)}
-                        style={{ backgroundColor: isMe ? "rgba(255,255,255,0.2)" : "#f0f0f0", borderLeft: `3px solid ${isMe ? "#fff" : "#ccc"}`, cursor: "pointer" }}
-                        onMouseOver={(e) => { e.currentTarget.style.backgroundColor = isMe ? "rgba(255,255,255,0.3)" : "#e0e0e0"; }}
-                        onMouseOut={(e) => { e.currentTarget.style.backgroundColor = isMe ? "rgba(255,255,255,0.2)" : "#f0f0f0"; }}>
-                        <small className="text-muted" style={{ fontSize: "0.75em", opacity: 0.7 }}>
-                          {originalSenderName}
-                        </small>
-                        <p className="mb-0" style={{ fontSize: "0.85em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                          {originalContent}
-                        </p>
-                      </div>
-                    );
-                  })()}
+                  {(message.type === "message_reply" ||
+                    message.type === "reply") &&
+                    message.message_id &&
+                    (() => {
+                      // Resolve original message content from loaded messages list
+                      const allMsgs = [
+                        ...(direct?.hiddenMessages || []),
+                        ...(direct?.messages || []),
+                      ];
+                      const originalMsg = allMsgs.find(
+                        (m) => m.id === message.message_id,
+                      );
+                      const originalContent =
+                        message.parent_content ||
+                        originalMsg?.content ||
+                        originalMsg?.reply_content ||
+                        message.parentMsg?.content ||
+                        "Original message";
+                      const originalSenderId =
+                        originalMsg?.sender_id ?? message.parentMsg?.sender_id;
+                      const originalSenderName =
+                        originalSenderId === meId
+                          ? "You"
+                          : originalMsg?.sender?.first_name ||
+                            user?.first_name ||
+                            "User";
+                      return (
+                        <div
+                          className="reply-preview p-2 mb-2 rounded"
+                          onClick={() => scrollToMessage(message.message_id)}
+                          style={{
+                            backgroundColor: isMe
+                              ? "rgba(255,255,255,0.2)"
+                              : "#f0f0f0",
+                            borderLeft: `3px solid ${isMe ? "#fff" : "#ccc"}`,
+                            cursor: "pointer",
+                          }}
+                          onMouseOver={(e) => {
+                            e.currentTarget.style.backgroundColor = isMe
+                              ? "rgba(255,255,255,0.3)"
+                              : "#e0e0e0";
+                          }}
+                          onMouseOut={(e) => {
+                            e.currentTarget.style.backgroundColor = isMe
+                              ? "rgba(255,255,255,0.2)"
+                              : "#f0f0f0";
+                          }}
+                        >
+                          <small
+                            className="text-muted"
+                            style={{ fontSize: "0.75em", opacity: 0.7 }}
+                          >
+                            {originalSenderName}
+                          </small>
+                          <p
+                            className="mb-0"
+                            style={{
+                              fontSize: "0.85em",
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                            }}
+                          >
+                            {originalContent}
+                          </p>
+                        </div>
+                      );
+                    })()}
                   {(() => {
-                    if (message.is_deleted) return <span style={{ fontStyle: "italic", opacity: 0.6 }}>{isMe ? "You deleted this message" : "This message was deleted"}</span>;
-                    const isEmojiOnly = message.message_type !== "attachment" && !message.reply_to_id && isOnlyEmojis(message.content);
+                    if (message.is_deleted)
+                      return (
+                        <span style={{ fontStyle: "italic", opacity: 0.6 }}>
+                          {isMe
+                            ? "You deleted this message"
+                            : "This message was deleted"}
+                        </span>
+                      );
+                    const isEmojiOnly =
+                      message.message_type !== "attachment" &&
+                      !message.reply_to_id &&
+                      isOnlyEmojis(message.content);
                     return (
                       <div style={{ display: "inline-block" }}>
-                        {(message.type === "forward_message" || message.type === "forward_to_dm" || message.forwarded || message.is_forwarded || message.forwarded_from_message_id) && (
-                          <div style={{ fontSize: "11px", opacity: 0.7, marginBottom: "2px", display: "flex", alignItems: "center", gap: "4px" }}>
-                            <i className="bi bi-reply-fill" style={{ fontSize: "11px", transform: "scaleX(-1)" }}></i>
-                            <span>Forwarded{message.source_system ? ` from ${message.source_system === 'dm' ? 'DM' : message.source_system === 'group_message' ? 'Group' : message.source_system === 'group_reply' ? 'Group Reply' : message.source_system}` : ''}</span>
+                        {(message.type === "forward_message" ||
+                          message.type === "forward_to_dm" ||
+                          message.forwarded ||
+                          message.is_forwarded ||
+                          message.forwarded_from_message_id) && (
+                          <div
+                            style={{
+                              fontSize: "11px",
+                              opacity: 0.7,
+                              marginBottom: "2px",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "4px",
+                            }}
+                          >
+                            <i
+                              className="bi bi-reply-fill"
+                              style={{
+                                fontSize: "11px",
+                                transform: "scaleX(-1)",
+                              }}
+                            ></i>
+                            <span>
+                              Forwarded
+                              {message.source_system
+                                ? ` from ${message.source_system === "dm" ? "DM" : message.source_system === "group_message" ? "Group" : message.source_system === "group_reply" ? "Group Reply" : message.source_system}`
+                                : ""}
+                            </span>
                           </div>
                         )}
-                        <span style={{ fontSize: isEmojiOnly ? "40px" : "inherit", lineHeight: isEmojiOnly ? "1.2" : "inherit", display: "inline-block" }}>
-                          {linkifyText(message.content || message.reply_content)}
-                          {(message.edited || message.is_edited) && <span className="ms-1 text-muted" style={{ fontSize: "0.75em" }}>(edited)</span>}
+                        <span
+                          style={{
+                            fontSize: isEmojiOnly ? "40px" : "inherit",
+                            lineHeight: isEmojiOnly ? "1.2" : "inherit",
+                            display: "inline-block",
+                          }}
+                        >
+                          {linkifyText(
+                            message.content || message.reply_content,
+                          )}
+                          {(message.edited || message.is_edited) && (
+                            <span
+                              className="ms-1 text-muted"
+                              style={{ fontSize: "0.75em" }}
+                            >
+                              (edited)
+                            </span>
+                          )}
                         </span>
                       </div>
                     );
                   })()}
                 </>
               )}
-              <small className={`ms-2 ${isMe ? "text-white-50" : "text-muted"} message-status`}
-                style={{ fontSize: "10px", display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "4px" }}>
+              <small
+                className={`ms-2 ${isMe ? "text-white-50" : "text-muted"} message-status`}
+                style={{
+                  fontSize: "10px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "flex-end",
+                  gap: "4px",
+                }}
+              >
                 {!message.is_deleted && (
                   <>
                     <span>{messageTime}</span>
                     {isMe && (
                       <>
-                        {message.read
-                          ? <i className="bi bi-check2-all" style={{ color: "#34B7F1", fontSize: "14px" }} title="Read"></i>
-                          : message.delivered
-                            ? <i className="bi bi-check2-all" style={{ color: "#999", fontSize: "14px" }} title="Delivered"></i>
-                            : <i className="bi bi-check2" style={{ color: "#999", fontSize: "14px" }} title="Sent"></i>}
+                        {message.read ? (
+                          <i
+                            className="bi bi-check2-all"
+                            style={{ color: "#34B7F1", fontSize: "14px" }}
+                            title="Read"
+                          ></i>
+                        ) : message.delivered ? (
+                          <i
+                            className="bi bi-check2-all"
+                            style={{ color: "#999", fontSize: "14px" }}
+                            title="Delivered"
+                          ></i>
+                        ) : (
+                          <i
+                            className="bi bi-check2"
+                            style={{ color: "#999", fontSize: "14px" }}
+                            title="Sent"
+                          ></i>
+                        )}
                       </>
                     )}
-                    <span className="relative" ref={(el) => { if (el) dropdownRefs.current[message.id] = el; }}>
-                      <button className={`p-1 ${isMe ? "text-white/60" : "text-black/50"}`}
-                        onClick={(e) => { e.stopPropagation(); setOpenDropdown(openDropdown === message.id ? null : message.id); }}>
+                    <span
+                      className="relative"
+                      ref={(el) => {
+                        if (el) dropdownRefs.current[message.id] = el;
+                      }}
+                    >
+                      <button
+                        className={`p-1 ${isMe ? "text-white/60" : "text-black/50"}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOpenDropdown(
+                            openDropdown === message.id ? null : message.id,
+                          );
+                        }}
+                      >
                         <i className="bi bi-three-dots-vertical"></i>
                       </button>
                       {openDropdown === message.id && (
                         <ul className="absolute right-0 mt-1 w-32 bg-white text-black rounded-md shadow-lg border z-50 overflow-hidden">
                           {isMe && canModifyMessage(message.timestamp) && (
                             <>
-                              <li><button className="w-full text-left px-3 py-2 hover:bg-gray-100" onClick={() => { direct.startEditing(message); setOpenDropdown(null); }}>Edit</button></li>
-                              <li><button className="w-full text-left px-3 py-2 text-red-600 hover:bg-red-100"
-                                onClick={() => { setMessageToDelete(message); setOpenDropdown(null); direct?.setDeleteType(message?.type === "message_reply" || message?.type === "reply" ? "delete_reply" : "delete_message"); }}>Delete</button></li>
+                              <li>
+                                <button
+                                  className="w-full text-left px-3 py-2 hover:bg-gray-100"
+                                  onClick={() => {
+                                    direct.startEditing(message);
+                                    setOpenDropdown(null);
+                                  }}
+                                >
+                                  Edit
+                                </button>
+                              </li>
+                              <li>
+                                <button
+                                  className="w-full text-left px-3 py-2 text-red-600 hover:bg-red-100"
+                                  onClick={() => {
+                                    setMessageToDelete(message);
+                                    setOpenDropdown(null);
+                                    direct?.setDeleteType(
+                                      message?.type === "message_reply" ||
+                                        message?.type === "reply"
+                                        ? "delete_reply"
+                                        : "delete_message",
+                                    );
+                                  }}
+                                >
+                                  Delete
+                                </button>
+                              </li>
                             </>
                           )}
-                          <li><button className="w-full text-left px-3 py-2 hover:bg-gray-100" onClick={() => { setOpenDropdown(null); direct?.setReplyToMessage(message); }}>Reply</button></li>
-                          <li><button className="w-full text-left px-3 py-2 hover:bg-gray-100" onClick={() => { setOpenDropdown(null); setForwardMessage(message); setShowForwardModal(true); }}>Forward</button></li>
-                          <li><button className="w-full text-left px-3 py-2 hover:bg-gray-100"
-                            onClick={() => { setOpenDropdown(null); direct.setIsSelectionMode(true); direct.setSelectedMessages((prev) => prev.includes(message.id) ? prev : [...prev, message.id]); }}>Select</button></li>
-                          {isMe && <li><button className="w-full text-left px-3 py-2 hover:bg-gray-100" onClick={() => { setInfoMessage(message); setOpenDropdown(null); }}>Message Info</button></li>}
+                          <li>
+                            <button
+                              className="w-full text-left px-3 py-2 hover:bg-gray-100"
+                              onClick={() => {
+                                setOpenDropdown(null);
+                                direct?.setReplyToMessage(message);
+                              }}
+                            >
+                              Reply
+                            </button>
+                          </li>
+                          <li>
+                            <button
+                              className="w-full text-left px-3 py-2 hover:bg-gray-100"
+                              onClick={() => {
+                                setOpenDropdown(null);
+                                setForwardMessage(message);
+                                setShowForwardModal(true);
+                              }}
+                            >
+                              Forward
+                            </button>
+                          </li>
+                          <li>
+                            <button
+                              className="w-full text-left px-3 py-2 hover:bg-gray-100"
+                              onClick={() => {
+                                setOpenDropdown(null);
+                                direct.setIsSelectionMode(true);
+                                direct.setSelectedMessages((prev) =>
+                                  prev.includes(message.id)
+                                    ? prev
+                                    : [...prev, message.id],
+                                );
+                              }}
+                            >
+                              Select
+                            </button>
+                          </li>
+                          {isMe && (
+                            <li>
+                              <button
+                                className="w-full text-left px-3 py-2 hover:bg-gray-100"
+                                onClick={() => {
+                                  setInfoMessage(message);
+                                  setOpenDropdown(null);
+                                }}
+                              >
+                                Message Info
+                              </button>
+                            </li>
+                          )}
                         </ul>
                       )}
                     </span>
@@ -437,7 +796,10 @@ const ChatBody = ({ id, mobileView, setMobileView, setSelectedId }) => {
         </div>
       </div>
     ) : (
-      <div key={`meta-${i}-${message?.metaText}`} className="d-flex justify-content-center">
+      <div
+        key={`meta-${i}-${message?.metaText}`}
+        className="d-flex justify-content-center"
+      >
         <span className="inline-flex items-center rounded-md bg-gray-400/10 px-2 py-1 text-xs font-medium text-gray-400 inset-ring inset-ring-gray-400/20">
           {message?.metaText}
         </span>
@@ -450,7 +812,9 @@ const ChatBody = ({ id, mobileView, setMobileView, setSelectedId }) => {
     return (
       <div className="modern-chat-empty-state">
         <div className="modern-chat-empty-content">
-          <div className="modern-chat-empty-icon"><i className="bi bi-chat-dots"></i></div>
+          <div className="modern-chat-empty-icon">
+            <i className="bi bi-chat-dots"></i>
+          </div>
           <h3>Welcome to Chat</h3>
           <p>Select a conversation from the sidebar to start chatting</p>
         </div>
@@ -465,11 +829,21 @@ const ChatBody = ({ id, mobileView, setMobileView, setSelectedId }) => {
         <div
           className="modern-chat-main"
           style={{ display: "flex", position: "relative" }}
-          onDragEnter={(e) => { e.preventDefault(); setIsDragging(true); }}
-          onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-          onDragLeave={(e) => { e.preventDefault(); setIsDragging(false); }}
+          onDragEnter={(e) => {
+            e.preventDefault();
+            setIsDragging(true);
+          }}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setIsDragging(true);
+          }}
+          onDragLeave={(e) => {
+            e.preventDefault();
+            setIsDragging(false);
+          }}
           onDrop={(e) => {
-            e.preventDefault(); setIsDragging(false);
+            e.preventDefault();
+            setIsDragging(false);
             const file = e.dataTransfer.files?.[0];
             if (!file) return;
             const validFile = AttechmentSizeLimit(file, e);
@@ -486,22 +860,32 @@ const ChatBody = ({ id, mobileView, setMobileView, setSelectedId }) => {
             onToggleSelection={(val) => direct.setIsSelectionMode(val)}
             onMinimize={() => {
               if (!direct.activeUser) return;
-              if (openChatPopups.some((p) => p.user.id === direct.activeUser.id)) {
+              if (
+                openChatPopups.some((p) => p.user.id === direct.activeUser.id)
+              ) {
                 toast.warning("Chat is already open as a popup.");
                 return;
               }
-              const total = openChatPopups.length + openGroupChatPopups.length + openSupportChatPopups.length;
+              const total =
+                openChatPopups.length +
+                openGroupChatPopups.length +
+                openSupportChatPopups.length;
               if (total >= 4) {
                 toast.error("Maximum of 4 chat windows can be open at a time.");
                 return;
               }
-              const conv = direct.users?.find((u) => u.other_user?.id === direct.activeUser.id);
+              const conv = direct.users?.find(
+                (u) => u.other_user?.id === direct.activeUser.id,
+              );
               const payload = {
                 ...direct.activeUser,
                 conversation_id: conv?.conversation_id || conv?.pairKey,
                 pairKey: conv?.pairKey,
               };
-              console.log('[ChatBody] 📤 Minimizing to popup with payload:', payload);
+              console.log(
+                "[ChatBody] 📤 Minimizing to popup with payload:",
+                payload,
+              );
               dispatch(addUserChatPopup(payload));
               direct.selectUser(null);
             }}
@@ -518,8 +902,17 @@ const ChatBody = ({ id, mobileView, setMobileView, setSelectedId }) => {
           )}
 
           {/* Messages container */}
-          <div className="modern-chat-messages" ref={messagesContainerRef}
-            style={{ position: "relative", overflowY: "auto", flex: 1, height: 0, minHeight: 0 }}>
+          <div
+            className="modern-chat-messages"
+            ref={messagesContainerRef}
+            style={{
+              position: "relative",
+              overflowY: "auto",
+              flex: 1,
+              height: 0,
+              minHeight: 0,
+            }}
+          >
             {showSearchBar && (
               <MessageSearchBar
                 messageSearchTerm={direct?.messageSearchTerm}
@@ -530,22 +923,45 @@ const ChatBody = ({ id, mobileView, setMobileView, setSelectedId }) => {
             )}
 
             {direct?.isLoadingMore && (
-              <div style={{ textAlign: "center", padding: "10px 0", color: "#888", fontSize: "13px" }}>Loading more messages...</div>
+              <div
+                style={{
+                  textAlign: "center",
+                  padding: "10px 0",
+                  color: "#888",
+                  fontSize: "13px",
+                }}
+              >
+                Loading more messages...
+              </div>
             )}
-            {groupMessagesByDate([...(direct?.hiddenMessages || []), ...(direct?.messages || [])]).length === 0 ? (
+            {groupMessagesByDate([
+              ...(direct?.hiddenMessages || []),
+              ...(direct?.messages || []),
+            ]).length === 0 ? (
               direct?.isInitialLoading ? (
                 <div className="flex justify-center align-center items-center py-4">
                   <div className="flex space-x-2">
                     <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                    <div className="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: "0.2s" }}></div>
-                    <div className="w-2 h-2 bg-gray-600 rounded-full animate-bounce" style={{ animationDelay: "0.4s" }}></div>
+                    <div
+                      className="w-2 h-2 bg-gray-500 rounded-full animate-bounce"
+                      style={{ animationDelay: "0.2s" }}
+                    ></div>
+                    <div
+                      className="w-2 h-2 bg-gray-600 rounded-full animate-bounce"
+                      style={{ animationDelay: "0.4s" }}
+                    ></div>
                   </div>
                 </div>
               ) : (
-                <div className="flex justify-center items-center py-8 text-gray-400 text-sm">No messages yet. Say hello!</div>
+                <div className="flex justify-center items-center py-8 text-gray-400 text-sm">
+                  No messages yet. Say hello!
+                </div>
               )
             ) : (
-              groupMessagesByDate([...(direct?.hiddenMessages || []), ...(direct?.messages || [])]).map((message, i) => renderMessage(message, i))
+              groupMessagesByDate([
+                ...(direct?.hiddenMessages || []),
+                ...(direct?.messages || []),
+              ]).map((message, i) => renderMessage(message, i))
             )}
             <TypingIndicator typingUsers={direct?.typingUsers} />
             <div ref={messagesEndRef} />
@@ -553,8 +969,26 @@ const ChatBody = ({ id, mobileView, setMobileView, setSelectedId }) => {
 
           {/* Scroll to bottom button */}
           {showScrollDown && (
-            <button onClick={scrollToBottom}
-              style={{ position: "absolute", bottom: "80px", right: "20px", width: "36px", height: "36px", borderRadius: "50%", border: "none", background: "#0d6efd", color: "#fff", boxShadow: "0 2px 8px rgba(0,0,0,0.25)", cursor: "pointer", zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <button
+              onClick={scrollToBottom}
+              style={{
+                position: "absolute",
+                bottom: "80px",
+                right: "20px",
+                width: "36px",
+                height: "36px",
+                borderRadius: "50%",
+                border: "none",
+                background: "#0d6efd",
+                color: "#fff",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.25)",
+                cursor: "pointer",
+                zIndex: 100,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
               <i className="bi bi-arrow-down"></i>
             </button>
           )}
@@ -573,30 +1007,46 @@ const ChatBody = ({ id, mobileView, setMobileView, setSelectedId }) => {
             currentGroupId={null}
           />
 
-          <MessageInfoModal message={infoMessage} onClose={() => setInfoMessage(null)} />
+          <MessageInfoModal
+            message={infoMessage}
+            onClose={() => setInfoMessage(null)}
+          />
 
           <DeleteConfirmationModal
             isOpen={!!messageToDelete}
-            message={{ content: messageToDelete?.content, type: messageToDelete?.message_type || "message" }}
+            message={{
+              content: messageToDelete?.content,
+              type: messageToDelete?.message_type || "message",
+            }}
             onConfirm={handleConfirmDelete}
             onCancel={() => setMessageToDelete(null)}
           />
 
           <ChatInputFooter direct={direct} />
         </div>
-
       ) : Uchat.convo ? (
         <div className="modern-chat-main" style={{ display: "flex" }}>
           <div className="modern-chat-header">
             <div className="modern-chat-header-user">
-              <img src={Uchat.avatar || "https://via.placeholder.com/40"} alt={Uchat.name || "User"} className="modern-chat-header-avatar" />
+              <img
+                src={Uchat.avatar || "https://via.placeholder.com/40"}
+                alt={Uchat.name || "User"}
+                className="modern-chat-header-avatar"
+              />
               <div className="modern-chat-header-info">
                 <h5>{Uchat.name || "User"}</h5>
-                <p>{Uchat?.availability === true || Uchat?.is_active === true ? "Online" : "Offline"}</p>
+                <p>
+                  {Uchat?.availability === true || Uchat?.is_active === true
+                    ? "Online"
+                    : "Offline"}
+                </p>
               </div>
             </div>
             <div className="modern-chat-header-actions">
-              <button className="modern-chat-header-btn" onClick={() => setChatOptions(!chatOptions)}>
+              <button
+                className="modern-chat-header-btn"
+                onClick={() => setChatOptions(!chatOptions)}
+              >
                 <Icon name="more-h" />
               </button>
             </div>
@@ -604,8 +1054,17 @@ const ChatBody = ({ id, mobileView, setMobileView, setSelectedId }) => {
 
           <div className="modern-chat-messages" ref={messagesEndRef}>
             {Uchat.convo.map((item, idx) => {
-              if (item.me) return <MeChat key={idx} item={item} chat={Uchat} onRemoveMessage={onRemoveMessage} />;
-              else if (item.meta) return <MetaChat key={idx} item={item.meta.metaText} />;
+              if (item.me)
+                return (
+                  <MeChat
+                    key={idx}
+                    item={item}
+                    chat={Uchat}
+                    onRemoveMessage={onRemoveMessage}
+                  />
+                );
+              else if (item.meta)
+                return <MetaChat key={idx} item={item.meta.metaText} />;
               else return <YouChat key={idx} item={item} chat={Uchat} />;
             })}
           </div>
@@ -613,16 +1072,27 @@ const ChatBody = ({ id, mobileView, setMobileView, setSelectedId }) => {
           <div className="modern-chat-input-area">
             <form onSubmit={onTextSubmit}>
               <div className="modern-chat-input-form">
-                <textarea className="modern-chat-input-field" rows="1" value={inputText}
-                  onChange={(e) => setInputText(e.target.value)} placeholder="Type a message..."
-                  onKeyDown={(e) => { if (e.code === "Enter" && !e.shiftKey) { e.preventDefault(); if (inputText.trim()) onTextSubmit(e); } }} />
-                <button type="submit" className="modern-chat-input-send">➤</button>
+                <textarea
+                  className="modern-chat-input-field"
+                  rows="1"
+                  value={inputText}
+                  onChange={(e) => setInputText(e.target.value)}
+                  placeholder="Type a message..."
+                  onKeyDown={(e) => {
+                    if (e.code === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      if (inputText.trim()) onTextSubmit(e);
+                    }
+                  }}
+                />
+                <button type="submit" className="modern-chat-input-send">
+                  ➤
+                </button>
               </div>
             </form>
           </div>
         </div>
       ) : null}
-
     </React.Fragment>
   );
 };

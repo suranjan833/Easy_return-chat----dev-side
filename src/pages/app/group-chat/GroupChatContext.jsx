@@ -83,21 +83,26 @@ export function GroupChatProvider({ children }) {
 
     // Load messages for the active group
     getGroupMessages(activeGroup.id).then((serverMessages) => {
-      console.log("[GroupChat] 📥 Loaded", serverMessages.length, "messages from API");
-      
+      console.log(
+        "[GroupChat] 📥 Loaded",
+        serverMessages.length,
+        "messages from API",
+      );
+
       const normalized = serverMessages.map((msg) => {
         // Normalize type: API returns "message" or "reply", UI expects "message" or "group_message_reply"
-        const normalizedType = msg.type === "reply" ? "group_message_reply" : msg.type;
-        
+        const normalizedType =
+          msg.type === "reply" ? "group_message_reply" : msg.type;
+
         // Deduplicate read_receipts - keep only the latest read_at for each user
         const receiptsMap = new Map();
         (msg.read_receipts || []).forEach((receipt) => {
           const userId = receipt.reader_id || receipt.user_id;
           if (!userId) return;
-          
+
           const existing = receiptsMap.get(userId);
           const currentReadAt = new Date(receipt.read_at || 0);
-          
+
           if (!existing || new Date(existing.read_at || 0) < currentReadAt) {
             receiptsMap.set(userId, {
               reader_id: userId,
@@ -109,7 +114,7 @@ export function GroupChatProvider({ children }) {
           }
         });
         const deduplicatedReceipts = Array.from(receiptsMap.values());
-        
+
         return {
           id: msg.id,
           type: normalizedType, // Normalize "reply" -> "group_message_reply"
@@ -158,7 +163,7 @@ export function GroupChatProvider({ children }) {
 
       // Mark all unread messages and replies from other users as read
       const unreadItems = normalized.filter(
-        (msg) => msg.sender_id !== userId && !msg.is_read
+        (msg) => msg.sender_id !== userId && !msg.is_read,
       );
 
       if (unreadItems.length > 0) {
@@ -173,10 +178,14 @@ export function GroupChatProvider({ children }) {
                 groupChatService.markMessageRead(activeGroup.id, msg.id);
               }
             });
-            console.log(`[ReadReceipt] Marked ${unreadItems.length} unread items as read`);
+            console.log(
+              `[ReadReceipt] Marked ${unreadItems.length} unread items as read`,
+            );
           } else if (++attempts >= 10) {
             clearInterval(intervalId);
-            console.warn("[ReadReceipt] WS never opened after 10 attempts, giving up");
+            console.warn(
+              "[ReadReceipt] WS never opened after 10 attempts, giving up",
+            );
           }
         }, 300);
       }
@@ -189,8 +198,13 @@ export function GroupChatProvider({ children }) {
 
     const handleNewMessage = (data) => {
       console.log("[GroupChat] 🔔 handleNewMessage fired, data:", data);
-      console.log("[GroupChat] activeGroup.id:", activeGroup?.id, "data.groupId:", data.groupId);
-      
+      console.log(
+        "[GroupChat] activeGroup.id:",
+        activeGroup?.id,
+        "data.groupId:",
+        data.groupId,
+      );
+
       if (data.groupId !== activeGroup.id) {
         console.log("[GroupChat] ⚠️ Ignoring message — groupId mismatch");
         return;
@@ -232,7 +246,10 @@ export function GroupChatProvider({ children }) {
         const exists = prev.find((msg) => msg.id === newMsg.id);
 
         if (exists) {
-          console.log("[GroupChat] 🔄 Message already exists, updating:", newMsg.id);
+          console.log(
+            "[GroupChat] 🔄 Message already exists, updating:",
+            newMsg.id,
+          );
           return prev.map((msg) =>
             msg.id === newMsg.id ? { ...msg, ...newMsg } : msg,
           );
@@ -242,7 +259,9 @@ export function GroupChatProvider({ children }) {
 
         // Mark as read if it's from another user
         if (newMsg.sender_id && newMsg.sender_id !== userId) {
-          console.log(`[ReadReceipt] New message from other user, marking read — msgId:${newMsg.id}`);
+          console.log(
+            `[ReadReceipt] New message from other user, marking read — msgId:${newMsg.id}`,
+          );
           groupChatService.markMessageRead(activeGroup.id, newMsg.id);
         }
 
@@ -253,8 +272,13 @@ export function GroupChatProvider({ children }) {
     };
     const handleGroupReply = (data) => {
       console.log("[GroupChat] 🔔 handleGroupReply fired, data:", data);
-      console.log("[GroupChat] activeGroup.id:", activeGroup?.id, "data.group_id:", data.group_id);
-      
+      console.log(
+        "[GroupChat] activeGroup.id:",
+        activeGroup?.id,
+        "data.group_id:",
+        data.group_id,
+      );
+
       if (data.group_id !== activeGroup.id) {
         console.log("[GroupChat] ⚠️ Ignoring reply — groupId mismatch");
         return;
@@ -272,7 +296,7 @@ export function GroupChatProvider({ children }) {
 
       setMessages((prev) => {
         console.log("[GroupChat] 📋 Current messages count:", prev.length);
-        
+
         const replyMsg = {
           id: m.id,
           type: "group_message_reply", // Keep as "group_message_reply" for UI
@@ -292,9 +316,11 @@ export function GroupChatProvider({ children }) {
           original_message_id: m.original_message_id || m.parent_reply_id,
           parent_reply_id: m.parent_reply_id || null,
           // Server sends parentMsg in the response
-          parentMsg: m.parentMsg || prev.find(
-            (msg) => msg.id === (m.original_message_id || m.parent_reply_id),
-          ),
+          parentMsg:
+            m.parentMsg ||
+            prev.find(
+              (msg) => msg.id === (m.original_message_id || m.parent_reply_id),
+            ),
           is_deleted: m.is_deleted || false,
           is_edited: m.is_edited || false,
           is_read: m.is_read || false,
@@ -326,7 +352,10 @@ export function GroupChatProvider({ children }) {
 
         const exists = updated.find((msg) => msg.id === replyMsg.id);
         if (exists) {
-          console.log("[GroupChat] 🔄 Reply already exists, updating:", replyMsg.id);
+          console.log(
+            "[GroupChat] 🔄 Reply already exists, updating:",
+            replyMsg.id,
+          );
           return updated.map((msg) =>
             msg.id === replyMsg.id ? { ...msg, ...replyMsg } : msg,
           );
@@ -336,7 +365,9 @@ export function GroupChatProvider({ children }) {
 
         // Mark as read if it's from another user
         if (replyMsg.sender_id && replyMsg.sender_id !== userId) {
-          console.log(`[ReadReceipt] New reply from other user, marking read — replyId:${replyMsg.id}`);
+          console.log(
+            `[ReadReceipt] New reply from other user, marking read — replyId:${replyMsg.id}`,
+          );
           groupChatService.markReplyRead(activeGroup.id, replyMsg.id);
         }
 
@@ -345,7 +376,7 @@ export function GroupChatProvider({ children }) {
             new Date(a.created_at || Date.now()) -
             new Date(b.created_at || Date.now()),
         );
-        
+
         console.log("[GroupChat] 📋 New messages count:", newMessages.length);
         return newMessages;
       });
@@ -374,7 +405,7 @@ export function GroupChatProvider({ children }) {
           if (m.id !== data.messageId) return m;
 
           const isMe = m.sender_id === userId;
-          
+
           console.log(`[GroupChat] ✅ Deleting message ${data.messageId}`);
 
           return {
@@ -416,9 +447,9 @@ export function GroupChatProvider({ children }) {
       setMessages((prev) =>
         prev.map((msg) => {
           if (msg.id !== data.replyId) return msg;
-          
+
           console.log(`[GroupChat] ✅ Deleting reply ${data.replyId}`);
-          
+
           return {
             ...msg,
             message: "Reply deleted",
@@ -439,16 +470,16 @@ export function GroupChatProvider({ children }) {
 
           // Try to resolve name from already-loaded messages
           const knownMsg = messages.find(
-            (m) => (m.sender_id || m.user?.id || m.sender?.id) === data.senderId
+            (m) =>
+              (m.sender_id || m.user?.id || m.sender?.id) === data.senderId,
           );
-          const resolvedName =
-            data.user?.first_name
-              ? `${data.user.first_name} ${data.user.last_name || ""}`.trim()
-              : knownMsg?.user?.first_name
+          const resolvedName = data.user?.first_name
+            ? `${data.user.first_name} ${data.user.last_name || ""}`.trim()
+            : knownMsg?.user?.first_name
               ? `${knownMsg.user.first_name} ${knownMsg.user.last_name || ""}`.trim()
               : knownMsg?.sender?.first_name
-              ? `${knownMsg.sender.first_name} ${knownMsg.sender.last_name || ""}`.trim()
-              : null;
+                ? `${knownMsg.sender.first_name} ${knownMsg.sender.last_name || ""}`.trim()
+                : null;
 
           if (resolvedName) {
             return [...prev, { id: data.senderId, name: resolvedName }];
@@ -465,12 +496,15 @@ export function GroupChatProvider({ children }) {
                 ? `${u.first_name} ${u.last_name || ""}`.trim()
                 : `User ${data.senderId}`;
               setTypingUsers((p) =>
-                p.map((t) => (t.id === data.senderId ? { ...t, name } : t))
+                p.map((t) => (t.id === data.senderId ? { ...t, name } : t)),
               );
             })
             .catch(() => {});
 
-          return [...prev, { id: data.senderId, name: `User ${data.senderId}` }];
+          return [
+            ...prev,
+            { id: data.senderId, name: `User ${data.senderId}` },
+          ];
         });
         setTimeout(() => {
           setTypingUsers((prev) => prev.filter((u) => u.id !== data.senderId));
@@ -487,21 +521,28 @@ export function GroupChatProvider({ children }) {
     const handleGroupMessageRead = (data) => {
       console.log("[ReadReceipt] handleGroupMessageRead fired →", data);
       if (data.group_id !== activeGroup.id) {
-        console.log(`[ReadReceipt] Ignoring — data.group_id:${data.group_id} !== activeGroup.id:${activeGroup.id}`);
+        console.log(
+          `[ReadReceipt] Ignoring — data.group_id:${data.group_id} !== activeGroup.id:${activeGroup.id}`,
+        );
         return;
       }
       setMessages((prev) =>
         prev.map((m) => {
           if (m.id !== data.message_id) return m;
-          
+
           const receipts = m.read_receipts || [];
-          
+
           // Check if this user already has a read receipt
-          const existingIndex = receipts.findIndex((r) => r.reader_id === data.reader_id || r.user_id === data.reader_id);
-          
+          const existingIndex = receipts.findIndex(
+            (r) =>
+              r.reader_id === data.reader_id || r.user_id === data.reader_id,
+          );
+
           if (existingIndex !== -1) {
             // Update existing receipt with latest read_at
-            console.log(`[ReadReceipt] Updating existing receipt for msgId:${m.id}, reader:${data.reader_id}`);
+            console.log(
+              `[ReadReceipt] Updating existing receipt for msgId:${m.id}, reader:${data.reader_id}`,
+            );
             const updatedReceipts = [...receipts];
             updatedReceipts[existingIndex] = {
               reader_id: data.reader_id,
@@ -512,9 +553,11 @@ export function GroupChatProvider({ children }) {
             };
             return { ...m, read_receipts: updatedReceipts };
           }
-          
+
           // Add new receipt
-          console.log(`[ReadReceipt] Adding new receipt for msgId:${m.id}, reader:${data.reader_id}`);
+          console.log(
+            `[ReadReceipt] Adding new receipt for msgId:${m.id}, reader:${data.reader_id}`,
+          );
           return {
             ...m,
             read_receipts: [
@@ -528,23 +571,28 @@ export function GroupChatProvider({ children }) {
               },
             ],
           };
-        })
+        }),
       );
     };
 
     const handleGroupReplyRead = (data) => {
       console.log("[ReadReceipt] handleGroupReplyRead fired →", data);
       if (data.group_id !== activeGroup.id) {
-        console.log(`[ReadReceipt] Ignoring — data.group_id:${data.group_id} !== activeGroup.id:${activeGroup.id}`);
+        console.log(
+          `[ReadReceipt] Ignoring — data.group_id:${data.group_id} !== activeGroup.id:${activeGroup.id}`,
+        );
         return;
       }
       setMessages((prev) =>
         prev.map((m) => {
           if (m.id !== data.reply_id) return m;
-          
+
           const receipts = m.read_receipts || [];
-          const existingIndex = receipts.findIndex((r) => r.reader_id === data.reader_id || r.user_id === data.reader_id);
-          
+          const existingIndex = receipts.findIndex(
+            (r) =>
+              r.reader_id === data.reader_id || r.user_id === data.reader_id,
+          );
+
           const newReceipt = {
             reader_id: data.reader_id,
             user_id: data.reader_id,
@@ -553,9 +601,10 @@ export function GroupChatProvider({ children }) {
             is_read: true,
           };
 
-          const updatedReceipts = existingIndex !== -1
-            ? receipts.map((r, i) => i === existingIndex ? newReceipt : r)
-            : [...receipts, newReceipt];
+          const updatedReceipts =
+            existingIndex !== -1
+              ? receipts.map((r, i) => (i === existingIndex ? newReceipt : r))
+              : [...receipts, newReceipt];
 
           // Also update is_read / read_at directly on the reply so the tick renders correctly
           return {
@@ -564,15 +613,15 @@ export function GroupChatProvider({ children }) {
             read_at: data.read_at || m.read_at,
             read_receipts: updatedReceipts,
           };
-        })
+        }),
       );
     };
 
     const handleSystemMessage = (data) => {
       if (data.group_id !== activeGroup.id) return;
-      
+
       console.log("[GroupChat] 🔔 System message:", data);
-      
+
       // Add system message to the chat
       const systemMsg = {
         id: data.id,
@@ -588,7 +637,7 @@ export function GroupChatProvider({ children }) {
       setMessages((prev) => {
         const exists = prev.find((msg) => msg.id === systemMsg.id);
         if (exists) return prev;
-        
+
         return [...prev, systemMsg].sort(
           (a, b) => new Date(a.created_at) - new Date(b.created_at),
         );
@@ -614,10 +663,13 @@ export function GroupChatProvider({ children }) {
     return () => {
       // Mark group as inactive when leaving
       if (activeGroup?.id) {
-        console.log("[GroupChat] 🚪 Marking group as inactive:", activeGroup.id);
+        console.log(
+          "[GroupChat] 🚪 Marking group as inactive:",
+          activeGroup.id,
+        );
         groupChatService.setGroupInactive(activeGroup.id);
       }
-      
+
       groupChatService.unsubscribe("new_group_message", handleNewMessage);
       groupChatService.unsubscribe("group_message_edit", handleMessageEdit);
       groupChatService.unsubscribe("delete_group_message", handleMessageDelete);
@@ -626,7 +678,10 @@ export function GroupChatProvider({ children }) {
       groupChatService.unsubscribe("delete_group_reply", handleReplyDelete);
       groupChatService.unsubscribe("group_typing", handleTyping);
       groupChatService.unsubscribe("connection", handleConnection);
-      groupChatService.unsubscribe("group_message_read", handleGroupMessageRead);
+      groupChatService.unsubscribe(
+        "group_message_read",
+        handleGroupMessageRead,
+      );
       groupChatService.unsubscribe("group_reply_read", handleGroupReplyRead);
       groupChatService.unsubscribe("system_message", handleSystemMessage);
     };
@@ -658,7 +713,10 @@ export function GroupChatProvider({ children }) {
     }
 
     return () => {
-      groupChatService.unsubscribe("group_metadata_updated", handleMetadataUpdate);
+      groupChatService.unsubscribe(
+        "group_metadata_updated",
+        handleMetadataUpdate,
+      );
     };
   }, []);
 
@@ -878,9 +936,10 @@ export function GroupChatProvider({ children }) {
   // Forward a root message to a group
   const forwardMessageToGroup = useCallback((message, targetGroupId) => {
     if (!groupChatService.isInitialized()) return;
-    
-    const isReply = message.type === "group_message_reply" || message.type === "reply";
-    
+
+    const isReply =
+      message.type === "group_message_reply" || message.type === "reply";
+
     if (isReply) {
       // Forward Group Reply to Group
       const payload = {
@@ -889,9 +948,12 @@ export function GroupChatProvider({ children }) {
         target_group_id: targetGroupId,
         is_reply: true,
         original_message_id: message.original_message_id || message.message_id,
-        parent_reply_id: message.parent_reply_id || null
+        parent_reply_id: message.parent_reply_id || null,
       };
-      console.log("[Forward] Group Reply → Group payload:", JSON.stringify(payload, null, 2));
+      console.log(
+        "[Forward] Group Reply → Group payload:",
+        JSON.stringify(payload, null, 2),
+      );
       groupChatService.sendMessage(payload);
     } else {
       // Forward Group Message to Group
@@ -899,31 +961,38 @@ export function GroupChatProvider({ children }) {
         type: "forward_message",
         source_message_id: message.id,
         target_group_id: targetGroupId,
-        source_type: "group_message"
+        source_type: "group_message",
       };
-      console.log("[Forward] Group Message → Group payload:", JSON.stringify(payload, null, 2));
+      console.log(
+        "[Forward] Group Message → Group payload:",
+        JSON.stringify(payload, null, 2),
+      );
       groupChatService.sendMessage(payload);
     }
-    
+
     toast.success("Message forwarded to group");
   }, []);
 
   // Forward a group message to a DM user (via direct chat service)
   const forwardMessageToUser = useCallback((message, recipientId) => {
     if (!groupChatService.isInitialized()) return;
-    
+
     import("../../../Services/ChatService").then(({ default: chatService }) => {
-      const isReply = message.type === "group_message_reply" || message.type === "reply";
-      
+      const isReply =
+        message.type === "group_message_reply" || message.type === "reply";
+
       // Both Group Message and Group Reply use forward_to_dm
       const payload = {
         type: "forward_to_dm",
         source_message_id: message.id,
         source_type: isReply ? "group_reply" : "group_message",
-        recipient_id: recipientId
+        recipient_id: recipientId,
       };
-      
-      console.log("[Forward] Group → DM payload:", JSON.stringify(payload, null, 2));
+
+      console.log(
+        "[Forward] Group → DM payload:",
+        JSON.stringify(payload, null, 2),
+      );
       chatService.sendMessage(payload);
       toast.success("Message forwarded to user");
     });
@@ -941,7 +1010,12 @@ export function GroupChatProvider({ children }) {
       setMessages((prev) =>
         prev.map((m) =>
           m.id === messageId
-            ? { ...m, message: "Message deleted", is_deleted: true, attachment: null }
+            ? {
+                ...m,
+                message: "Message deleted",
+                is_deleted: true,
+                attachment: null,
+              }
             : m,
         ),
       );
