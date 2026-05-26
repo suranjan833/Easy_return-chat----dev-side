@@ -213,6 +213,38 @@
   transform: scale(1.02);
 }
 
+.chat-sap-unread {
+  display: flex;
+  justify-content: center;
+  margin: 18px 0 8px;
+}
+
+.chat-sap-unread .chat-sap-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  max-width: 420px;
+  color: #6576ff;
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.chat-sap-unread .chat-sap-meta::before,
+.chat-sap-unread .chat-sap-meta::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: rgba(101, 118, 255, 0.24);
+}
+
+.chat-sap-unread .chat-sap-meta span {
+  padding: 0 12px;
+  white-space: nowrap;
+}
+
 .image-attachment-wrapper {
   position: relative;
   display: inline-block;

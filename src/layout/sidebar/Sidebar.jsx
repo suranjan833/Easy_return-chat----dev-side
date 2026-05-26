@@ -59,9 +59,8 @@ const Sidebar = ({
   const [siteCache, setSiteCache] = useState(new Map());
   const [agents, setAgents] = useState([]);
   const dispatch = useDispatch();
-  const { openChatPopups, openGroupChatPopups, openSupportChatPopups } = useSelector(
-    (state) => state.chatPopups,
-  );
+  const { openChatPopups, openGroupChatPopups, openSupportChatPopups } =
+    useSelector((state) => state.chatPopups);
   // Get recent chats from Redux store
   const recentChatsFromRedux = useSelector((state) => state.recentChats.chats);
   const [groupMetadata, setGroupMetadata] = useState(new Map());
@@ -498,7 +497,10 @@ const Sidebar = ({
     };
 
     const handleRecentChatsUpdate = (data) => {
-      console.log(`[Sidebar] 📬 recent_chats_updated received, chats count=${data.recentChats?.length}, unread counts:`, data.recentChats?.map(c => `uid=${c.recipient_id}:${c.unread_count}`));
+      console.log(
+        `[Sidebar] 📬 recent_chats_updated received, chats count=${data.recentChats?.length}, unread counts:`,
+        data.recentChats?.map((c) => `uid=${c.recipient_id}:${c.unread_count}`),
+      );
       if (data.recentChats) {
         setRecentChats(data.recentChats);
       }
@@ -581,7 +583,10 @@ const Sidebar = ({
           return;
         }
 
-        const total = openChatPopups.length + openGroupChatPopups.length + openSupportChatPopups.length;
+        const total =
+          openChatPopups.length +
+          openGroupChatPopups.length +
+          openSupportChatPopups.length;
 
         // Check if we've reached the combined limit
         if (total >= 4) {
@@ -603,7 +608,14 @@ const Sidebar = ({
     // Initialize with existing metadata
     const currentMetadata = groupChatService.getGroupMetadata();
     if (currentMetadata && Object.keys(currentMetadata).length > 0) {
-      setGroupMetadata(new Map(Object.entries(currentMetadata)));
+      const normalizedMetadata = new Map();
+      Object.entries(currentMetadata).forEach(([key, value]) => {
+        const groupId = Number(key);
+        if (!Number.isNaN(groupId)) {
+          normalizedMetadata.set(groupId, value);
+        }
+      });
+      setGroupMetadata(normalizedMetadata);
     }
 
     return () => {
@@ -700,8 +712,12 @@ const Sidebar = ({
   const indexOfFirstUser = indexOfLastUser - usersPerPage;
   const currentUsers = filteredUsers
     .sort((a, b) => {
-      const chatA = recentChatsFromRedux.find((chat) => chat.recipient_id === a.id);
-      const chatB = recentChatsFromRedux.find((chat) => chat.recipient_id === b.id);
+      const chatA = recentChatsFromRedux.find(
+        (chat) => chat.recipient_id === a.id,
+      );
+      const chatB = recentChatsFromRedux.find(
+        (chat) => chat.recipient_id === b.id,
+      );
       const timeA = chatA?.last_message_timestamp
         ? new Date(chatA.last_message_timestamp).getTime()
         : 0;
@@ -886,7 +902,10 @@ const Sidebar = ({
     // Mark group as read
     groupChatService.markGroupAsRead(group.id);
 
-    const total = openChatPopups.length + openGroupChatPopups.length + openSupportChatPopups.length;
+    const total =
+      openChatPopups.length +
+      openGroupChatPopups.length +
+      openSupportChatPopups.length;
 
     if (openGroupChatPopups.some((popup) => popup.group.id === group.id)) {
       toast.warning("Group chat already open.");
@@ -899,7 +918,7 @@ const Sidebar = ({
     }
 
     const isOnGroupChatPage = location.pathname === "/app-group-chat";
-    const hasActiveInlineGroup = !!(groupChatContext?.activeGroup);
+    const hasActiveInlineGroup = !!groupChatContext?.activeGroup;
 
     if (isOnGroupChatPage && !hasActiveInlineGroup && total === 0) {
       groupChatContext.selectGroup(group.id);
@@ -912,7 +931,10 @@ const Sidebar = ({
   const handleUserClick = (user) => {
     chatService.markAsRead(user.id); // Mark messages as read
 
-    const total = openChatPopups.length + openGroupChatPopups.length + openSupportChatPopups.length;
+    const total =
+      openChatPopups.length +
+      openGroupChatPopups.length +
+      openSupportChatPopups.length;
 
     if (openChatPopups.some((popup) => popup.user.id === user.id)) {
       toast.warning("Chat already open for this user.");
@@ -925,7 +947,7 @@ const Sidebar = ({
     }
 
     const isOnMessagesPage = location.pathname === "/messages";
-    const hasActiveInlineChat = !!(directChatContext?.activeUser);
+    const hasActiveInlineChat = !!directChatContext?.activeUser;
 
     if (isOnMessagesPage && !hasActiveInlineChat && total === 0) {
       directChatContext.selectUser(user.id);
@@ -1058,9 +1080,7 @@ const Sidebar = ({
                       {ticketsBySite.map((site) => {
                         const currentView = getView(site.siteId);
 
-                        const allTickets = [
-                          ...site.active,
-                        ];
+                        const allTickets = [...site.active];
 
                         const tickets = searchTerm
                           ? allTickets
