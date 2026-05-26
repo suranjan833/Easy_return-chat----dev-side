@@ -45,6 +45,100 @@ const groupMessagesByDate = (list) => {
   return segments;
 };
 
+export const linkifyText = (text = "") => {
+  if (!text || typeof text !== "string") return text;
+
+  // Improved URL regex that matches complete URLs properly
+  const urlRegex =
+    /https?:\/\/[^\s]+|www\.[^\s]+|[a-zA-Z0-9-]+\.[a-zA-Z]{2,}(?:\/[^\s]*)?/gi;
+  const parts = [];
+  let lastIndex = 0;
+  let match;
+
+  // Create a new regex without the 'g' flag for testing
+  const testRegex = /^(?:https?:\/\/|www\.)/i;
+
+  // Reset regex for iteration
+  const regexForLoop =
+    /https?:\/\/[^\s]+|www\.[^\s]+|[a-zA-Z0-9-]+\.[a-zA-Z]{2,}(?:\/[^\s]*)?/gi;
+
+  while ((match = regexForLoop.exec(text)) !== null) {
+    // Add text before the match
+    if (match.index > lastIndex) {
+      parts.push({
+        type: "text",
+        content: text.slice(lastIndex, match.index),
+      });
+    }
+
+    const url = match[0];
+
+    // Skip if it looks like a malformed URL (e.g., "https:///")
+    if (
+      !url ||
+      url === "https://" ||
+      url === "http://" ||
+      url.match(/^https?:\/\/\/$/) ||
+      url.match(/^[/:]+$/)
+    ) {
+      parts.push({
+        type: "text",
+        content: url,
+      });
+    } else {
+      // Build proper href
+      let href = url;
+      if (!url.match(testRegex)) {
+        href = `https://${url}`;
+      }
+
+      parts.push({
+        type: "link",
+        content: url,
+        href: href,
+      });
+    }
+
+    lastIndex = regexForLoop.lastIndex;
+  }
+
+  // Add remaining text
+  if (lastIndex < text.length) {
+    parts.push({
+      type: "text",
+      content: text.slice(lastIndex),
+    });
+  }
+
+  // If no URLs found, just return the text
+  if (parts.length === 0) {
+    return text;
+  }
+
+  return parts.map((part, index) => {
+    if (part.type === "text") {
+      return <React.Fragment key={index}>{part.content}</React.Fragment>;
+    }
+
+    return (
+      <a
+        key={index}
+        href={part.href}
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{
+          color: "#1877f2",
+          textDecoration: "underline",
+          wordBreak: "break-word",
+          cursor: "pointer",
+        }}
+        title={part.href}
+      >
+        {part.content}
+      </a>
+    );
+  });
+};
 export default function GroupChatBody() {
   const [showMentionList, setShowMentionList] = useState(false);
   const [mentionQuery, setMentionQuery] = useState("");
@@ -452,10 +546,13 @@ export default function GroupChatBody() {
         e.preventDefault();
         setIsDragging(false);
 
-        const file = e.dataTransfer.files?.[0];
-        if (!file) return;
+        const files = Array.from(e.dataTransfer.files || []);
 
-        handleFileChange(file); // 🔥 existing function reuse
+        if (!files.length) return;
+
+        files.forEach((file) => {
+          handleFileChange(file);
+        }); // 🔥 existing function reuse
       }}
     >
       <div className="nk-chat-head">
@@ -886,15 +983,21 @@ export default function GroupChatBody() {
                 const items = e.clipboardData?.items;
                 if (!items) return;
 
+                let hasFile = false;
+
                 for (let item of items) {
                   if (item.kind === "file") {
                     const file = item.getAsFile();
+
                     if (!file) continue;
 
-                    e.preventDefault();
+                    hasFile = true;
                     handleFileChange(file);
-                    break;
                   }
+                }
+
+                if (hasFile) {
+                  e.preventDefault();
                 }
               }}
               onKeyDown={(e) => {

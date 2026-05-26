@@ -49,7 +49,9 @@ const AttachmentDisplay = ({ attachment, isMe, message }) => {
   let attachmentUrl = message.attachment?.url || "";
 
   // If attachment is a string, it's likely a URL
-  const BASE_URL = (import.meta.env.VITE_API_BASE_URL || "https://chatsupport.fskindia.com") + "/";
+  const BASE_URL =
+    (import.meta.env.VITE_API_BASE_URL || "https://chatsupport.fskindia.com") +
+    "/";
 
   // Filename priority: attachment path/url > attachment object name > message.content (only if it looks like a filename)
   // message.content is a caption and should NOT be used for extension detection after editing
@@ -64,7 +66,9 @@ const AttachmentDisplay = ({ attachment, isMe, message }) => {
     attachmentUrl = attachment.url.startsWith("http")
       ? encodeURI(attachment.url)
       : encodeURI(BASE_URL + attachment.url);
-    filename = decodeURIComponent(attachment.url.split("/").pop().split("?")[0]);
+    filename = decodeURIComponent(
+      attachment.url.split("/").pop().split("?")[0],
+    );
   } else if (attachment?.name) {
     filename = attachment.name;
     attachmentContent = attachment.base64 || attachment.data;
@@ -108,6 +112,31 @@ const AttachmentDisplay = ({ attachment, isMe, message }) => {
   }
 
   const linkClassName = isMe ? "text-white" : "text-dark";
+
+  // Helper function to copy attachment to clipboard
+  const copyToClipboard = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      if (displaySrc) {
+        // For images, convert to blob and copy
+        const response = await fetch(displaySrc);
+        const blob = await response.blob();
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            [blob.type]: blob,
+          }),
+        ]);
+      }
+      // Show toast notification
+      const toast = require("react-toastify");
+      if (toast && toast.toast) {
+        toast.toast.success("File copied to clipboard!");
+      }
+    } catch (err) {
+      console.error("Error copying file:", err);
+    }
+  };
 
   if (isImage) {
     fileTypeIconClass = "bi bi-image";
@@ -180,6 +209,29 @@ const AttachmentDisplay = ({ attachment, isMe, message }) => {
           >
             <i className="bi bi-download"></i>
           </a>
+          <button
+            onClick={copyToClipboard}
+            style={{
+              position: "absolute",
+              bottom: "8px",
+              right: "48px",
+              backgroundColor: "rgba(0,0,0,0.6)",
+              borderRadius: "50%",
+              width: "30px",
+              height: "30px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "#fff",
+              fontSize: "16px",
+              border: "none",
+              cursor: "pointer",
+              padding: "0",
+            }}
+            title="Copy Image"
+          >
+            <i className="bi bi-files"></i>
+          </button>
         </div>
       ) : (
         <a

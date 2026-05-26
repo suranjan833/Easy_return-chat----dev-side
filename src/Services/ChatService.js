@@ -463,7 +463,7 @@ class ChatService {
           }
         } else if (data.type === "typing") {
           this.notifySubscribers("typing", data);
-        } else if (data.type === "read_reply" || data.type === "reply_read") {
+        } else if (data.type === "read_reply") {
           // ✅ Direct read_reply event from server - normalize payload
           const replyId =
             data.reply_id ||
@@ -478,7 +478,7 @@ class ChatService {
           const readAt =
             data.read_at || data.timestamp || data?.data?.read_at || null;
           console.log(
-            "[ChatService] ✅ Direct reply read event received - normalized:",
+            "[ChatService] ✅ Direct read_reply event received - normalized:",
             { replyId, messageId, readAt },
           );
           this.notifySubscribers("read_reply", {
@@ -486,7 +486,6 @@ class ChatService {
             reply_id: replyId,
             message_id: messageId,
             read_at: readAt,
-            read: data.read ?? data?.data?.read ?? true,
           });
         } else if (data.type === "status_update") {
           // Normalize status updates - if it contains reply_id treat as read_reply

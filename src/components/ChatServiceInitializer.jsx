@@ -1,31 +1,31 @@
-import { useContext, useEffect } from "react";
+import { useEffect } from "react";
 import chatService from "../Services/ChatService";
 import { DirectChatContext } from "../pages/app/chat/DirectChatContext";
+import { useContext } from "react";
 
 const ChatServiceInitializer = () => {
   const direct = useContext(DirectChatContext);
 
   useEffect(() => {
-    if (!direct?.handleOnlineUpdates) return;
-
     const token = localStorage.getItem("accessToken");
     const userId = localStorage.getItem("userId");
+    const parsedUserId = parseInt(userId, 10);
+    const tokenText = String(token || "").trim();
 
     if (
-      !token ||
-      !userId ||
+      !tokenText ||
+      tokenText === "null" ||
+      tokenText === "undefined" ||
       userId === "unknown" ||
-      isNaN(parseInt(userId, 10))
+      isNaN(parsedUserId)
     ) {
       return;
     }
 
-    const userIdInt = parseInt(userId, 10);
-
     chatService.subscribe("online_update", direct.handleOnlineUpdates);
 
     if (!chatService.isInitialized()) {
-      chatService.initialize(userIdInt, token).catch((error) => {
+      chatService.initialize(parsedUserId, tokenText).catch((error) => {
         console.error(
           "[ChatServiceInitializer] Failed to initialize ChatService:",
           error,
@@ -38,7 +38,7 @@ const ChatServiceInitializer = () => {
     return () => {
       chatService.unsubscribe("online_update", direct.handleOnlineUpdates);
     };
-  }, [direct?.handleOnlineUpdates]);
+  }, [direct.handleOnlineUpdates]);
 
   return null;
 };

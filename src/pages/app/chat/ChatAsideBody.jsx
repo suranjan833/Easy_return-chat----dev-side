@@ -1,8 +1,13 @@
+import { Icon, UserAvatar } from "@/components/Component";
+import { findUpper } from "@/utils/Utils";
 import { useContext, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";
+import { Input } from "reactstrap";
 import SimpleBar from "simplebar-react";
 import { addUserChatPopup } from "@/redux/slices/chatPopupsSlice";
+import { ChatContext } from "./ChatContext";
+import { ChatItem } from "./ChatPartials2";
 import { DirectChatContext } from "./DirectChatContext";
 import "./ModernChat.css";
 
@@ -12,34 +17,32 @@ const formatTime = (timestamp) => {
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 };
 
-export const ChatAsideBody = () => {
+export const ChatAsideBody = ({}) => {
   const direct = useContext(DirectChatContext);
   const dispatch = useDispatch();
-  const { openChatPopups, openGroupChatPopups, openSupportChatPopups } = useSelector((s) => s.chatPopups);
+  const { openChatPopups, openGroupChatPopups, openSupportChatPopups } =
+    useSelector((s) => s.chatPopups);
 
   const [isNewChatListVisible, setIsNewChatListVisible] = useState(false);
   const [newChatSearch, setNewChatSearch] = useState("");
 
   const {
+    filteredUsers,
     setSearchTerm,
     allUsers,
     activeUserIDs,
     totalUnreadCount,
+    activeUser,
     selectUser,
     users,
-    activeConversationId,
-  } = direct || {};
+  } = direct;
 
-  const safeAllUsers = allUsers || [];
-  const safeActiveUserIDs = activeUserIDs || [];
-  const safeUsers = users || [];
-  const safeTotalUnreadCount = totalUnreadCount || 0;
-
-  const total = openChatPopups.length + openGroupChatPopups.length + openSupportChatPopups.length;
+  const total =
+    openChatPopups.length +
+    openGroupChatPopups.length +
+    openSupportChatPopups.length;
 
   const handleUserClick = (userId, userObj) => {
-    if (!direct || !selectUser) return;
-
     // If any popup is already open, always open as popup
     if (total > 0) {
       if (openChatPopups.some((p) => p.user.id === userId)) {
@@ -51,13 +54,13 @@ export const ChatAsideBody = () => {
         return;
       }
       // Find conversation to get conversation_id and pairKey
-      const conv = safeUsers?.find((u) => u.other_user?.id === userId);
+      const conv = users?.find((u) => u.other_user?.id === userId);
       const payload = {
         ...userObj,
         conversation_id: conv?.conversation_id || conv?.pairKey,
         pairKey: conv?.pairKey,
       };
-      console.log('[ChatAsideBody] 📤 Opening popup with payload:', payload);
+      console.log("[ChatAsideBody] 📤 Opening popup with payload:", payload);
       dispatch(addUserChatPopup(payload));
       // Clear inline chat so it doesn't stay open alongside popups
       selectUser(null, null);
@@ -69,7 +72,7 @@ export const ChatAsideBody = () => {
   const getInitials = (first = "", last = "") =>
     `${(first[0] || "").toUpperCase()}${(last[0] || "").toUpperCase()}`;
 
-  const filteredNewChatUsers = safeAllUsers.filter((user) => {
+  const filteredNewChatUsers = allUsers.filter((user) => {
     const name = `${user.first_name} ${user.last_name}`.toLowerCase();
     return name.includes(newChatSearch.toLowerCase());
   });
@@ -82,7 +85,7 @@ export const ChatAsideBody = () => {
           className="modern-chat-search-input"
           id="direct-search"
           placeholder="Search by name"
-          onChange={(e) => setSearchTerm?.(e.target.value)}
+          onChange={(e) => setSearchTerm(e.target.value)}
           style={{
             height: "34px",
             width: "250px",
@@ -103,7 +106,7 @@ export const ChatAsideBody = () => {
           }}
         >
           Messages
-          {safeTotalUnreadCount > 0 && (
+          {totalUnreadCount > 0 && (
             <span
               style={{
                 background: "#667eea",
@@ -114,7 +117,7 @@ export const ChatAsideBody = () => {
                 marginLeft: "8px",
               }}
             >
-              {safeTotalUnreadCount}
+              {totalUnreadCount}
             </span>
           )}
           {/* bhai button add */}
@@ -231,12 +234,14 @@ export const ChatAsideBody = () => {
         )}
 
         <div className="modern-chat-list">
-          {safeUsers.map((conversation) => {
-            var otherUser = conversation.other_user || {};
-            var latestMsg = conversation.latest_message || {};
-            var unreadCount = conversation.unread_count || 0;
-            const isActive = activeConversationId === conversation.conversation_id || activeConversationId === conversation.pairKey;
-            const isOnline = otherUser.id && safeActiveUserIDs.includes(otherUser.id);
+          {users.map((conversation) => {
+            var otherUser = conversation.other_user;
+            var latestMsg = conversation.latest_message;
+            var unreadCount = conversation.unread_count;
+            const isActive =
+              direct.activeConversationId === conversation.conversation_id ||
+              direct.activeConversationId === conversation.pairKey;
+            const isOnline = activeUserIDs.includes(otherUser.id);
 
             return (
               <div
@@ -285,7 +290,8 @@ export const ChatAsideBody = () => {
                 </div>
                 <div className="modern-chat-item-content">
                   <div className="modern-chat-item-name">
-                    {conversation.displayName || `${otherUser.first_name} ${otherUser.last_name || ""}`}
+                    {conversation.displayName ||
+                      `${otherUser.first_name} ${otherUser.last_name || ""}`}
                   </div>
                   <div className="modern-chat-item-message">
                     {latestMsg.content}

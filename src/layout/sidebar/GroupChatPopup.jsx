@@ -9,7 +9,11 @@ import AttachmentDisplay from "../../components/custom/Attachment/AttachmentDisp
 import AttachmentInputPreview from "../../components/custom/Attachment/AttachmentInputPreview";
 import DeleteConfirmationModal from "../../components/custom/DeleteConfirmationModal";
 import ReplyEditIndicator from "../../components/custom/ReplyEditIndicator/ReplyEditIndicator"; // Import the new component
-import { AttechmentSizeLimit, isOnlyEmojis } from "../../pages/comman/helper";
+import {
+  AttechmentSizeLimit,
+  isOnlyEmojis,
+  renderMessageWithLinks,
+} from "../../pages/comman/helper";
 import { getGroupMessages } from "../../Services/api.js";
 import groupChatService from "../../Services/GroupChatService";
 import "./GroupChatPopup.css";
@@ -62,6 +66,7 @@ const GroupChatPopup = ({
   const [messagesAreaPaddingBottom, setMessagesAreaPaddingBottom] =
     useState(88); // Default for input area only
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [isDraggingFiles, setIsDraggingFiles] = useState(false);
   const messagesEndRef = useRef(null);
   const chatWindowRef = useRef(null);
   const fileInputRef = useRef(null);
@@ -244,6 +249,38 @@ const GroupChatPopup = ({
     } else {
       setShowScrollToTopButton(false);
     }
+  };
+
+  // Drag and drop handlers for file upload
+  const handleDragEnter = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingFiles(true);
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingFiles(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingFiles(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingFiles(false);
+
+    const files = Array.from(e.dataTransfer.files || []);
+    if (!files.length) return;
+
+    files.forEach((file) => {
+      handleFileChange(file);
+    });
   };
 
   useEffect(() => {
@@ -1138,6 +1175,64 @@ const GroupChatPopup = ({
     setAttachmentPreview(null);
   };
 
+  // Helper function to copy attachment to clipboard
+  const copyAttachmentToClipboard = (attachment) => {
+    if (attachment?.base64 && attachment?.type) {
+      try {
+        const base64Data = `data:${attachment.type};base64,${attachment.base64}`;
+        fetch(base64Data)
+          .then((res) => res.blob())
+          .then((blob) => {
+            const filesData = [
+              new ClipboardItem({
+                [attachment.type]: blob,
+              }),
+            ];
+            navigator.clipboard.write(filesData).then(() => {
+              toast.success(`${attachment.name} copied to clipboard!`);
+            });
+          })
+          .catch(() => {
+            toast.error("Failed to copy file to clipboard");
+          });
+      } catch (err) {
+        console.error("Error copying to clipboard:", err);
+        toast.error("Failed to copy file");
+      }
+    }
+  };
+
+  // Helper function to copy link to clipboard
+  const copyLinkToClipboard = (link) => {
+    try {
+      navigator.clipboard.writeText(link).then(() => {
+        toast.success("Link copied to clipboard!");
+      });
+    } catch (err) {
+      console.error("Error copying link:", err);
+      toast.error("Failed to copy link");
+    }
+  };
+
+  // Helper function to download attachment
+  const downloadAttachment = (attachment) => {
+    if (attachment?.base64 && attachment?.name) {
+      try {
+        const base64Data = `data:${attachment.type};base64,${attachment.base64}`;
+        const link = document.createElement("a");
+        link.href = base64Data;
+        link.download = attachment.name;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        toast.success(`${attachment.name} downloaded!`);
+      } catch (err) {
+        console.error("Error downloading file:", err);
+        toast.error("Failed to download file");
+      }
+    }
+  };
+
   // Debounced typing indicator
   useEffect(() => {
     if (!messageText.trim()) {
@@ -1344,7 +1439,43 @@ const GroupChatPopup = ({
           position: "relative", // Added for positioning the scroll button
         }}
         onScroll={handleScroll}
+        onDragEnter={handleDragEnter}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
       >
+        {/* Drag overlay */}
+        {isDraggingFiles && (
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: "rgba(0, 123, 255, 0.1)",
+              border: "2px dashed #007bff",
+              borderRadius: "8px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              zIndex: 100,
+              pointerEvents: "none",
+            }}
+          >
+            <div
+              style={{
+                textAlign: "center",
+                color: "#007bff",
+                fontWeight: "600",
+                fontSize: "16px",
+              }}
+            >
+              <div style={{ marginBottom: "8px" }}>📁</div>
+              <div>Drop files to upload</div>
+            </div>
+          </div>
+        )}
         {loading || connectionStatus === "connecting" ? (
           <div style={{ textAlign: "center", padding: "20px" }}>
             <div className="spinner-border text-primary" role="status">
@@ -1693,7 +1824,7 @@ const GroupChatPopup = ({
                             display: "inline-block",
                           }}
                         >
-                          {text}
+                          {isEmojiOnly ? text : renderMessageWithLinks(text)}
                         </span>
                       );
                     })()}

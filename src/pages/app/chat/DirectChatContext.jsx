@@ -475,7 +475,7 @@ export function DirectChatProvider({ children }) {
 
             // ✅ Filter out conversations where current user is NOT a participant
             const sId = Number(c.sender_id);
-            const rId = Number(c.recipient_id);
+            const rId = Number(c.message_recipient_id || c.recipient_id);
             if (sId !== ME_ID && rId !== ME_ID) {
               console.log(
                 `[DirectChat] 🚫 Filtering out third-party recent chat: ${sId} ↔ ${rId}`,
@@ -483,7 +483,9 @@ export function DirectChatProvider({ children }) {
               return false;
             }
 
-            const pairKey = [sId, rId].sort((a, b) => a - b).join("_");
+            const pairKey = [ME_ID, Number(c.recipient_id)]
+              .sort((a, b) => a - b)
+              .join("_");
             if (seenPairs.has(pairKey)) return false;
             seenPairs.add(pairKey);
             return true;
@@ -1203,17 +1205,33 @@ export function DirectChatProvider({ children }) {
             headers: { Authorization: `Bearer ${TOKEN}` },
           },
         );
-        const rawConversations = response?.data?.conversations || [];
+        const rawConversations = Array.isArray(response?.data)
+          ? response.data
+          : response?.data?.conversations || [];
+
+        const normalizedConversations =
+          normalizeConversations(rawConversations);
+        setUsers(normalizedConversations);
+        setFilteredUsers(normalizedConversations);
+
         const chats = rawConversations.map((chat) => {
           const lastMsg = chat.latest_message || {};
+          const otherUserId = Number(chat.other_user?.id);
+          const senderId = Number(lastMsg.sender_id);
+          const recipientId =
+            Number(lastMsg.recipient_id) ||
+            (senderId === ME_ID ? otherUserId : ME_ID);
+
           return {
             id: lastMsg.id,
-            recipient_id: chat.other_user?.id,
+            // recipient_id is used elsewhere as "the other user in the chat".
+            recipient_id: otherUserId,
+            sender_id: senderId,
+            message_recipient_id: recipientId,
             last_message:
               lastMsg.content ||
               (lastMsg.attachment ? `📎 ${lastMsg.attachment}` : ""),
             last_message_timestamp: lastMsg.timestamp,
-            sender_id: lastMsg.sender_id,
           };
         });
 
@@ -1226,11 +1244,13 @@ export function DirectChatProvider({ children }) {
               new Date(a.last_message_timestamp),
           )
           .filter((c) => {
-            if (!c.recipient_id || !c.sender_id) return false;
+            if (!c.recipient_id || !c.sender_id || !c.message_recipient_id) {
+              return false;
+            }
 
             // ✅ Filter out conversations where current user is NOT a participant
             const sId = Number(c.sender_id);
-            const rId = Number(c.recipient_id);
+            const rId = Number(c.message_recipient_id);
             if (sId !== ME_ID && rId !== ME_ID) {
               console.log(
                 `[DirectChat] 🚫 Filtering out third-party chat in initial fetch: ${sId} ↔ ${rId}`,
@@ -1238,7 +1258,9 @@ export function DirectChatProvider({ children }) {
               return false;
             }
 
-            const pairKey = [sId, rId].sort((a, b) => a - b).join("_");
+            const pairKey = [ME_ID, Number(c.recipient_id)]
+              .sort((a, b) => a - b)
+              .join("_");
             if (seenPairs.has(pairKey)) return false;
             seenPairs.add(pairKey);
             return true;
@@ -1259,7 +1281,7 @@ export function DirectChatProvider({ children }) {
     };
 
     fetchRecentChats();
-  }, [ME_ID, TOKEN]); // Dependencies are ME_ID and TOKEN only
+  }, [ME_ID, TOKEN, normalizeConversations]);
 
   // Effect for chat service subscriptions
   useEffect(() => {
@@ -1302,9 +1324,14 @@ export function DirectChatProvider({ children }) {
     });
 
     if (currentUsers.length > 0 && users.length === 0) {
+      console.log("[DirectChat] 🔄 Syncing users from ChatService (recovery)");
       const normalized = normalizeConversations(currentUsers);
       setUsers(normalized);
       setFilteredUsers(normalized);
+    } else if (users.length === 0 && currentUsers.length === 0) {
+      console.info(
+        "[DirectChat] ChatService cache is empty; recent-chats fetch will hydrate conversations.",
+      );
     }
     if (currentChats.length > 0) {
       setRecentChats(currentChats);
