@@ -165,6 +165,96 @@ export function DirectChatProvider({ children }) {
   const ME_ID = parseInt(localStorage.getItem("userId"));
   const TOKEN = useMemo(() => localStorage.getItem("accessToken"), []);
 
+  const normalizeDirectMessage = useCallback((message) => {
+    if (!message) return message;
+
+    const isReply =
+      message.type === "message_reply" ||
+      message.type === "reply" ||
+      message.reply_id !== undefined ||
+      message.reply_content !== undefined;
+
+    const normalized = {
+      ...message,
+      timestamp:
+        message.timestamp ||
+        message.created_at ||
+        message.updated_at ||
+        new Date().toISOString(),
+    };
+
+    if (isReply) {
+      normalized.type = "message_reply";
+      normalized.id = normalized.id ?? normalized.reply_id;
+      normalized.reply_id = normalized.reply_id ?? normalized.id;
+      normalized.content = normalized.content ?? "";
+    }
+
+    return normalized;
+  }, []);
+
+  const markLoadedUnreadAsRead = useCallback(
+    (loadedMessages) => {
+      const unreadMessages = (loadedMessages || []).filter(
+        (msg) =>
+          msg &&
+          !msg.meta &&
+          msg.type !== "unread_divider" &&
+          Number(msg.sender_id) !== Number(ME_ID) &&
+          (msg.type === "message" || msg.type === "message_reply") &&
+          msg.read === false,
+      );
+
+      if (unreadMessages.length === 0) return;
+
+      console.log(
+        `[DirectChat] 📨 marking ${unreadMessages.length} loaded unread messages as read`,
+      );
+
+      const readAt = new Date().toISOString();
+
+      unreadMessages.forEach((msg) => {
+        if (msg.type === "message_reply") {
+          const replyId = msg.reply_id || msg.id;
+          if (replyId) {
+            chatService.sendMessage({
+              type: "mark_reply_read",
+              reply_id: replyId,
+            });
+          }
+          return;
+        }
+
+        const messageId = msg.message_id || msg.id;
+        if (messageId) {
+          chatService.sendMessage({
+            type: "update_status",
+            message_id: messageId,
+            status: "read",
+          });
+        }
+      });
+
+      const unreadKeys = new Set(
+        unreadMessages.map((msg) => String(msg.reply_id || msg.id)),
+      );
+
+      const markRead = (msg) =>
+        unreadKeys.has(String(msg.reply_id || msg.id))
+          ? {
+              ...msg,
+              read: true,
+              delivered: true,
+              read_at: msg.read_at || readAt,
+            }
+          : msg;
+
+      setMessages((prev) => prev.map(markRead));
+      setHiddenMessages((prev) => prev.map(markRead));
+    },
+    [ME_ID],
+  );
+
   // Custom setter for replyToMessage to persist in localStorage
   const setReplyToMessage = useCallback((message) => {
     setReplyToMessageState(message);
@@ -420,7 +510,7 @@ export function DirectChatProvider({ children }) {
     (data) => {
       console.log("[DirectChat] 🎯 handleNewMessage CALLED with data:", data);
 
-      const { message } = data;
+      const message = normalizeDirectMessage(data.message);
       const sId = Number(message.sender_id);
       const rId = Number(message.recipient_id);
 
@@ -698,6 +788,33 @@ export function DirectChatProvider({ children }) {
 
           // Check for exact duplicate
           const exists = prev.some((m) => m.id === message.id);
+          const replyExists =
+            message.type === "message_reply" &&
+            prev.some(
+              (m) =>
+                m.type === "message_reply" &&
+                String(m.reply_id || m.id) ===
+                  String(message.reply_id || message.id),
+            );
+          if (replyExists) {
+            return prev.map((m) =>
+              m.type === "message_reply" &&
+              String(m.reply_id || m.id) ===
+                String(message.reply_id || message.id)
+                ? {
+                    ...m,
+                    ...message,
+                    id: m.tempId ? message.id : m.id,
+                    reply_id: message.reply_id || m.reply_id,
+                    tempId: false,
+                    delivered: message.delivered ?? m.delivered ?? true,
+                    read: message.read ?? m.read ?? false,
+                    read_at: message.read_at || m.read_at,
+                  }
+                : m,
+            );
+          }
+
           if (exists) {
             console.log(
               "[DirectChat] ⏭️ Skipping duplicate message:",
@@ -737,7 +854,7 @@ export function DirectChatProvider({ children }) {
         );
       }
     },
-    [ME_ID, allUsers, dispatch],
+    [ME_ID, allUsers, dispatch, normalizeDirectMessage],
   );
 
   const handleStatusUpdate = useCallback(
@@ -780,7 +897,9 @@ export function DirectChatProvider({ children }) {
 
       const targetId = candidateIds.length > 0 ? candidateIds[0] : 0;
 
-      const isReplyRead = (payload.type || data.type) === "read_reply";
+      const statusType = payload.type || data.type;
+      const isReplyRead =
+        statusType === "read_reply" || statusType === "reply_read";
 
       console.log("[DirectChat] 🎯 Status Update:", {
         rawType: data.type,
@@ -1320,7 +1439,7 @@ export function DirectChatProvider({ children }) {
         setHasMore(serverMessages.length === PAGE_LIMIT);
         messageSkipRef.current = serverMessages.length;
 
-        let processed = [...serverMessages];
+        let processed = serverMessages.map(normalizeDirectMessage);
 
         // ✅ 1. find last opponent read message index
         let lastOpponentReadIndex = -1;
@@ -1359,8 +1478,8 @@ export function DirectChatProvider({ children }) {
         setHasHidden(false);
         setMessages(processed);
 
-        // ✅ 4. mark latest opponent unread message as read
-        const unreadMessages = serverMessages.filter(
+        // ✅ 4. mark loaded opponent unread messages/replies as read
+        const hasUnreadMessages = processed.some(
           (msg) =>
             msg &&
             msg.sender_id !== ME_ID &&
@@ -1368,23 +1487,8 @@ export function DirectChatProvider({ children }) {
             msg.read === false,
         );
 
-        if (unreadMessages.length > 0) {
-          // latest unread message
-          const latestUnread = unreadMessages[unreadMessages.length - 1];
-
-          console.log(
-            `[DirectChat] 📨 marking all previous messages as read till id=${latestUnread.id}`,
-          );
-
-          const messageIdToMark =
-            latestUnread.type === "message_reply"
-              ? latestUnread.reply_id || latestUnread.id
-              : latestUnread.message_id || latestUnread.id;
-
-          if (messageIdToMark) {
-            markMessageAsRead(messageIdToMark);
-          }
-
+        if (hasUnreadMessages) {
+          markLoadedUnreadAsRead(processed);
           chatService.markAllRead(activeUser.id);
 
           console.log(
@@ -1420,7 +1524,7 @@ export function DirectChatProvider({ children }) {
       setHiddenMessages([]);
       setHasHidden(false);
     };
-  }, [activeUser, ME_ID, TOKEN]);
+  }, [activeUser, ME_ID, TOKEN, normalizeDirectMessage]);
   const prependHidden = useCallback(() => {
     if (!hasHidden) return;
     setMessages((prev) => [...hiddenMessages, ...prev]);
@@ -1443,12 +1547,13 @@ export function DirectChatProvider({ children }) {
         setHasMore(false);
         return;
       }
-      messageSkipRef.current += newer.length;
-      setHasMore(newer.length === PAGE_LIMIT);
+      const normalizedNewer = newer.map(normalizeDirectMessage);
+      messageSkipRef.current += normalizedNewer.length;
+      setHasMore(normalizedNewer.length === PAGE_LIMIT);
       // Append newer messages at the bottom
       setMessages((prev) => {
         const existingIds = new Set(prev.map((m) => m.id));
-        const fresh = newer.filter((m) => !existingIds.has(m.id));
+        const fresh = normalizedNewer.filter((m) => !existingIds.has(m.id));
         return [...prev, ...fresh];
       });
     } catch (err) {
@@ -1456,7 +1561,7 @@ export function DirectChatProvider({ children }) {
     } finally {
       setIsLoadingMore(false);
     }
-  }, [activeUser, ME_ID, isLoadingMore, hasMore]);
+  }, [activeUser, ME_ID, isLoadingMore, hasMore, normalizeDirectMessage]);
 
   const handleTyping = useCallback(() => {
     if (!activeUser || !ME_ID) return;
@@ -1662,6 +1767,8 @@ export function DirectChatProvider({ children }) {
         //bhai chnage korlm
         payload = {
           type: "message_reply",
+          sender_id: ME_ID,
+          recipient_id: activeUser.id,
           message_id:
             actualReplyToMessage.type == "message_reply"
               ? actualReplyToMessage.message_id
@@ -1698,6 +1805,38 @@ export function DirectChatProvider({ children }) {
       }
 
       if (chatService.sendMessage(payload)) {
+        if (payload.type === "message_reply") {
+          const now = new Date().toISOString();
+          const tempReplyId = `temp-reply-${Date.now()}`;
+          const tempReply = {
+            id: tempReplyId,
+            reply_id: tempReplyId,
+            tempId: true,
+            type: "message_reply",
+            sender_id: ME_ID,
+            recipient_id: activeUser.id,
+            message_id: payload.message_id,
+            parent_reply_id: payload.parent_reply_id,
+            reply_content: content,
+            content: "",
+            parent_content:
+              actualReplyToMessage.reply_content ||
+              actualReplyToMessage.content ||
+              "Original message",
+            parentMsg: actualReplyToMessage,
+            timestamp: now,
+            created_at: now,
+            delivered: false,
+            read: false,
+          };
+
+          setMessages((prev) =>
+            [...prev, tempReply].sort(
+              (a, b) => new Date(a.timestamp) - new Date(b.timestamp),
+            ),
+          );
+        }
+
         setRecentChats((prev) => {
           const next = [...prev];
           const idx = next.findIndex((c) => c.recipient_id === activeUser.id);
@@ -1723,16 +1862,18 @@ export function DirectChatProvider({ children }) {
         // If sending fails, remove the optimistically added message/reply
         if (replyToMessage) {
           setMessages((prev) =>
-            prev.map((msg) =>
-              msg.id === actualReplyToMessage.id
-                ? {
-                    ...msg,
-                    replies_mentions: (msg.replies_mentions || []).filter(
-                      (reply) => !reply.tempId,
-                    ),
-                  }
-                : msg,
-            ),
+            prev
+              .filter((msg) => !msg.tempId)
+              .map((msg) =>
+                msg.id === actualReplyToMessage.id
+                  ? {
+                      ...msg,
+                      replies_mentions: (msg.replies_mentions || []).filter(
+                        (reply) => !reply.tempId,
+                      ),
+                    }
+                  : msg,
+              ),
           );
         } else {
           setMessages((prev) => prev.filter((m) => !m.id.startsWith("temp-")));
@@ -1841,7 +1982,7 @@ export function DirectChatProvider({ children }) {
             setMessages(
               updated
                 .map((msg) => ({
-                  ...msg,
+                  ...normalizeDirectMessage(msg),
                   delivered: !!msg.delivered,
                   read: !!msg.read,
                 }))
@@ -1856,7 +1997,14 @@ export function DirectChatProvider({ children }) {
         console.error("Failed to delete messages:", error);
         toast.error("Failed to delete messages.");
       });
-  }, [selectedMessages, messages, activeUser, ME_ID, TOKEN]);
+  }, [
+    selectedMessages,
+    messages,
+    activeUser,
+    ME_ID,
+    TOKEN,
+    normalizeDirectMessage,
+  ]);
 
   //bhaii delete message
 

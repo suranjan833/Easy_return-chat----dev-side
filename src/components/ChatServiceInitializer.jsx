@@ -1,12 +1,13 @@
-import React, { useEffect } from "react";
+import { useContext, useEffect } from "react";
 import chatService from "../Services/ChatService";
 import { DirectChatContext } from "../pages/app/chat/DirectChatContext";
-import { useContext } from "react";
 
 const ChatServiceInitializer = () => {
   const direct = useContext(DirectChatContext);
 
   useEffect(() => {
+    if (!direct?.handleOnlineUpdates) return;
+
     const token = localStorage.getItem("accessToken");
     const userId = localStorage.getItem("userId");
 
@@ -37,7 +38,7 @@ const ChatServiceInitializer = () => {
     return () => {
       chatService.unsubscribe("online_update", direct.handleOnlineUpdates);
     };
-  }, []);
+  }, [direct?.handleOnlineUpdates]);
 
   return null;
 };
