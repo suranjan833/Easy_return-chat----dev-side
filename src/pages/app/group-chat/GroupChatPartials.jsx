@@ -22,7 +22,8 @@ export const GroupMeChat = ({
   const senderId = Number(message.sender_id || message.user?.id || 0);
   const isOwnMessage = senderId === currentUserId;
   const messageDropdownRefs = useRef({});
-  const [showDropdownForMessageId, setShowDropdownForMessageId] = useState(null);
+  const [showDropdownForMessageId, setShowDropdownForMessageId] =
+    useState(null);
 
   // Calculate read status — works for both root messages (read_receipts array)
   // and replies (is_read / read_at fields, no read_receipts array)
@@ -30,23 +31,29 @@ export const GroupMeChat = ({
   const totalMembers = groupMembers?.length || 0;
   const otherMembersCount = Math.max(0, totalMembers - 1);
 
-  const isReplyType = message.type === "group_message_reply" || message.type === "reply";
+  const isReplyType =
+    message.type === "group_message_reply" || message.type === "reply";
 
   let isReadByAll, isReadBySome;
 
   if (isReplyType) {
     // Replies: server sends is_read + read_at directly, no read_receipts array
     isReadBySome = message.is_read === true || !!message.read_at;
-    isReadByAll  = isReadBySome; // For replies there's only one "read" state
+    isReadByAll = isReadBySome; // For replies there's only one "read" state
   } else {
     // Root messages: use read_receipts array
-    const readByCount = readReceipts.filter(r => r.reader_id !== currentUserId && r.user_id !== currentUserId).length;
-    isReadByAll  = otherMembersCount > 0 && readByCount >= otherMembersCount;
+    const readByCount = readReceipts.filter(
+      (r) => r.reader_id !== currentUserId && r.user_id !== currentUserId,
+    ).length;
+    isReadByAll = otherMembersCount > 0 && readByCount >= otherMembersCount;
     isReadBySome = readByCount > 0;
   }
 
   return (
-    <div id={`message-${message.id}`} className={`chat is-me my-1 ${highlightedMessageId === message.id ? 'highlight-message' : ''}`}>
+    <div
+      id={`message-${message.id}`}
+      className={`chat is-me my-1 ${highlightedMessageId === message.id ? "highlight-message" : ""}`}
+    >
       <div className="chat-content" style={{ display: "flex" }}>
         {isOwnMessage && !isDeleted ? (
           <>
@@ -189,31 +196,73 @@ export const GroupMeChat = ({
                     {(message.type === "reply" ||
                       message.type === "group_message_reply") &&
                       message.parentMsg && (
-                        <div 
-                          className="reply-context mb-2 p-2 bg-light rounded" 
-                          style={{ cursor: 'pointer' }}
-                          onClick={() => onScrollToMessage(message.parentMsg.id)}
+                        <div
+                          className="reply-context mb-2 p-2 bg-light rounded"
+                          style={{ cursor: "pointer" }}
+                          onClick={() =>
+                            onScrollToMessage(message.parentMsg.id)
+                          }
                         >
-                          <div style={{ fontSize: "0.75em", fontWeight: 600, color: "#6576ff", marginBottom: "2px" }}>
+                          <div
+                            style={{
+                              fontSize: "0.75em",
+                              fontWeight: 600,
+                              color: "#6576ff",
+                              marginBottom: "2px",
+                            }}
+                          >
                             {message.parentMsg?.user?.first_name
                               ? `${message.parentMsg.user.first_name} ${message.parentMsg.user.last_name || ""}`.trim()
                               : message.parentMsg?.sender?.first_name
-                              ? `${message.parentMsg.sender.first_name} ${message.parentMsg.sender.last_name || ""}`.trim()
-                              : "User"}
+                                ? `${message.parentMsg.sender.first_name} ${message.parentMsg.sender.last_name || ""}`.trim()
+                                : "User"}
                           </div>
-                          <div style={{ fontSize: "0.85em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                            {(message.parentMsg?.message || message.parentMsg?.content || "")?.slice(0, 50)}
-                            {(message.parentMsg?.message || message.parentMsg?.content || "").length > 50 ? "..." : ""}
+                          <div
+                            style={{
+                              fontSize: "0.85em",
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                            }}
+                          >
+                            {(
+                              message.parentMsg?.message ||
+                              message.parentMsg?.content ||
+                              ""
+                            )?.slice(0, 50)}
+                            {(
+                              message.parentMsg?.message ||
+                              message.parentMsg?.content ||
+                              ""
+                            ).length > 50
+                              ? "..."
+                              : ""}
                           </div>
                         </div>
                       )}
                     {message.is_forwarded && (
-                      <div style={{ fontSize: "11px", opacity: 0.7, marginBottom: "4px", display: "flex", alignItems: "center", gap: "4px" }}>
-                        <i className="bi bi-reply-fill" style={{ fontSize: "11px", transform: "scaleX(-1)" }}></i>
+                      <div
+                        style={{
+                          fontSize: "11px",
+                          opacity: 0.7,
+                          marginBottom: "4px",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "4px",
+                        }}
+                      >
+                        <i
+                          className="bi bi-reply-fill"
+                          style={{ fontSize: "11px", transform: "scaleX(-1)" }}
+                        ></i>
                         <span>Forwarded</span>
                       </div>
                     )}
-                    {renderMessageWithLinks(message.message || message.reply_message || message.content)}
+                    {renderMessageWithLinks(
+                      message.message ||
+                        message.reply_message ||
+                        message.content,
+                    )}
                     {message.attachment && (
                       <div className="attachment-container mt-2">
                         {/* {console.log('Rendering attachment:', message.attachment)} */}
@@ -493,7 +542,14 @@ export const GroupMeChat = ({
                       </div>
                     )}
                     <div className="mt-2 flex justify-end">
-                      <span className="text-[10px] text-gray-300" style={{ display: "flex", alignItems: "center", gap: "4px" }}>
+                      <span
+                        className="text-[10px] text-gray-300"
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "4px",
+                        }}
+                      >
                         {item.date}
                         {message.is_edited && (
                           <span style={{ color: "#fff", marginLeft: "4px" }}>
@@ -503,11 +559,33 @@ export const GroupMeChat = ({
                         {/* Read receipt tick */}
                         <span style={{ marginLeft: "4px", lineHeight: 1 }}>
                           {isReadByAll ? (
-                            <i className="bi bi-check2-all" style={{ color: "#1ee0ac", fontSize: "13px" }} title={isReplyType ? "Read" : `Read by all members`} />
+                            <i
+                              className="bi bi-check2-all"
+                              style={{ color: "#1ee0ac", fontSize: "13px" }}
+                              title={
+                                isReplyType ? "Read" : `Read by all members`
+                              }
+                            />
                           ) : isReadBySome ? (
-                            <i className="bi bi-check2-all" style={{ color: "rgba(255,255,255,0.6)", fontSize: "13px" }} title={isReplyType ? "Read" : `Read by some members`} />
+                            <i
+                              className="bi bi-check2-all"
+                              style={{
+                                color: "rgba(255,255,255,0.6)",
+                                fontSize: "13px",
+                              }}
+                              title={
+                                isReplyType ? "Read" : `Read by some members`
+                              }
+                            />
                           ) : (
-                            <i className="bi bi-check2" style={{ color: "rgba(255,255,255,0.6)", fontSize: "13px" }} title="Delivered" />
+                            <i
+                              className="bi bi-check2"
+                              style={{
+                                color: "rgba(255,255,255,0.6)",
+                                fontSize: "13px",
+                              }}
+                              title="Delivered"
+                            />
                           )}
                         </span>
                       </span>
@@ -534,7 +612,10 @@ export const GroupYouChat = ({
   isOnlyEmojis,
 }) => {
   return (
-    <div id={`message-${message.id}`} className={`chat is-you my-1 ${highlightedMessageId === message.id ? 'highlight-message' : ''}`}>
+    <div
+      id={`message-${message.id}`}
+      className={`chat is-you my-1 ${highlightedMessageId === message.id ? "highlight-message" : ""}`}
+    >
       <div className="chat-avatar">
         <UserAvatar
           theme="primary"
@@ -574,98 +655,143 @@ export const GroupYouChat = ({
               }}
             >
               {isDeleted ? (
-                <span style={{ fontStyle: "italic" }}>Message has been deleted</span>
+                <span style={{ fontStyle: "italic" }}>
+                  Message has been deleted
+                </span>
               ) : (
                 <>
                   {(message.type === "reply" ||
                     message.type === "group_message_reply") &&
                     message.parentMsg && (
-                      <div 
-                        className="reply-context mb-2" 
-                        style={{ cursor: 'pointer' }}
+                      <div
+                        className="reply-context mb-2"
+                        style={{ cursor: "pointer" }}
                         onClick={() => onScrollToMessage(message.parentMsg.id)}
                       >
-                        <div style={{ fontSize: "0.75em", fontWeight: 600, color: "#6576ff", marginBottom: "2px" }}>
+                        <div
+                          style={{
+                            fontSize: "0.75em",
+                            fontWeight: 600,
+                            color: "#6576ff",
+                            marginBottom: "2px",
+                          }}
+                        >
                           {message.parentMsg?.user?.first_name
                             ? `${message.parentMsg.user.first_name} ${message.parentMsg.user.last_name || ""}`.trim()
                             : message.parentMsg?.sender?.first_name
-                            ? `${message.parentMsg.sender.first_name} ${message.parentMsg.sender.last_name || ""}`.trim()
-                            : "User"}
+                              ? `${message.parentMsg.sender.first_name} ${message.parentMsg.sender.last_name || ""}`.trim()
+                              : "User"}
                         </div>
-                        <div style={{ fontSize: "0.85em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                          {(message.parentMsg?.message || message.parentMsg?.content || "")?.slice(0, 50)}
-                          {(message.parentMsg?.message || message.parentMsg?.content || "").length > 50 ? "..." : ""}
+                        <div
+                          style={{
+                            fontSize: "0.85em",
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                          }}
+                        >
+                          {(
+                            message.parentMsg?.message ||
+                            message.parentMsg?.content ||
+                            ""
+                          )?.slice(0, 50)}
+                          {(
+                            message.parentMsg?.message ||
+                            message.parentMsg?.content ||
+                            ""
+                          ).length > 50
+                            ? "..."
+                            : ""}
                         </div>
                       </div>
                     )}
                   {message.is_forwarded && (
-                    <div style={{ fontSize: "11px", opacity: 0.7, marginBottom: "4px", display: "flex", alignItems: "center", gap: "4px" }}>
-                      <i className="bi bi-reply-fill" style={{ fontSize: "11px", transform: "scaleX(-1)" }}></i>
+                    <div
+                      style={{
+                        fontSize: "11px",
+                        opacity: 0.7,
+                        marginBottom: "4px",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "4px",
+                      }}
+                    >
+                      <i
+                        className="bi bi-reply-fill"
+                        style={{ fontSize: "11px", transform: "scaleX(-1)" }}
+                      ></i>
                       <span>Forwarded</span>
                     </div>
                   )}
-                  {renderMessageWithLinks(message.message || message?.mention_message || message.reply_message || "")}
-              {message.attachment && !isDeleted && (
-                <div className="attachment-container mt-2">
-                  {/* {console.log('Rendering attachment (GroupYouChat):', message.attachment)} */}
-                  {/* {console.log('Attachment type (GroupYouChat):', message.attachment.type)} */}
-                  {/* {console.log('Is image (GroupYouChat):', message.attachment.type && message.attachment.type.startsWith('image/'))} */}
-                  {(() => {
-                    // Handle different attachment formats
-                    const isImageByType =
-                      message.attachment.type &&
-                      message.attachment.type.startsWith("image/");
-                    const isImageByUrl =
-                      typeof message.attachment === "string" &&
-                      /\.(jpg|jpeg|png|gif|bmp|webp)$/i.test(
-                        message.attachment,
-                      );
-                    const isImageByUrlInObject =
-                      message.attachment.url &&
-                      /\.(jpg|jpeg|png|gif|bmp|webp)$/i.test(
-                        message.attachment.url,
-                      );
-                    const isImage =
-                      isImageByType || isImageByUrl || isImageByUrlInObject;
+                  {renderMessageWithLinks(
+                    message.message ||
+                      message?.mention_message ||
+                      message.reply_message ||
+                      "",
+                  )}
+                  {message.attachment && !isDeleted && (
+                    <div className="attachment-container mt-2">
+                      {/* {console.log('Rendering attachment (GroupYouChat):', message.attachment)} */}
+                      {/* {console.log('Attachment type (GroupYouChat):', message.attachment.type)} */}
+                      {/* {console.log('Is image (GroupYouChat):', message.attachment.type && message.attachment.type.startsWith('image/'))} */}
+                      {(() => {
+                        // Handle different attachment formats
+                        const isImageByType =
+                          message.attachment.type &&
+                          message.attachment.type.startsWith("image/");
+                        const isImageByUrl =
+                          typeof message.attachment === "string" &&
+                          /\.(jpg|jpeg|png|gif|bmp|webp)$/i.test(
+                            message.attachment,
+                          );
+                        const isImageByUrlInObject =
+                          message.attachment.url &&
+                          /\.(jpg|jpeg|png|gif|bmp|webp)$/i.test(
+                            message.attachment.url,
+                          );
+                        const isImage =
+                          isImageByType || isImageByUrl || isImageByUrlInObject;
 
-                    // console.log('Is image by type (GroupYouChat):', isImageByType);
-                    // console.log('Is image by URL string (GroupYouChat):', isImageByUrl);
-                    // console.log('Is image by URL in object (GroupYouChat):', isImageByUrlInObject);
-                    // console.log('Final is image (GroupYouChat):', isImage);
+                        // console.log('Is image by type (GroupYouChat):', isImageByType);
+                        // console.log('Is image by URL string (GroupYouChat):', isImageByUrl);
+                        // console.log('Is image by URL in object (GroupYouChat):', isImageByUrlInObject);
+                        // console.log('Final is image (GroupYouChat):', isImage);
 
-                    if (isImage) {
-                      // Determine the image source
-                      let imageSrc = "";
-                      if (typeof message.attachment === "string") {
-                        imageSrc = message.attachment;
-                      } else if (message.attachment.url) {
-                        imageSrc = message.attachment.url;
-                      } else if (
-                        message.attachment.base64 ||
-                        message.attachment.data
-                      ) {
-                        imageSrc = `data:${message.attachment.type};base64,${message.attachment.base64 || message.attachment.data}`;
-                      }
+                        if (isImage) {
+                          // Determine the image source
+                          let imageSrc = "";
+                          if (typeof message.attachment === "string") {
+                            imageSrc = message.attachment;
+                          } else if (message.attachment.url) {
+                            imageSrc = message.attachment.url;
+                          } else if (
+                            message.attachment.base64 ||
+                            message.attachment.data
+                          ) {
+                            imageSrc = `data:${message.attachment.type};base64,${message.attachment.base64 || message.attachment.data}`;
+                          }
 
-                      // console.log('Image source (GroupYouChat):', imageSrc);
+                          // console.log('Image source (GroupYouChat):', imageSrc);
 
-                      return (
-                        <div className="image-attachment-wrapper">
-                          <img
-                            src={imageSrc}
-                            alt={message.attachment.name || "Image attachment"}
-                            style={{
-                              maxWidth: "100%",
-                              maxHeight: "300px",
-                              borderRadius: "8px",
-                              display: "block",
-                              objectFit: "contain",
-                              cursor: "pointer",
-                            }}
-                            onClick={() => {
-                              // Open image in new tab for full view
-                              const newWindow = window.open();
-                              newWindow.document.write(`
+                          return (
+                            <div className="image-attachment-wrapper">
+                              <img
+                                src={imageSrc}
+                                alt={
+                                  message.attachment.name || "Image attachment"
+                                }
+                                style={{
+                                  maxWidth: "100%",
+                                  maxHeight: "300px",
+                                  borderRadius: "8px",
+                                  display: "block",
+                                  objectFit: "contain",
+                                  cursor: "pointer",
+                                }}
+                                onClick={() => {
+                                  // Open image in new tab for full view
+                                  const newWindow = window.open();
+                                  newWindow.document.write(`
                               <html>
                                 <head><title>${message.attachment.name || "Image"}</title></head>
                                 <body style="margin:0;padding:20px;background:#f0f0f0;text-align:center;">
@@ -676,191 +802,207 @@ export const GroupYouChat = ({
                                 </body>
                               </html>
                             `);
-                            }}
-                            onError={(e) => {
-                              console.error("Failed to load image:", e);
-                              e.target.style.display = "none";
-                              e.target.nextSibling.style.display = "block";
-                            }}
-                          />
-                          <div
-                            style={{
-                              display: "none",
-                              padding: "10px",
-                              textAlign: "center",
-                              color: "#666",
-                            }}
-                          >
-                            <span
-                              style={{ fontSize: "20px", marginRight: "8px" }}
-                            >
-                              🖼️
-                            </span>
-                            <span>
-                              {message.attachment.name || "Image"} (Failed to
-                              load)
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    } else if (
-                      message.attachment.type === "application/pdf" ||
-                      (typeof message.attachment === "string" &&
-                        message.attachment.toLowerCase().includes(".pdf"))
-                    ) {
-                      // Determine the file source
-                      let fileSrc = "";
-                      if (typeof message.attachment === "string") {
-                        fileSrc = message.attachment;
-                      } else if (message.attachment.url) {
-                        fileSrc = message.attachment.url;
-                      }
+                                }}
+                                onError={(e) => {
+                                  console.error("Failed to load image:", e);
+                                  e.target.style.display = "none";
+                                  e.target.nextSibling.style.display = "block";
+                                }}
+                              />
+                              <div
+                                style={{
+                                  display: "none",
+                                  padding: "10px",
+                                  textAlign: "center",
+                                  color: "#666",
+                                }}
+                              >
+                                <span
+                                  style={{
+                                    fontSize: "20px",
+                                    marginRight: "8px",
+                                  }}
+                                >
+                                  🖼️
+                                </span>
+                                <span>
+                                  {message.attachment.name || "Image"} (Failed
+                                  to load)
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        } else if (
+                          message.attachment.type === "application/pdf" ||
+                          (typeof message.attachment === "string" &&
+                            message.attachment.toLowerCase().includes(".pdf"))
+                        ) {
+                          // Determine the file source
+                          let fileSrc = "";
+                          if (typeof message.attachment === "string") {
+                            fileSrc = message.attachment;
+                          } else if (message.attachment.url) {
+                            fileSrc = message.attachment.url;
+                          }
 
-                      return (
-                        <div className="d-flex align-items-center justify-content-between">
-                          <div className="d-flex align-items-center">
-                            <span
-                              style={{
-                                fontSize: "20px",
-                                color: "#dc3545",
-                                marginRight: "8px",
-                              }}
-                            >
-                              📄
-                            </span>
-                            <span>
-                              {message.attachment.name || "PDF Document"}
-                            </span>
-                          </div>
-                          <a
-                            href={fileSrc}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="btn border-0"
-                            style={{
-                              fontSize: "12px",
-                              padding: "4px 8px",
-                              textDecoration: "none",
-                            }}
-                          >
-                            <span
-                              style={{ fontSize: "14px", marginRight: "4px" }}
-                            >
-                              <i className="bi bi-download"></i>
-                            </span>
-                          </a>
-                        </div>
-                      );
-                    } else if (
-                      (message.attachment.type &&
-                        (message.attachment.type === "application/msword" ||
-                          message.attachment.type ===
-                            "application/vnd.openxmlformats-officedocument.wordprocessingml.document")) ||
-                      (typeof message.attachment === "string" &&
-                        (message.attachment.toLowerCase().includes(".doc") ||
-                          message.attachment.toLowerCase().includes(".docx")))
-                    ) {
-                      // Determine the file source
-                      let fileSrc = "";
-                      if (typeof message.attachment === "string") {
-                        fileSrc = message.attachment;
-                      } else if (message.attachment.url) {
-                        fileSrc = message.attachment.url;
-                      }
+                          return (
+                            <div className="d-flex align-items-center justify-content-between">
+                              <div className="d-flex align-items-center">
+                                <span
+                                  style={{
+                                    fontSize: "20px",
+                                    color: "#dc3545",
+                                    marginRight: "8px",
+                                  }}
+                                >
+                                  📄
+                                </span>
+                                <span>
+                                  {message.attachment.name || "PDF Document"}
+                                </span>
+                              </div>
+                              <a
+                                href={fileSrc}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="btn border-0"
+                                style={{
+                                  fontSize: "12px",
+                                  padding: "4px 8px",
+                                  textDecoration: "none",
+                                }}
+                              >
+                                <span
+                                  style={{
+                                    fontSize: "14px",
+                                    marginRight: "4px",
+                                  }}
+                                >
+                                  <i className="bi bi-download"></i>
+                                </span>
+                              </a>
+                            </div>
+                          );
+                        } else if (
+                          (message.attachment.type &&
+                            (message.attachment.type === "application/msword" ||
+                              message.attachment.type ===
+                                "application/vnd.openxmlformats-officedocument.wordprocessingml.document")) ||
+                          (typeof message.attachment === "string" &&
+                            (message.attachment
+                              .toLowerCase()
+                              .includes(".doc") ||
+                              message.attachment
+                                .toLowerCase()
+                                .includes(".docx")))
+                        ) {
+                          // Determine the file source
+                          let fileSrc = "";
+                          if (typeof message.attachment === "string") {
+                            fileSrc = message.attachment;
+                          } else if (message.attachment.url) {
+                            fileSrc = message.attachment.url;
+                          }
 
-                      return (
-                        <div className="d-flex align-items-center justify-content-between">
-                          <div className="d-flex align-items-center">
-                            <span
-                              style={{
-                                fontSize: "20px",
-                                color: "#007bff",
-                                marginRight: "8px",
-                              }}
-                            >
-                              📝
-                            </span>
-                            <span>
-                              {message.attachment.name || "Word Document"}
-                            </span>
-                          </div>
-                          <a
-                            href={fileSrc}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="btn border-0"
-                            style={{
-                              fontSize: "12px",
-                              padding: "4px 8px",
-                              textDecoration: "none",
-                            }}
-                          >
-                            <span
-                              style={{ fontSize: "14px", marginRight: "4px" }}
-                            >
-                              <i className="bi bi-download"></i>
-                            </span>
-                          </a>
-                        </div>
-                      );
-                    } else {
-                      // Determine the file source
-                      let fileSrc = "";
-                      if (typeof message.attachment === "string") {
-                        fileSrc = message.attachment;
-                      } else if (message.attachment.url) {
-                        fileSrc = message.attachment.url;
-                      }
+                          return (
+                            <div className="d-flex align-items-center justify-content-between">
+                              <div className="d-flex align-items-center">
+                                <span
+                                  style={{
+                                    fontSize: "20px",
+                                    color: "#007bff",
+                                    marginRight: "8px",
+                                  }}
+                                >
+                                  📝
+                                </span>
+                                <span>
+                                  {message.attachment.name || "Word Document"}
+                                </span>
+                              </div>
+                              <a
+                                href={fileSrc}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="btn border-0"
+                                style={{
+                                  fontSize: "12px",
+                                  padding: "4px 8px",
+                                  textDecoration: "none",
+                                }}
+                              >
+                                <span
+                                  style={{
+                                    fontSize: "14px",
+                                    marginRight: "4px",
+                                  }}
+                                >
+                                  <i className="bi bi-download"></i>
+                                </span>
+                              </a>
+                            </div>
+                          );
+                        } else {
+                          // Determine the file source
+                          let fileSrc = "";
+                          if (typeof message.attachment === "string") {
+                            fileSrc = message.attachment;
+                          } else if (message.attachment.url) {
+                            fileSrc = message.attachment.url;
+                          }
 
-                      return (
-                        <div className="d-flex align-items-center justify-content-between">
-                          <div className="d-flex align-items-center">
-                            <span
-                              style={{
-                                fontSize: "20px",
-                                color: "#6c757d",
-                                marginRight: "8px",
-                              }}
-                            >
-                              📎
-                            </span>
-                            <span>
-                              {message.attachment.name || "File Attachment"}
-                            </span>
-                          </div>
-                          <a
-                            href={fileSrc}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="btn border-0"
-                            style={{
-                              fontSize: "12px",
-                              padding: "4px 8px",
-                              textDecoration: "none",
-                            }}
-                          >
-                            <span
-                              style={{ fontSize: "14px", marginRight: "4px" }}
-                            >
-                              <i className="bi bi-download"></i>
-                            </span>
-                          </a>
-                        </div>
-                      );
-                    }
-                  })()}
-                </div>
-              )}
-              <div className="mt-2 flex justify-end">
-                <span className="text-[10px] text-gray-300">
-                  {item.date}
-                  {message.is_edited && (
-                    <span className="text-muted ms-1">
-                      <small>(edited)</small>
-                    </span>
+                          return (
+                            <div className="d-flex align-items-center justify-content-between">
+                              <div className="d-flex align-items-center">
+                                <span
+                                  style={{
+                                    fontSize: "20px",
+                                    color: "#6c757d",
+                                    marginRight: "8px",
+                                  }}
+                                >
+                                  📎
+                                </span>
+                                <span>
+                                  {message.attachment.name || "File Attachment"}
+                                </span>
+                              </div>
+                              <a
+                                href={fileSrc}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="btn border-0"
+                                style={{
+                                  fontSize: "12px",
+                                  padding: "4px 8px",
+                                  textDecoration: "none",
+                                }}
+                              >
+                                <span
+                                  style={{
+                                    fontSize: "14px",
+                                    marginRight: "4px",
+                                  }}
+                                >
+                                  <i className="bi bi-download"></i>
+                                </span>
+                              </a>
+                            </div>
+                          );
+                        }
+                      })()}
+                    </div>
                   )}
-                </span>
-              </div>
+                  <div className="mt-2 flex justify-end">
+                    <span className="text-[10px] text-gray-300">
+                      {item.date}
+                      {message.is_edited && (
+                        <span className="text-muted ms-1">
+                          <small>(edited)</small>
+                        </span>
+                      )}
+                    </span>
+                  </div>
                 </>
               )}
             </div>
@@ -869,7 +1011,9 @@ export const GroupYouChat = ({
             <li>{message.user?.first_name || "User"}</li>
             <li>{item.date}</li>
             {message.is_edited && (
-              <li className="text-muted"><small>(edited)</small></li>
+              <li className="text-muted">
+                <small>(edited)</small>
+              </li>
             )}
           </ul>
         </div>
@@ -997,9 +1141,9 @@ export const GroupYouChat = ({
 //   );
 // };
 
-export const MetaChat = ({ item }) => {
+export const MetaChat = ({ item, className = "", id }) => {
   return (
-    <div className="chat-sap">
+    <div id={id} className={`chat-sap ${className}`.trim()}>
       <div className="chat-sap-meta">
         <span>{item}</span>
       </div>

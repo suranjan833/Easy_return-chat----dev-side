@@ -164,12 +164,14 @@ class ChatService {
               unread_count: chat.unread_count || 0,
             };
           })
+          //S id issue
           // ✅ Filter out conversations where current user is NOT a participant
           .filter((c) => {
             if (!c.recipient_id || !c.sender_id) return false;
+
             const sId = Number(c.sender_id);
             const rId = Number(c.recipient_id);
-            // Only include if current user is either sender or recipient
+
             return sId === currentUserId || rId === currentUserId;
           });
       }
@@ -461,8 +463,67 @@ class ChatService {
           }
         } else if (data.type === "typing") {
           this.notifySubscribers("typing", data);
+        } else if (data.type === "read_reply" || data.type === "reply_read") {
+          // ✅ Direct read_reply event from server - normalize payload
+          const replyId =
+            data.reply_id ||
+            data?.data?.reply_id ||
+            data?.data?.reply?.id ||
+            null;
+          const messageId =
+            data.message_id ||
+            data?.data?.message_id ||
+            data?.data?.message?.id ||
+            null;
+          const readAt =
+            data.read_at || data.timestamp || data?.data?.read_at || null;
+          console.log(
+            "[ChatService] ✅ Direct reply read event received - normalized:",
+            { replyId, messageId, readAt },
+          );
+          this.notifySubscribers("read_reply", {
+            type: "read_reply",
+            reply_id: replyId,
+            message_id: messageId,
+            read_at: readAt,
+            read: data.read ?? data?.data?.read ?? true,
+          });
         } else if (data.type === "status_update") {
-          this.notifySubscribers("update_status", data);
+          // Normalize status updates - if it contains reply_id treat as read_reply
+          const replyId =
+            data.reply_id ||
+            data?.data?.reply_id ||
+            data?.data?.reply?.id ||
+            null;
+          const messageId =
+            data.message_id ||
+            data?.data?.message_id ||
+            data?.data?.message?.id ||
+            null;
+          const status = data.status || data?.data?.status || null;
+          const readAt =
+            data.read_at || data.timestamp || data?.data?.read_at || null;
+
+          if (replyId) {
+            console.log(
+              "[ChatService] ✅ Reply read status received - normalized:",
+              { replyId, messageId, readAt },
+            );
+            this.notifySubscribers("read_reply", {
+              type: "read_reply",
+              reply_id: replyId,
+              message_id: messageId,
+              read_at: readAt,
+            });
+          } else {
+            // Normal message read status
+            this.notifySubscribers("update_status", {
+              type: "update_status",
+              message_id: messageId || data.id || null,
+              status,
+              read_at: readAt,
+            });
+          }
         } else if (data.type === "edit_message" || data.type === "edit_reply") {
           this.notifySubscribers("message_edit", data);
         } else if (

@@ -51,6 +51,24 @@ export function GroupChatProvider({ children }) {
       .then((data) => {
         setGroups(data);
         setFilteredGroups(data);
+
+        // Seed unread counters from server-provided group data when users come online later.
+        const initialUnread = {};
+        data.forEach((group) => {
+          const groupId = normalizeId(group.id);
+          if (!Number.isNaN(groupId)) {
+            const count = group.unread_count ?? group.unreadCount ?? 0;
+            if (count > 0) {
+              initialUnread[groupId] = count;
+            }
+          }
+        });
+        if (Object.keys(initialUnread).length > 0) {
+          setGroupUnreadCounts((prev) => ({
+            ...initialUnread,
+            ...prev,
+          }));
+        }
       })
       .catch(() => {});
   }, []);

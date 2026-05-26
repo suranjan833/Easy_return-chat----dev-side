@@ -431,6 +431,14 @@ const ChatBody = ({ id, mobileView, setMobileView, setSelectedId }) => {
   const renderMessage = (message, i) => {
     const meId = parseInt(localStorage.getItem("userId"));
     const isMe = message.sender_id === (meId || -1);
+    if (message.type === "message_reply") {
+      console.log("🖼️ RENDERING REPLY", {
+        id: message.id,
+        reply_id: message.reply_id,
+        read: message.read,
+        delivered: message.delivered,
+      });
+    }
     const isSearchMatch = direct?.searchResults?.some(
       (m) => m.id === message.id,
     );
@@ -518,14 +526,15 @@ const ChatBody = ({ id, mobileView, setMobileView, setSelectedId }) => {
                         ...(direct?.hiddenMessages || []),
                         ...(direct?.messages || []),
                       ];
-                      const originalMsg = allMsgs.find(
-                        (m) => m.id === message.message_id,
-                      );
+                      const originalMsg =
+                        message.parentMsg ||
+                        allMsgs.find((m) => m.id === message.parent_reply_id) ||
+                        allMsgs.find((m) => m.id === message.message_id);
+
                       const originalContent =
                         message.parent_content ||
-                        originalMsg?.content ||
                         originalMsg?.reply_content ||
-                        message.parentMsg?.content ||
+                        originalMsg?.content ||
                         "Original message";
                       const originalSenderId =
                         originalMsg?.sender_id ?? message.parentMsg?.sender_id;
@@ -538,7 +547,11 @@ const ChatBody = ({ id, mobileView, setMobileView, setSelectedId }) => {
                       return (
                         <div
                           className="reply-preview p-2 mb-2 rounded"
-                          onClick={() => scrollToMessage(message.message_id)}
+                          onClick={() =>
+                            scrollToMessage(
+                              message.parent_reply_id || message.message_id,
+                            )
+                          }
                           style={{
                             backgroundColor: isMe
                               ? "rgba(255,255,255,0.2)"

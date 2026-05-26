@@ -3,7 +3,7 @@ import { formatDistanceToNow } from "date-fns";
 import EmojiPicker from "emoji-picker-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button, Form } from "react-bootstrap";
-import { useLocation, useNavigate } from 'react-router-dom'; // Import useNavigate and useLocation
+import { useLocation, useNavigate } from "react-router-dom"; // Import useNavigate and useLocation
 import { toast } from "react-toastify";
 import AttachmentDisplay from "../../components/custom/Attachment/AttachmentDisplay";
 import AttachmentInputPreview from "../../components/custom/Attachment/AttachmentInputPreview";
@@ -15,14 +15,22 @@ import groupChatService from "../../Services/GroupChatService";
 import "./GroupChatPopup.css";
 import MessageInfoModal from "./MessageInfoModal";
 
-
-const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token, initialPosition, index }) => {
+const GroupChatPopup = ({
+  group,
+  onClose,
+  onMaximize,
+  userId: propUserId,
+  token,
+  initialPosition,
+  index,
+}) => {
   const userId = parseInt(propUserId); // Ensure userId is always an integer
 
   const [messages, setMessages] = useState([]);
   const [showAllMembers, setShowAllMembers] = useState(false); // State for showing all members in the header
   const [showMembersDropdown, setShowMembersDropdown] = useState(false); // New state for dropdown visibility
-  const [showScrollToBottomButton, setShowScrollToBottomButton] = useState(false); // State for scroll to bottom button
+  const [showScrollToBottomButton, setShowScrollToBottomButton] =
+    useState(false); // State for scroll to bottom button
   const [showScrollToTopButton, setShowScrollToTopButton] = useState(false); // State for scroll to top button
   const [messageText, setMessageText] = useState("");
   const [error, setError] = useState(null);
@@ -33,16 +41,26 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
   const [editMessageId, setEditMessageId] = useState(null);
   const [replyingTo, setReplyingTo] = useState(null);
   const [editingReply, setEditingReply] = useState(null);
-  const [deleteModal, setDeleteModal] = useState({ isOpen: false, messageId: null, messageType: null, content: null });
+  const [deleteModal, setDeleteModal] = useState({
+    isOpen: false,
+    messageId: null,
+    messageType: null,
+    content: null,
+  });
   const [attachment, setAttachment] = useState(null);
   const [attachmentPreview, setAttachmentPreview] = useState(null);
   const [mentionQuery, setMentionQuery] = useState("");
   const [mentionSuggestions, setMentionSuggestions] = useState([]);
   const [showMentionDropdown, setShowMentionDropdown] = useState(false);
-  const [showDropdownForMessageId, setShowDropdownForMessageId] = useState(null); // New state for message dropdown
-  const [messageInfoModal, setMessageInfoModal] = useState({ isOpen: false, message: null }); // State for Message Info Modal
+  const [showDropdownForMessageId, setShowDropdownForMessageId] =
+    useState(null); // New state for message dropdown
+  const [messageInfoModal, setMessageInfoModal] = useState({
+    isOpen: false,
+    message: null,
+  }); // State for Message Info Modal
 
-  const [messagesAreaPaddingBottom, setMessagesAreaPaddingBottom] = useState(88); // Default for input area only
+  const [messagesAreaPaddingBottom, setMessagesAreaPaddingBottom] =
+    useState(88); // Default for input area only
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const messagesEndRef = useRef(null);
   const chatWindowRef = useRef(null);
@@ -64,19 +82,27 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
 
   // Helper function to apply styling to mentions
   const renderStyledMessage = (text, members) => {
-    if (!text) return '';
+    if (!text) return "";
     let styledText = text;
     // Sort members by length descending to match longer names first
-    const sortedMembers = [...(members || [])].sort((a, b) =>
-      `${b.first_name} ${b.last_name}`.length - `${a.first_name} ${a.last_name}`.length
+    const sortedMembers = [...(members || [])].sort(
+      (a, b) =>
+        `${b.first_name} ${b.last_name}`.length -
+        `${a.first_name} ${a.last_name}`.length,
     );
 
-    sortedMembers.forEach(member => {
+    sortedMembers.forEach((member) => {
       const fullName = `${member.first_name} ${member.last_name}`;
       // Use a regex to find mentions and replace them with styled spans
       // Ensure it matches whole words to avoid partial matches
-      const regex = new RegExp(`@${fullName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'g');
-      styledText = styledText.replace(regex, `<span style="color: #007bff;">@${fullName}</span>`);
+      const regex = new RegExp(
+        `@${fullName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`,
+        "g",
+      );
+      styledText = styledText.replace(
+        regex,
+        `<span style="color: #007bff;">@${fullName}</span>`,
+      );
     });
     return styledText;
   };
@@ -135,8 +161,14 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
   // Handle drag movement
   const handleMouseMove = (e) => {
     if (!isDragging) return;
-    const newX = Math.max(0, Math.min(window.innerWidth - 300, e.clientX - dragOffset.current.x));
-    const newY = Math.max(0, Math.min(window.innerHeight - 480, e.clientY - dragOffset.current.y));
+    const newX = Math.max(
+      0,
+      Math.min(window.innerWidth - 300, e.clientX - dragOffset.current.x),
+    );
+    const newY = Math.max(
+      0,
+      Math.min(window.innerHeight - 480, e.clientY - dragOffset.current.y),
+    );
     setPosition({ x: newX, y: newY });
   };
 
@@ -157,7 +189,10 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
   // Close emoji picker when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (emojiPickerRef.current && !emojiPickerRef.current.contains(event.target)) {
+      if (
+        emojiPickerRef.current &&
+        !emojiPickerRef.current.contains(event.target)
+      ) {
         setShowEmojiPicker(false);
       }
     };
@@ -183,7 +218,9 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
   };
 
   const scrollToTop = () => {
-    const messagesArea = chatWindowRef.current.querySelector('.group-chat-messages');
+    const messagesArea = chatWindowRef.current.querySelector(
+      ".group-chat-messages",
+    );
     if (messagesArea) {
       messagesArea.scrollTo({ top: 0, behavior: "smooth" });
       setShowScrollToTopButton(false); // Hide button when scrolled to top
@@ -193,14 +230,16 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
   const handleScroll = (e) => {
     const { scrollTop, scrollHeight, clientHeight, scrollToBottom } = e.target;
     // Show scroll to bottom button if not at the very bottom (with a small tolerance)
-    if (scrollHeight - scrollTop > clientHeight + 100) { // 100px tolerance
+    if (scrollHeight - scrollTop > clientHeight + 100) {
+      // 100px tolerance
       setShowScrollToBottomButton(true);
     } else {
       setShowScrollToBottomButton(false);
     }
 
     // Show scroll to top button if not at the very top (with a small tolerance)
-    if (scrollTop == 100) { // 100px tolerance
+    if (scrollTop == 100) {
+      // 100px tolerance
       setShowScrollToTopButton(true);
     } else {
       setShowScrollToTopButton(false);
@@ -208,22 +247,19 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
   };
 
   useEffect(() => {
-    if (initialLoadComplete && !hasScrolledToUnread) {
-      if (firstUnreadMessageRef.current) {
-        firstUnreadMessageRef.current.scrollIntoView({
-          behavior: "smooth",
-          block: "center",
-        });
-        setHasScrolledToUnread(true);
-      } else if (messages.length > 0) {
+    if (initialLoadComplete && !hasScrolledToUnread && messages.length > 0) {
+      setTimeout(() => {
         scrollToBottom();
-        setHasScrolledToUnread(true);
-      }
+      }, 0);
+      setHasScrolledToUnread(true);
     }
   }, [messages, initialLoadComplete, hasScrolledToUnread]);
 
   const sortMessages = (messages) => {
-    return messages.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    return messages.sort(
+      (a, b) =>
+        new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+    );
   };
 
   // Flatten messages and replies into a single chronological list (WhatsApp-like behavior)
@@ -234,8 +270,8 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
       // Add the main message
       flattened.push({
         ...message,
-        type: 'message',
-        messageType: 'message'
+        type: "message",
+        messageType: "message",
       });
 
       // Add all replies as separate items
@@ -243,8 +279,8 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
         message.replies_mentions.forEach((reply) => {
           flattened.push({
             ...reply,
-            type: 'reply',
-            messageType: 'reply',
+            type: "reply",
+            messageType: "reply",
             parentMessageId: message.id,
             parentMessageContent: message.content,
             parentMessageSender: message.user
@@ -256,9 +292,11 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
     });
 
     // Sort all items by created_at
-    return flattened.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    return flattened.sort(
+      (a, b) =>
+        new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+    );
   }, [messages]);
-
 
   // Subscribe to GroupChatService events
   useEffect(() => {
@@ -270,7 +308,6 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
     const handleNewMessage = (data) => {
       if (data.groupId !== group.id) return;
 
-
       const newMsg = {
         id: data.message.id,
         group_id: data.message.group_id,
@@ -280,8 +317,14 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
         updated_at: data.message.updated_at || new Date().toISOString(),
         user: {
           id: parseInt(data.message.sender_id),
-          first_name: data.message.sender?.first_name || data.message.user?.first_name || "User",
-          last_name: data.message.sender?.last_name || data.message.user?.last_name || "",
+          first_name:
+            data.message.sender?.first_name ||
+            data.message.user?.first_name ||
+            "User",
+          last_name:
+            data.message.sender?.last_name ||
+            data.message.user?.last_name ||
+            "",
         },
         sender_id: parseInt(data.message.sender_id),
         is_read: data.message.is_read || false, // Add is_read property
@@ -293,14 +336,16 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
         if (prev.some((msg) => msg.id === newMsg.id)) {
           return prev;
         }
-        return [...prev, newMsg].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+        return [...prev, newMsg].sort(
+          (a, b) => new Date(a.created_at) - new Date(b.created_at),
+        );
       });
       scrollToBottom();
 
       // Check for pending mentions for this message
       if (newMsg.sender_id === userId) {
         const pendingIndex = pendingMentionsRef.current.findIndex(
-          (pm) => pm.content === newMsg.content
+          (pm) => pm.content === newMsg.content,
         );
 
         if (pendingIndex !== -1) {
@@ -325,61 +370,81 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
     const handleMessageEdit = (data) => {
       if (data.groupId !== group.id) return;
 
-      setMessages((prev) => prev.map((m) =>
-        m.id === data.messageId
-          ? { ...m, content: data.newContent, updated_at: data.updatedAt || new Date().toISOString() }
-          : m
-      ));
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === data.messageId
+            ? {
+                ...m,
+                content: data.newContent,
+                updated_at: data.updatedAt || new Date().toISOString(),
+              }
+            : m,
+        ),
+      );
     };
 
     const handleMessageDelete = (data) => {
       if (data.groupId !== group.id) return;
 
-      setMessages((prev) => prev.map((m) =>
-        m.id === data.messageId
-          ? { ...m, content: "Message deleted", attachment: null }
-          : m
-      ));
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === data.messageId
+            ? { ...m, content: "Message deleted", attachment: null }
+            : m,
+        ),
+      );
     };
 
     const handleMessageReply = (data) => {
       // if (data.groupId !== group.id) return; // Backend might not send groupId in reply payload, so we rely on finding the original message
 
-
       setMessages((prev) => {
         const newMessages = prev.map((msg) => {
           if (msg.id === data.reply.original_message_id) {
-
             const existingReplies = msg.replies_mentions || [];
-            if (existingReplies.some(reply => reply.id === data.reply.id)) {
+            if (existingReplies.some((reply) => reply.id === data.reply.id)) {
               return msg; // Avoid duplicate replies
             }
-            const originalMessage = prev.find(m => m.id === data.reply.original_message_id);
-            const replySender = group.group_members.find(member => member.id === parseInt(data.reply.user_id));
+            const originalMessage = prev.find(
+              (m) => m.id === data.reply.original_message_id,
+            );
+            const replySender = group.group_members.find(
+              (member) => member.id === parseInt(data.reply.user_id),
+            );
             const newReply = {
               id: data.reply.id,
-              type: 'reply',
+              type: "reply",
               created_at: data.reply.created_at,
               updated_at: data.reply.updated_at,
-              user: parseInt(data.reply.user_id) === userId
-                ? { id: userId, first_name: 'You', last_name: '', email: '', profile_picture: '' }
-                : (replySender || {
-                  id: data.reply.user?.id || parseInt(data.reply.user_id),
-                  first_name: data.reply.user?.first_name || 'Unknown',
-                  last_name: data.reply.user?.last_name || '',
-                  email: data.reply.user?.email || '',
-                  profile_picture: data.reply.user?.profile_picture || ''
-                }),
+              user:
+                parseInt(data.reply.user_id) === userId
+                  ? {
+                      id: userId,
+                      first_name: "You",
+                      last_name: "",
+                      email: "",
+                      profile_picture: "",
+                    }
+                  : replySender || {
+                      id: data.reply.user?.id || parseInt(data.reply.user_id),
+                      first_name: data.reply.user?.first_name || "Unknown",
+                      last_name: data.reply.user?.last_name || "",
+                      email: data.reply.user?.email || "",
+                      profile_picture: data.reply.user?.profile_picture || "",
+                    },
               user_id: parseInt(data.reply.user_id),
               original_message_id: data.reply.original_message_id,
-              original_message_content: originalMessage ? originalMessage.content : "Original message not found", // Add original message content
+              original_message_content: originalMessage
+                ? originalMessage.content
+                : "Original message not found", // Add original message content
               reply_message: data.reply.reply_message,
             };
             // Check for temporary reply to replace
             const tempReplyIndex = existingReplies.findIndex(
-              r => r.tempId &&
+              (r) =>
+                r.tempId &&
                 r.user_id === parseInt(data.reply.user_id) &&
-                r.reply_message === data.reply.reply_message
+                r.reply_message === data.reply.reply_message,
             );
 
             if (tempReplyIndex !== -1) {
@@ -388,13 +453,17 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
               updatedReplies[tempReplyIndex] = newReply;
               return {
                 ...msg,
-                replies_mentions: updatedReplies.sort((a, b) => new Date(a.created_at) - new Date(b.created_at)),
+                replies_mentions: updatedReplies.sort(
+                  (a, b) => new Date(a.created_at) - new Date(b.created_at),
+                ),
               };
             }
 
             return {
               ...msg,
-              replies_mentions: [...existingReplies, newReply].sort((a, b) => new Date(a.created_at) - new Date(b.created_at)),
+              replies_mentions: [...existingReplies, newReply].sort(
+                (a, b) => new Date(a.created_at) - new Date(b.created_at),
+              ),
             };
           }
           return msg;
@@ -410,14 +479,24 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
 
       setMessages((prev) => {
         const updatedMessages = prev.map((msg) => {
-          if (msg.replies_mentions.some((reply) => reply.id === data.reply.id)) {
+          if (
+            msg.replies_mentions.some((reply) => reply.id === data.reply.id)
+          ) {
             return {
               ...msg,
-              replies_mentions: msg.replies_mentions.map((reply) =>
-                reply.id === data.reply.id
-                  ? { ...reply, reply_message: data.reply.reply_message, updated_at: data.reply.updated_at }
-                  : reply
-              ).sort((a, b) => new Date(a.created_at) - new Date(b.created_at)),
+              replies_mentions: msg.replies_mentions
+                .map((reply) =>
+                  reply.id === data.reply.id
+                    ? {
+                        ...reply,
+                        reply_message: data.reply.reply_message,
+                        updated_at: data.reply.updated_at,
+                      }
+                    : reply,
+                )
+                .sort(
+                  (a, b) => new Date(a.created_at) - new Date(b.created_at),
+                ),
             };
           }
           return msg;
@@ -436,8 +515,12 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
               ...msg,
               replies_mentions: msg.replies_mentions.map((reply) =>
                 reply.id === data.replyId
-                  ? { ...reply, reply_message: 'Reply deleted', attachment: null }
-                  : reply
+                  ? {
+                      ...reply,
+                      reply_message: "Reply deleted",
+                      attachment: null,
+                    }
+                  : reply,
               ),
             };
           }
@@ -451,8 +534,13 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
       if (data.groupId && data.groupId !== group.id) return; // Optional check if groupId is present
 
       // Check if the current user is the one mentioned
-      if (data.mentioned_user_id === userId || (data.mentioned_user && data.mentioned_user.id === userId)) {
-        toast.info(data.notification_message || `You were mentioned in a group`);
+      if (
+        data.mentioned_user_id === userId ||
+        (data.mentioned_user && data.mentioned_user.id === userId)
+      ) {
+        toast.info(
+          data.notification_message || `You were mentioned in a group`,
+        );
       }
     };
 
@@ -462,7 +550,13 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
       if (data.senderId !== userId && data.status === "started") {
         setTypingUsers((prev) => {
           if (prev.some((u) => u.id === data.senderId)) return prev;
-          return [...prev, { id: data.senderId, name: data.user?.first_name || `User ${data.senderId}` }];
+          return [
+            ...prev,
+            {
+              id: data.senderId,
+              name: data.user?.first_name || `User ${data.senderId}`,
+            },
+          ];
         });
         setTimeout(() => {
           setTypingUsers((prev) => prev.filter((u) => u.id !== data.senderId));
@@ -521,7 +615,6 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
 
       const sortedMessages = sortMessages(
         backendMessages.map((msg) => {
-
           const mappedMsg = {
             id: msg.id,
             group_id: msg.group_id,
@@ -533,50 +626,64 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
             // API returns sender under msg.sender (not msg.user) — align with GroupChatContext
             user: {
               id: msg.sender?.id || msg.sender_id || 0,
-              first_name: msg.sender?.first_name || msg.user?.first_name || "Unknown",
+              first_name:
+                msg.sender?.first_name || msg.user?.first_name || "Unknown",
               last_name: msg.sender?.last_name || msg.user?.last_name || "",
               email: msg.sender?.email || msg.user?.email || "",
-              profile_picture: msg.sender?.profile_picture || msg.user?.profile_picture || "",
+              profile_picture:
+                msg.sender?.profile_picture || msg.user?.profile_picture || "",
             },
             sender_id: msg.sender_id || msg.sender?.id || 0,
             is_read: msg.is_read || false,
             read: msg.read || false,
             read_at: msg.read_at || null,
-            replies_mentions: (msg.replies_mentions || []).map(reply => {
-              const replySender = group.group_members.find(member => member.id === reply.user_id);
+            replies_mentions: (msg.replies_mentions || []).map((reply) => {
+              const replySender = group.group_members.find(
+                (member) => member.id === reply.user_id,
+              );
 
               return {
                 ...reply,
                 user_id: parseInt(reply.user_id), // Ensure user_id is an integer
-                user: reply.user_id === userId
-                  ? { id: userId, first_name: 'You', last_name: '', email: '', profile_picture: '' }
-                  : (replySender || {
-                    id: reply.user?.id || reply.user_id,
-                    first_name: reply.user?.first_name || 'Unknown',
-                    last_name: reply.user?.last_name || '',
-                    email: reply.user?.email || '',
-                    profile_picture: reply.user?.profile_picture || ''
-                  }),
-                original_message_content: backendMessages.find(m => m.id === reply.original_message_id)?.message || "Original message not found",
-                reply_message: reply.reply_message || 'Reply deleted' // Ensure reply_message is set for deleted replies
+                user:
+                  reply.user_id === userId
+                    ? {
+                        id: userId,
+                        first_name: "You",
+                        last_name: "",
+                        email: "",
+                        profile_picture: "",
+                      }
+                    : replySender || {
+                        id: reply.user?.id || reply.user_id,
+                        first_name: reply.user?.first_name || "Unknown",
+                        last_name: reply.user?.last_name || "",
+                        email: reply.user?.email || "",
+                        profile_picture: reply.user?.profile_picture || "",
+                      },
+                original_message_content:
+                  backendMessages.find(
+                    (m) => m.id === reply.original_message_id,
+                  )?.message || "Original message not found",
+                reply_message: reply.reply_message || "Reply deleted", // Ensure reply_message is set for deleted replies
               };
             }), // Include replies_mentions and original message content
           };
 
           return mappedMsg;
-        })
+        }),
       );
       setMessages(sortedMessages);
       setInitialLoadComplete(true);
 
       // Mark all unread messages and replies from other users as read
       const unreadMessages = sortedMessages.filter(
-        (msg) => msg.sender_id !== userId && !msg.is_read
+        (msg) => msg.sender_id !== userId && !msg.is_read,
       );
       const unreadReplies = sortedMessages.flatMap((msg) =>
         (msg.replies_mentions || []).filter(
-          (r) => parseInt(r.user_id) !== userId && !r.is_read
-        )
+          (r) => parseInt(r.user_id) !== userId && !r.is_read,
+        ),
       );
 
       const markAll = () => {
@@ -587,7 +694,9 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
           groupChatService.markReplyRead(group.id, reply.id);
         });
         if (unreadMessages.length + unreadReplies.length > 0) {
-          console.log(`[ReadReceipt] Popup: marked ${unreadMessages.length} messages + ${unreadReplies.length} replies as read`);
+          console.log(
+            `[ReadReceipt] Popup: marked ${unreadMessages.length} messages + ${unreadReplies.length} replies as read`,
+          );
         }
       };
 
@@ -615,7 +724,8 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
   const sendMessage = async (e) => {
     e.preventDefault();
     // Allow sending if there's message text OR an attachment, and other conditions are met
-    if ((!messageText.trim() && !attachment) || !token || !userId || !group.id) return;
+    if ((!messageText.trim() && !attachment) || !token || !userId || !group.id)
+      return;
     if (!groupChatService.isInitialized()) {
       setError("Not connected to chat server");
       return;
@@ -629,15 +739,21 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
         const payload = {
           type: "edit_group_message",
           message_id: parseInt(editMessageId),
-          new_content: messageText
+          new_content: messageText,
         };
 
         if (groupChatService.sendMessage(payload)) {
-          setMessages((prev) => prev.map((m) =>
-            m.id === editMessageId
-              ? { ...m, content: messageText, updated_at: new Date().toISOString() }
-              : m
-          ));
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === editMessageId
+                ? {
+                    ...m,
+                    content: messageText,
+                    updated_at: new Date().toISOString(),
+                  }
+                : m,
+            ),
+          );
           setEditMessageId(null);
           setMessageText("");
           setAttachment(null);
@@ -654,7 +770,7 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
         const payload = {
           type: "edit_group_reply",
           reply_id: parseInt(editingReply.id),
-          reply_message: messageText
+          reply_message: messageText,
         };
 
         if (groupChatService.sendMessage(payload)) {
@@ -665,8 +781,12 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
                   ...msg,
                   replies_mentions: msg.replies_mentions.map((reply) =>
                     reply.id === editingReply.id
-                      ? { ...reply, reply_message: messageText, updated_at: new Date().toISOString() }
-                      : reply
+                      ? {
+                          ...reply,
+                          reply_message: messageText,
+                          updated_at: new Date().toISOString(),
+                        }
+                      : reply,
                   ),
                 };
               }
@@ -741,7 +861,7 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
         // Detect mentions and add to pending queue
         const mentionedUsers = [];
         if (group.group_members) {
-          group.group_members.forEach(member => {
+          group.group_members.forEach((member) => {
             const fullName = `${member.first_name} ${member.last_name}`;
             // Check if the message contains the mention
             // We use the same logic as renderStyledMessage to be consistent
@@ -754,7 +874,7 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
         if (mentionedUsers.length > 0) {
           pendingMentionsRef.current.push({
             content: messageText,
-            mentions: mentionedUsers
+            mentions: mentionedUsers,
           });
         }
 
@@ -772,7 +892,25 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
       setSending(false);
     }
   };
+  useEffect(() => {
+    const handleOutsideClick = (event) => {
+      if (
+        showDropdownForMessageId &&
+        messageDropdownRefs.current[showDropdownForMessageId] &&
+        !messageDropdownRefs.current[showDropdownForMessageId].contains(
+          event.target,
+        )
+      ) {
+        setShowDropdownForMessageId(null);
+      }
+    };
 
+    document.addEventListener("mousedown", handleOutsideClick);
+
+    return () => {
+      document.removeEventListener("mousedown", handleOutsideClick);
+    };
+  }, [showDropdownForMessageId]);
   // Load initial messages when component mounts
   useEffect(() => {
     if (groupChatService.isInitialized()) {
@@ -781,7 +919,7 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
   }, [group.id]);
 
   const handleKeyPress = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === "Enter" && !e.shiftKey) {
       sendMessage(e);
     }
   };
@@ -809,7 +947,6 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
   };
 
   const handleReply = (message) => {
-
     setReplyingTo(message);
     setEditingReply(null);
     setEditMessageId(null);
@@ -828,7 +965,6 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
     }
   };
 
-
   const cancelReply = () => {
     setReplyingTo(null);
     setEditingReply(null);
@@ -839,21 +975,21 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
   };
 
   const deleteMessage = (messageId) => {
-    const messageToDelete = messages.find(m => m.id === messageId);
+    const messageToDelete = messages.find((m) => m.id === messageId);
     setDeleteModal({
       isOpen: true,
       messageId: messageId,
-      messageType: 'message',
-      content: messageToDelete ? messageToDelete.content : 'this message'
+      messageType: "message",
+      content: messageToDelete ? messageToDelete.content : "this message",
     });
   };
 
   const deleteReply = (replyId) => {
     // Find the reply in the messages
     let replyToDelete = null;
-    messages.forEach(msg => {
+    messages.forEach((msg) => {
       if (msg.replies_mentions) {
-        const found = msg.replies_mentions.find(r => r.id === replyId);
+        const found = msg.replies_mentions.find((r) => r.id === replyId);
         if (found) replyToDelete = found;
       }
     });
@@ -861,8 +997,8 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
     setDeleteModal({
       isOpen: true,
       messageId: replyId,
-      messageType: 'reply',
-      content: replyToDelete ? replyToDelete.reply_message : 'this reply'
+      messageType: "reply",
+      content: replyToDelete ? replyToDelete.reply_message : "this reply",
     });
   };
 
@@ -871,36 +1007,46 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
 
     const { messageId, messageType } = deleteModal;
 
-    if (messageType === 'message') {
+    if (messageType === "message") {
       const payload = {
         type: "delete_group_message",
-        message_id: parseInt(messageId)
+        message_id: parseInt(messageId),
       };
 
       if (groupChatService.sendMessage(payload)) {
-        setMessages((prev) => prev.map((m) =>
-          m.id === messageId
-            ? { ...m, content: "Message deleted", attachment: null }
-            : m
-        ));
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === messageId
+              ? { ...m, content: "Message deleted", attachment: null }
+              : m,
+          ),
+        );
         toast.success("Message deleted successfully");
       }
-    } else if (messageType === 'reply') {
+    } else if (messageType === "reply") {
       const payload = {
         type: "delete_group_reply",
-        reply_id: parseInt(messageId)
+        reply_id: parseInt(messageId),
       };
 
       if (groupChatService.sendMessage(payload)) {
         setMessages((prev) => {
           const newMessages = prev.map((msg) => {
-            if (msg.replies_mentions.some((reply) => reply.id === parseInt(messageId))) {
+            if (
+              msg.replies_mentions.some(
+                (reply) => reply.id === parseInt(messageId),
+              )
+            ) {
               return {
                 ...msg,
                 replies_mentions: msg.replies_mentions.map((reply) =>
                   reply.id === parseInt(messageId)
-                    ? { ...reply, reply_message: 'Reply deleted', attachment: null }
-                    : reply
+                    ? {
+                        ...reply,
+                        reply_message: "Reply deleted",
+                        attachment: null,
+                      }
+                    : reply,
                 ),
               };
             }
@@ -911,7 +1057,12 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
         toast.success("Reply deleted successfully");
       }
     }
-    setDeleteModal({ isOpen: false, messageId: null, messageType: null, content: null });
+    setDeleteModal({
+      isOpen: false,
+      messageId: null,
+      messageType: null,
+      content: null,
+    });
   };
 
   const handleFileChange = (file) => {
@@ -919,29 +1070,64 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
 
     // Check file size (3MB limit)
     if (file.size > 3 * 1024 * 1024) {
-      toast.error('File size exceeds 3MB limit.');
+      toast.error("File size exceeds 3MB limit.");
       return;
     }
 
     // Check file type
-    const allowedTypes = ['image/png', 'image/jpeg', 'image/jpg', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'];
+    const allowedTypes = [
+      "image/png",
+      "image/jpeg",
+      "image/jpg",
+      "application/pdf",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/vnd.ms-excel",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ];
     if (!allowedTypes.includes(file.type)) {
-      toast.error('Invalid file type. Allowed: PNG, JPEG, JPG, PDF, DOC, DOCX, XLS, XLSX');
+      toast.error(
+        "Invalid file type. Allowed: PNG, JPEG, JPG, PDF, DOC, DOCX, XLS, XLSX",
+      );
       return;
     }
 
     const reader = new FileReader();
     reader.onload = () => {
-      setAttachment({ base64: reader.result.split(",")[1], type: file.type, name: file.name });
+      setAttachment({
+        base64: reader.result.split(",")[1],
+        type: file.type,
+        name: file.name,
+      });
       // Set preview
-      if (file.type.startsWith('image/')) {
-        setAttachmentPreview({ url: reader.result, type: 'image', name: file.name });
-      } else if (file.type === 'application/pdf') {
-        setAttachmentPreview({ type: 'pdf', name: file.name, url: reader.result });
-      } else if (file.type === 'application/vnd.ms-excel' || file.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') {
-        setAttachmentPreview({ type: 'excel', name: file.name, url: reader.result });
+      if (file.type.startsWith("image/")) {
+        setAttachmentPreview({
+          url: reader.result,
+          type: "image",
+          name: file.name,
+        });
+      } else if (file.type === "application/pdf") {
+        setAttachmentPreview({
+          type: "pdf",
+          name: file.name,
+          url: reader.result,
+        });
+      } else if (
+        file.type === "application/vnd.ms-excel" ||
+        file.type ===
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      ) {
+        setAttachmentPreview({
+          type: "excel",
+          name: file.name,
+          url: reader.result,
+        });
       } else {
-        setAttachmentPreview({ type: 'doc', name: file.name, url: reader.result });
+        setAttachmentPreview({
+          type: "doc",
+          name: file.name,
+          url: reader.result,
+        });
       }
     };
     reader.readAsDataURL(file);
@@ -986,8 +1172,9 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
         boxShadow: "0 8px 32px rgba(0,0,0,0.15)",
         display: "flex",
         flexDirection: "column",
-        overflow: "hidden",
-        transition: "all 0.3s ease"
+        overflow: "visible", // FIX
+        position: "relative",
+        transition: "all 0.3s ease",
       }}
     >
       {/* Header */}
@@ -1000,7 +1187,7 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          cursor: "move"
+          cursor: "move",
         }}
         onMouseDown={handleMouseDown}
       >
@@ -1012,7 +1199,7 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
               style={{
                 width: "24px",
                 height: "24px",
-                borderRadius: "50%"
+                borderRadius: "50%",
               }}
             />
           ) : (
@@ -1027,23 +1214,36 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
                 alignItems: "center",
                 justifyContent: "center",
                 fontSize: "12px",
-                fontWeight: "bold"
+                fontWeight: "bold",
               }}
             >
               {group.name ? group.name.slice(0, 2).toUpperCase() : "G"}
-
             </div>
           )}
-          <span style={{ fontWeight: "600" }}>{group.name || "Group Chat"}</span>
+          <span style={{ fontWeight: "600" }}>
+            {group.name || "Group Chat"}
+          </span>
           {group.group_members && group.group_members.length > 0 && (
             <span style={{ fontSize: "12px", opacity: 0.7, marginLeft: "8px" }}>
-              ({group.group_members.slice(0, 3).map(member => `${member.first_name} ${member.last_name}`).join(', ')})
+              (
+              {group.group_members
+                .slice(0, 3)
+                .map((member) => `${member.first_name} ${member.last_name}`)
+                .join(", ")}
+              )
               {group.group_members.length > 3 && (
                 <span
-                  style={{ cursor: 'pointer', color: '#fff', textDecoration: 'underline', marginLeft: '5px' }}
+                  style={{
+                    cursor: "pointer",
+                    color: "#fff",
+                    textDecoration: "underline",
+                    marginLeft: "5px",
+                  }}
                   onClick={() => setShowMembersDropdown(!showMembersDropdown)}
                 >
-                  {showMembersDropdown ? '(hide members)' : `+ ${group.group_members.length - 3} other(s)`}
+                  {showMembersDropdown
+                    ? "(hide members)"
+                    : `+ ${group.group_members.length - 3} other(s)`}
                 </span>
               )}
             </span>
@@ -1054,14 +1254,21 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
                 width: "8px",
                 height: "8px",
                 borderRadius: "50%",
-                backgroundColor: connectionStatus === "connected" ? "#28a745" :
-                  connectionStatus === "connecting" ? "#ffc107" : "#dc3545"
+                backgroundColor:
+                  connectionStatus === "connected"
+                    ? "#28a745"
+                    : connectionStatus === "connecting"
+                      ? "#ffc107"
+                      : "#dc3545",
               }}
               title={connectionStatus}
             />
             <small style={{ fontSize: "10px", opacity: 0.8 }}>
-              {connectionStatus === "connected" ? "Connected" :
-                connectionStatus === "connecting" ? "Connecting..." : "Disconnected"}
+              {connectionStatus === "connected"
+                ? "Connected"
+                : connectionStatus === "connecting"
+                  ? "Connecting..."
+                  : "Disconnected"}
             </small>
           </div>
         </div>
@@ -1079,7 +1286,7 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
               height: "24px",
               display: "flex",
               alignItems: "center",
-              justifyContent: "center"
+              justifyContent: "center",
             }}
           >
             ×
@@ -1088,33 +1295,43 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
       </div>
 
       {/* Members Dropdown */}
-      {showMembersDropdown && group.group_members && group.group_members.length > 3 && (
-        <div
-          style={{
-            position: 'absolute',
-            top: '60px', // Adjust based on header height
-            left: '16px',
-            backgroundColor: '#fff',
-            border: '1px solid #dee2e6',
-            borderRadius: '8px',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-            zIndex: 1001 + index,
-            padding: '10px',
-            maxHeight: '200px',
-            overflowY: 'auto',
-            width: 'calc(100% - 32px)', // Full width minus padding
-          }}
-        >
-          <h6 style={{ margin: '0 0 8px 0', fontSize: '14px', color: '#333' }}>All Group Members:</h6>
-          <ul style={{ listStyle: 'none', padding: '0', margin: '0' }}>
-            {group.group_members.map(member => (
-              <li key={member.id} style={{ padding: '4px 0', fontSize: '13px', color: '#555' }}>
-                {member.first_name} {member.last_name}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      {showMembersDropdown &&
+        group.group_members &&
+        group.group_members.length > 3 && (
+          <div
+            style={{
+              position: "absolute",
+              top: "60px", // Adjust based on header height
+              left: "16px",
+              backgroundColor: "#fff",
+              border: "1px solid #dee2e6",
+              borderRadius: "8px",
+              boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+              zIndex: 1001 + index,
+              padding: "10px",
+              maxHeight: "200px",
+              overflowY: "auto",
+              overflowX: "visible",
+              width: "calc(100% - 32px)", // Full width minus padding
+            }}
+          >
+            <h6
+              style={{ margin: "0 0 8px 0", fontSize: "14px", color: "#333" }}
+            >
+              All Group Members:
+            </h6>
+            <ul style={{ listStyle: "none", padding: "0", margin: "0" }}>
+              {group.group_members.map((member) => (
+                <li
+                  key={member.id}
+                  style={{ padding: "4px 0", fontSize: "13px", color: "#555" }}
+                >
+                  {member.first_name} {member.last_name}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
       {/* Messages Area */}
       <div
@@ -1133,35 +1350,50 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
             <div className="spinner-border text-primary" role="status">
               <span className="visually-hidden">Loading...</span>
             </div>
-            <div style={{ marginTop: "10px", color: "#6c757d", fontSize: "14px" }}>
-              {connectionStatus === "connecting" ? "Connecting to chat..." : "Loading messages..."}
+            <div
+              style={{ marginTop: "10px", color: "#6c757d", fontSize: "14px" }}
+            >
+              {connectionStatus === "connecting"
+                ? "Connecting to chat..."
+                : "Loading messages..."}
             </div>
           </div>
         ) : error ? (
-          <div style={{ textAlign: "center", color: "#dc3545", padding: "20px" }}>
+          <div
+            style={{ textAlign: "center", color: "#dc3545", padding: "20px" }}
+          >
             <div style={{ marginBottom: "10px" }}>{error}</div>
-
           </div>
         ) : allMessages.length === 0 ? (
-          <div style={{ textAlign: "center", color: "#6c757d", padding: "20px" }}>
+          <div
+            style={{ textAlign: "center", color: "#6c757d", padding: "20px" }}
+          >
             No messages yet. Start the conversation!
           </div>
         ) : (
           allMessages.map((item, i) => {
-
-            const isReply = item.messageType === 'reply';
-            const isMe = isReply ? item?.user.id === userId : item.sender_id === userId;
-            const isFirstUnread = !isMe && !item.is_read &&
-              allMessages.slice(0, i).every(m => {
-                const mIsMe = m.messageType === 'reply' ? m.user_id === userId : m.sender_id === userId;
+            const isReply = item.messageType === "reply";
+            const isMe = isReply
+              ? item?.user.id === userId
+              : item.sender_id === userId;
+            const isFirstUnread =
+              !isMe &&
+              !item.is_read &&
+              allMessages.slice(0, i).every((m) => {
+                const mIsMe =
+                  m.messageType === "reply"
+                    ? m.user_id === userId
+                    : m.sender_id === userId;
                 return mIsMe || m.is_read;
               });
 
             // Skip deleted messages
 
-
             return (
               <div
+                className={`group-chat-message-item ${
+                  i === 0 ? "group-chat-message-item-first" : ""
+                }`}
                 key={`${item.messageType}-${item.id}`}
                 ref={(el) => {
                   if (el) {
@@ -1187,6 +1419,9 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
               >
                 {/* User info header */}
                 <div
+                  className={`group-chat-message-meta ${
+                    isMe ? "group-chat-message-meta-me" : ""
+                  }`}
                   style={{
                     display: "flex",
                     alignItems: "center",
@@ -1202,7 +1437,7 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
                       style={{
                         width: "24px",
                         height: "24px",
-                        borderRadius: "50%"
+                        borderRadius: "50%",
                       }}
                     />
                   ) : (
@@ -1217,38 +1452,54 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
                         alignItems: "center",
                         justifyContent: "center",
                         fontSize: "12px",
-                        fontWeight: "bold"
+                        fontWeight: "bold",
                       }}
                     >
-                      {item.user?.first_name ? item.user.first_name.slice(0, 1).toUpperCase() : "U"}
+                      {item.user?.first_name
+                        ? item.user.first_name.slice(0, 1).toUpperCase()
+                        : "U"}
                     </div>
                   )}
                   <span
                     style={{
                       fontSize: "13px",
                       fontWeight: "600",
-                      color: isMe ? "#007bff" : "#495057"
+                      color: isMe ? "#007bff" : "#495057",
                     }}
                   >
-                    {isMe ? "You" : `${item.user?.first_name || 'Unknown'} ${item.user?.last_name || ""}`}
+                    {isMe
+                      ? "You"
+                      : `${item.user?.first_name || "Unknown"} ${item.user?.last_name || ""}`}
                   </span>
                   <span
                     style={{
                       fontSize: "11px",
-                      color: "#6c757d"
+                      color: "#6c757d",
                     }}
                   >
-                    Delivered: {formatDistanceToNow(new Date(item.created_at), { addSuffix: true })}
+                    Delivered:{" "}
+                    {formatDistanceToNow(new Date(item.created_at), {
+                      addSuffix: true,
+                    })}
                     {item.is_read && item.read && (
                       <span style={{ marginLeft: "8px" }}>
-                        Read: {formatDistanceToNow(new Date(item.read_at || item.updated_at), { addSuffix: true })}
+                        Read:{" "}
+                        {formatDistanceToNow(
+                          new Date(item.read_at || item.updated_at),
+                          { addSuffix: true },
+                        )}
                       </span>
                     )}
-
-                    {item.updated_at && item.updated_at !== item.created_at && !(item.is_read && item.read && new Date(item.updated_at).getTime() > new Date(item.created_at).getTime() + 1000) && (
+                    {item.updated_at &&
+                      item.updated_at !== item.created_at &&
+                      !(
+                        item.is_read &&
+                        item.read &&
+                        new Date(item.updated_at).getTime() >
+                          new Date(item.created_at).getTime() + 1000
+                      ) &&
                       // <span style={{ marginLeft: "4px", fontStyle: "italic" }}>(edited)</span>
-                      ''
-                    )}
+                      ""}
                   </span>
                   {item.tempId && (
                     <span style={{ fontSize: "11px", color: "#ffc107" }}>
@@ -1256,7 +1507,14 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
                     </span>
                   )}
                   {isMe && !isReply && (
-                    <span style={{ marginLeft: "8px", fontSize: "11px", color: item.is_read && item.read ? "#28a745" : "#6c757d" }}>
+                    <span
+                      style={{
+                        marginLeft: "8px",
+                        fontSize: "11px",
+                        color:
+                          item.is_read && item.read ? "#28a745" : "#6c757d",
+                      }}
+                    >
                       {item.is_read && item.read ? (
                         <i className="bi bi-check-all"></i>
                       ) : item.is_read ? (
@@ -1269,73 +1527,82 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
                 </div>
 
                 {/* Message/Reply Container */}
-                <div style={{ display: "flex", alignItems: "flex-start", gap: "8px", width: "100%", justifyContent: isMe ? "flex-end" : "flex-start" }}>
+                <div
+                  className={`group-chat-message-row ${
+                    isMe ? "group-chat-message-row-me" : ""
+                  }`}
+                  style={{
+                    display: "flex",
+                    alignItems: "flex-start",
+                    gap: "8px",
+                    width: "100%",
+                    justifyContent: isMe ? "flex-end" : "flex-start",
+                  }}
+                >
                   {/* Reply Icon and Menu - for messages only */}
                   {isMe ? (
-                    <div>
-
-                      <div className="dropdown" ref={el => {
-                        if (el) messageDropdownRefs.current[item.id] = el;
-                      }}>
+                    <div className="group-chat-message-actions">
+                      <div
+                        className="message-dropdown-wrapper"
+                        ref={(el) => {
+                          if (el) messageDropdownRefs.current[item.id] = el;
+                        }}
+                      >
                         <Button
                           size="sm"
                           variant="border-0"
-                          onClick={() => setShowDropdownForMessageId(showDropdownForMessageId === item.id ? null : item.id)}
+                          onClick={() =>
+                            setShowDropdownForMessageId(
+                              showDropdownForMessageId === item.id
+                                ? null
+                                : item.id,
+                            )
+                          }
                           style={{
                             padding: "4px 8px",
                             fontSize: "13px",
                             minWidth: "32px",
-                            height: "32px"
+                            height: "32px",
                           }}
                         >
                           <i className="bi bi-three-dots-vertical"></i>
                         </Button>
                         {showDropdownForMessageId === item.id && (
-                          <ul className="dropdown-menu show" style={{
-                            position: "absolute",
-                            top: "30px",
-                            right: "0",
-                            left: "auto",
-                            margin: 0,
-                            zIndex: 9999,
-                          }}>
-                            <li>
-                              <button
-                                className="dropdown-item"
-                                onClick={() => {
-                                  setMessageInfoModal({ isOpen: true, message: item });
-                                  setShowDropdownForMessageId(null);
-                                }}
-                                style={{ fontSize: "12px", padding: "6px 12px" }}
-                              >
-                                <i className="bi bi-info-circle me-2"></i>Info
-                              </button>
-                            </li>
-                            <li>
-                              <button
-                                className="dropdown-item"
-                                onClick={() => {
-                                  startEditing(item);
-                                  setShowDropdownForMessageId(null);
-                                }}
-                                style={{ fontSize: "12px", padding: "6px 12px" }}
-                              >
-                                <i className="bi bi-pencil me-2"></i>Edit
-                              </button>
-                            </li>
-                            <li>
-                              <button
-                                className="dropdown-item text-danger"
-                                onClick={() => {
-                                  deleteMessage(item.id);
-                                  setShowDropdownForMessageId(null);
-                                }}
-                                style={{ fontSize: "12px", padding: "6px 12px" }}
-                              >
-                                <i className="bi bi-trash me-2"></i>Delete
-                              </button>
-                            </li>
-                          </ul>
+                          <div className="message-dropdown-menu">
+                            <button
+                              onClick={() => {
+                                setMessageInfoModal({
+                                  isOpen: true,
+                                  message: item,
+                                });
+                                setShowDropdownForMessageId(null);
+                              }}
+                            >
+                              <i className="bi bi-info-circle me-2"></i>
+                              Info
+                            </button>
+
+                            <button
+                              onClick={() => {
+                                startEditing(item);
+                                setShowDropdownForMessageId(null);
+                              }}
+                            >
+                              <i className="bi bi-pencil me-2"></i>
+                              Edit
+                            </button>
+
+                            <button
+                              onClick={() => {
+                                deleteMessage(item.id);
+                                setShowDropdownForMessageId(null);
+                              }}
+                              style={{ color: "#dc3545" }}
+                            >
+                              <i className="bi bi-trash me-2"></i>
+                              Delete
+                            </button>
+                          </div>
                         )}
                       </div>
                       <Button
@@ -1346,7 +1613,7 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
                           padding: "4px 8px",
                           fontSize: "15px",
                           minWidth: "32px",
-                          height: "32px"
+                          height: "32px",
                         }}
                       >
                         <i className="bi bi-reply"></i>
@@ -1356,6 +1623,7 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
 
                   {/* Message/Reply Content Bubble */}
                   <div
+                    className="group-chat-message-bubble"
                     style={{
                       backgroundColor: isMe ? "#007bff" : "#fff",
                       color: isMe ? "#fff" : "#212529",
@@ -1364,6 +1632,7 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
                       maxWidth: "75%",
                       border: isMe ? "none" : "1px solid #dee2e6",
                       wordBreak: "break-word",
+                      overflowWrap: "anywhere",
                       position: "relative",
                       boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
                     }}
@@ -1383,15 +1652,25 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
                           transition: "all 0.2s ease",
                         }}
                         onMouseOver={(e) => {
-                          e.currentTarget.style.backgroundColor = "rgba(0,0,0,0.2)";
-                          e.currentTarget.style.borderLeftColor = "rgba(0,0,0,0.5)";
+                          e.currentTarget.style.backgroundColor =
+                            "rgba(0,0,0,0.2)";
+                          e.currentTarget.style.borderLeftColor =
+                            "rgba(0,0,0,0.5)";
                         }}
                         onMouseOut={(e) => {
-                          e.currentTarget.style.backgroundColor = "rgba(0,0,0,0.1)";
-                          e.currentTarget.style.borderLeftColor = "rgba(0,0,0,0.3)";
+                          e.currentTarget.style.backgroundColor =
+                            "rgba(0,0,0,0.1)";
+                          e.currentTarget.style.borderLeftColor =
+                            "rgba(0,0,0,0.3)";
                         }}
                       >
-                        <div style={{ fontWeight: 600, color: isMe ? "rgba(255,255,255,0.9)" : "#6576ff", marginBottom: "2px" }}>
+                        <div
+                          style={{
+                            fontWeight: 600,
+                            color: isMe ? "rgba(255,255,255,0.9)" : "#6576ff",
+                            marginBottom: "2px",
+                          }}
+                        >
                           {item.parentMessageSender || "User"}
                         </div>
                         <div style={{ fontStyle: "italic", opacity: 0.85 }}>
@@ -1403,87 +1682,120 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
                     {/* Main content */}
                     {(() => {
                       const text = isReply ? item.reply_message : item.content;
-                      const isEmojiOnly = !isReply && !item.attachment && isOnlyEmojis(text);
+                      const isEmojiOnly =
+                        !isReply && !item.attachment && isOnlyEmojis(text);
                       return (
-                        <span style={{ fontSize: isEmojiOnly ? "40px" : "inherit", lineHeight: isEmojiOnly ? "1.2" : "inherit", display: "inline-block" }}>
+                        <span
+                          className="group-chat-message-text"
+                          style={{
+                            fontSize: isEmojiOnly ? "40px" : "inherit",
+                            lineHeight: isEmojiOnly ? "1.2" : "inherit",
+                            display: "inline-block",
+                          }}
+                        >
                           {text}
                         </span>
                       );
                     })()}
 
                     {!isReply && item.attachment && (
-                      <AttachmentDisplay attachment={item.attachment} isMe={isMe} message={item} />
+                      <AttachmentDisplay
+                        attachment={item.attachment}
+                        isMe={isMe}
+                        message={item}
+                      />
                     )}
 
                     {/* Edit/Delete buttons for replies */}
-                    {item.reply_message !== "Reply deleted" && isReply && isMe && (
-                      <div style={{ display: "flex", gap: "8px", marginTop: "10px", justifyContent: "flex-end" }}>
-                        <button
-                          onClick={() => startEditingReply(item, item.parentMessageId)}
+                    {item.reply_message !== "Reply deleted" &&
+                      isReply &&
+                      isMe && (
+                        <div
                           style={{
-                            padding: "6px 12px",
-                            fontSize: "12px",
-                            backgroundColor: "#ffffff",
-                            color: "#333",
-                            border: "1px solid rgba(0,0,0,0.1)",
-                            borderRadius: "6px",
-                            fontWeight: "500",
-                            cursor: "pointer",
                             display: "flex",
-                            alignItems: "center",
-                            gap: "4px",
-                            boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-                            transition: "all 0.2s"
-                          }}
-                          onMouseOver={(e) => {
-                            e.target.style.backgroundColor = "#f8f9fa";
-                            e.target.style.transform = "translateY(-1px)";
-                            e.target.style.boxShadow = "0 3px 6px rgba(0,0,0,0.15)";
-                          }}
-                          onMouseOut={(e) => {
-                            e.target.style.backgroundColor = "#ffffff";
-                            e.target.style.transform = "translateY(0)";
-                            e.target.style.boxShadow = "0 2px 4px rgba(0,0,0,0.1)";
+                            gap: "8px",
+                            marginTop: "10px",
+                            justifyContent: "flex-end",
                           }}
                         >
-                          <i className="bi bi-pencil" style={{ fontSize: "12px" }}></i>
-                          <span>Edit</span>
-                        </button>
-                        <button
-                          onClick={() => deleteReply(item.id)}
-                          style={{
-                            padding: "6px 12px",
-                            fontSize: "12px",
-                            backgroundColor: "#ffffff",
-                            color: "#dc3545",
-                            border: "1px solid rgba(220, 53, 69, 0.2)",
-                            borderRadius: "6px",
-                            fontWeight: "500",
-                            cursor: "pointer",
-                            display: "flex",
-                            alignItems: "center",
-                            gap: "4px",
-                            boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-                            transition: "all 0.2s"
-                          }}
-                          onMouseOver={(e) => {
-                            e.target.style.backgroundColor = "#dc3545";
-                            e.target.style.color = "#ffffff";
-                            e.target.style.transform = "translateY(-1px)";
-                            e.target.style.boxShadow = "0 3px 6px rgba(220, 53, 69, 0.3)";
-                          }}
-                          onMouseOut={(e) => {
-                            e.target.style.backgroundColor = "#ffffff";
-                            e.target.style.color = "#dc3545";
-                            e.target.style.transform = "translateY(0)";
-                            e.target.style.boxShadow = "0 2px 4px rgba(0,0,0,0.1)";
-                          }}
-                        >
-                          <i className="bi bi-trash" style={{ fontSize: "12px" }}></i>
-                          <span>Delete</span>
-                        </button>
-                      </div>
-                    )}
+                          <button
+                            onClick={() =>
+                              startEditingReply(item, item.parentMessageId)
+                            }
+                            style={{
+                              padding: "6px 12px",
+                              fontSize: "12px",
+                              backgroundColor: "#ffffff",
+                              color: "#333",
+                              border: "1px solid rgba(0,0,0,0.1)",
+                              borderRadius: "6px",
+                              fontWeight: "500",
+                              cursor: "pointer",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "4px",
+                              boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                              transition: "all 0.2s",
+                            }}
+                            onMouseOver={(e) => {
+                              e.target.style.backgroundColor = "#f8f9fa";
+                              e.target.style.transform = "translateY(-1px)";
+                              e.target.style.boxShadow =
+                                "0 3px 6px rgba(0,0,0,0.15)";
+                            }}
+                            onMouseOut={(e) => {
+                              e.target.style.backgroundColor = "#ffffff";
+                              e.target.style.transform = "translateY(0)";
+                              e.target.style.boxShadow =
+                                "0 2px 4px rgba(0,0,0,0.1)";
+                            }}
+                          >
+                            <i
+                              className="bi bi-pencil"
+                              style={{ fontSize: "12px" }}
+                            ></i>
+                            <span>Edit</span>
+                          </button>
+                          <button
+                            onClick={() => deleteReply(item.id)}
+                            style={{
+                              padding: "6px 12px",
+                              fontSize: "12px",
+                              backgroundColor: "#ffffff",
+                              color: "#dc3545",
+                              border: "1px solid rgba(220, 53, 69, 0.2)",
+                              borderRadius: "6px",
+                              fontWeight: "500",
+                              cursor: "pointer",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "4px",
+                              boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
+                              transition: "all 0.2s",
+                            }}
+                            onMouseOver={(e) => {
+                              e.target.style.backgroundColor = "#dc3545";
+                              e.target.style.color = "#ffffff";
+                              e.target.style.transform = "translateY(-1px)";
+                              e.target.style.boxShadow =
+                                "0 3px 6px rgba(220, 53, 69, 0.3)";
+                            }}
+                            onMouseOut={(e) => {
+                              e.target.style.backgroundColor = "#ffffff";
+                              e.target.style.color = "#dc3545";
+                              e.target.style.transform = "translateY(0)";
+                              e.target.style.boxShadow =
+                                "0 2px 4px rgba(0,0,0,0.1)";
+                            }}
+                          >
+                            <i
+                              className="bi bi-trash"
+                              style={{ fontSize: "12px" }}
+                            ></i>
+                            <span>Delete</span>
+                          </button>
+                        </div>
+                      )}
                   </div>
 
                   {/* Reply button for received messages */}
@@ -1497,7 +1809,7 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
                           padding: "4px 8px",
                           fontSize: "15px",
                           minWidth: "32px",
-                          height: "32px"
+                          height: "32px",
                         }}
                       >
                         <i className="bi bi-reply"></i>
@@ -1512,15 +1824,15 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
 
         {/* Typing indicator */}
         {typingUsers.length > 0 && (
-          <div style={{ padding: "8px 12px", color: "#6c757d", fontSize: "12px" }}>
-            {typingUsers.map(user => user.name).join(", ")} {typingUsers.length === 1 ? "is" : "are"} typing...
+          <div
+            style={{ padding: "8px 12px", color: "#6c757d", fontSize: "12px" }}
+          >
+            {typingUsers.map((user) => user.name).join(", ")}{" "}
+            {typingUsers.length === 1 ? "is" : "are"} typing...
           </div>
         )}
 
         <div ref={messagesEndRef} />
-
-
-
       </div>
 
       {/* Reply/Edit Indicator */}
@@ -1536,20 +1848,26 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
         filePreview={attachmentPreview?.url}
         onRemove={removeAttachment}
       />
-      <div style={{ position: "absolute", bottom: messagesAreaPaddingBottom + 20, right: "2rem" }}>
+      <div
+        style={{
+          position: "absolute",
+          bottom: messagesAreaPaddingBottom + 20,
+          right: "2rem",
+        }}
+      >
         {showScrollToBottomButton && (
           <Button
             variant="primary"
             className="rounded-circle"
             onClick={scrollToBottom}
             style={{
-              position: 'sticky',
-              width: '40px',
-              height: '40px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: '0 2px 10px rgba(0,0,0,0.2)',
+              position: "sticky",
+              width: "40px",
+              height: "40px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              boxShadow: "0 2px 10px rgba(0,0,0,0.2)",
               zIndex: 100,
             }}
           >
@@ -1564,13 +1882,13 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
             className="rounded-circle"
             onClick={scrollToTop}
             style={{
-              position: 'sticky',
-              width: '40px',
-              height: '40px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: '0 2px 10px rgba(0,0,0,0.2)',
+              position: "sticky",
+              width: "40px",
+              height: "40px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              boxShadow: "0 2px 10px rgba(0,0,0,0.2)",
               zIndex: 100,
             }}
           >
@@ -1584,18 +1902,40 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
         style={{
           padding: "16px",
           backgroundColor: "#fff",
-          borderTop: replyingTo || editMessageId || editingReply ? "none" : "1px solid #dee2e6",
-          position: "relative" // Added relative positioning
+          borderTop:
+            replyingTo || editMessageId || editingReply
+              ? "none"
+              : "1px solid #dee2e6",
+          position: "relative", // Added relative positioning
         }}
       >
         <DeleteConfirmationModal
           isOpen={deleteModal.isOpen}
-          message={{ content: deleteModal.content, type: deleteModal.messageType }}
+          message={{
+            content: deleteModal.content,
+            type: deleteModal.messageType,
+          }}
           onConfirm={confirmDelete}
-          onCancel={() => setDeleteModal({ isOpen: false, messageId: null, messageType: null, content: null })}
+          onCancel={() =>
+            setDeleteModal({
+              isOpen: false,
+              messageId: null,
+              messageType: null,
+              content: null,
+            })
+          }
         />
         <Form onSubmit={sendMessage}>
-          <div style={{ display: "flex", gap: "8px", alignItems: "flex-end", position: "relative" }}> {/* Changed alignItems to flex-end */}
+          <div
+            style={{
+              display: "flex",
+              gap: "8px",
+              alignItems: "flex-end",
+              position: "relative",
+            }}
+          >
+            {" "}
+            {/* Changed alignItems to flex-end */}
             {/* Emoji Button - Outside on Left */}
             <Button
               type="button"
@@ -1609,12 +1949,11 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                flexShrink: 0
+                flexShrink: 0,
               }}
             >
               <i className="bi bi-emoji-smile" style={{ fontSize: "24px" }}></i>
             </Button>
-
             {/* Emoji Picker Popup */}
             {showEmojiPicker && (
               <div
@@ -1638,7 +1977,6 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
                 />
               </div>
             )}
-
             <div style={{ flex: 1, position: "relative" }}>
               <div
                 ref={contentEditableRef} // Attach the ref
@@ -1652,12 +1990,11 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
                   if (atIndex !== -1) {
                     const query = val.slice(atIndex + 1);
                     setMentionQuery(query);
-                    const suggestions = group.group_members
-                      ?.filter((m) =>
-                        `${m.first_name} ${m.last_name}`
-                          .toLowerCase()
-                          .includes(query.toLowerCase())
-                      );
+                    const suggestions = group.group_members?.filter((m) =>
+                      `${m.first_name} ${m.last_name}`
+                        .toLowerCase()
+                        .includes(query.toLowerCase()),
+                    );
                     setMentionSuggestions(suggestions);
                     setShowMentionDropdown(suggestions.length > 0);
                   } else {
@@ -1666,10 +2003,13 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
                 }}
                 onKeyDown={handleKeyPress} // Use onKeyDown for Enter key handling
                 placeholder={
-                  editMessageId ? "Edit your message..." :
-                    editingReply ? "Edit your reply..." :
-                      replyingTo ? "Type your reply..." :
-                        "Type your message..."
+                  editMessageId
+                    ? "Edit your message..."
+                    : editingReply
+                      ? "Edit your reply..."
+                      : replyingTo
+                        ? "Type your reply..."
+                        : "Type your message..."
                 }
                 disabled={sending || connectionStatus !== "connected"}
                 style={{
@@ -1682,13 +2022,19 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
                   whiteSpace: "pre-wrap", // Preserve whitespace and allow wrapping
                   wordBreak: "break-word", // Break long words
                 }}
-              // dangerouslySetInnerHTML will be replaced by manual DOM manipulation
+                // dangerouslySetInnerHTML will be replaced by manual DOM manipulation
               />
 
               {/* Mention Dropdown */}
               {showMentionDropdown && (
-                <div className="absolute bg-white border rounded shadow w-full max-h-40 overflow-y-auto z-50"
-                  style={{ bottom: "calc(100% + 8px)", left: "0", width: "100%" }}>
+                <div
+                  className="absolute bg-white border rounded shadow w-full max-h-40 overflow-y-auto z-50"
+                  style={{
+                    bottom: "calc(100% + 8px)",
+                    left: "0",
+                    width: "100%",
+                  }}
+                >
                   {mentionSuggestions.map((member) => (
                     <div
                       key={member.id}
@@ -1700,7 +2046,10 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
                         const currentPlainMessage = inputDiv.innerText;
                         const atIndex = currentPlainMessage.lastIndexOf("@");
                         const mentionText = `@${member.first_name} ${member.last_name}`;
-                        const newPlainMessageText = currentPlainMessage.slice(0, atIndex) + mentionText + " ";
+                        const newPlainMessageText =
+                          currentPlainMessage.slice(0, atIndex) +
+                          mentionText +
+                          " ";
 
                         setMessageText(newPlainMessageText);
                         setShowMentionDropdown(false);
@@ -1715,7 +2064,6 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
                 </div>
               )}
             </div>
-
             {/* Attachment Button */}
             <Button
               type="button"
@@ -1729,15 +2077,18 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
                 padding: "0",
                 display: "flex",
                 alignItems: "center",
-                justifyContent: "center"
+                justifyContent: "center",
               }}
             >
               <i className="bi bi-paperclip"></i>
             </Button>
-
             <Button
               type="submit"
-              disabled={!messageText.trim() && !attachment || sending || connectionStatus !== "connected"}
+              disabled={
+                (!messageText.trim() && !attachment) ||
+                sending ||
+                connectionStatus !== "connected"
+              }
               style={{
                 borderRadius: "50%",
                 width: "40px",
@@ -1745,7 +2096,7 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
                 padding: "0",
                 display: "flex",
                 alignItems: "center",
-                justifyContent: "center"
+                justifyContent: "center",
               }}
             >
               {sending ? (
@@ -1776,12 +2127,14 @@ const GroupChatPopup = ({ group, onClose, onMaximize, userId: propUserId, token,
         </Form>
       </div>
 
-      {messageInfoModal.isOpen && <MessageInfoModal
-        isOpen={messageInfoModal.isOpen}
-        onClose={() => setMessageInfoModal({ isOpen: false, message: null })}
-        message={messageInfoModal.message}
-        group={group}
-      />}
+      {messageInfoModal.isOpen && (
+        <MessageInfoModal
+          isOpen={messageInfoModal.isOpen}
+          onClose={() => setMessageInfoModal({ isOpen: false, message: null })}
+          message={messageInfoModal.message}
+          group={group}
+        />
+      )}
     </div>
   );
 };

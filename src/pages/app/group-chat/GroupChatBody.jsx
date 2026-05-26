@@ -1,6 +1,6 @@
 import { Button, Icon, UserAvatar } from "@/components/Component";
 import EmojiPicker from "emoji-picker-react";
-import { useContext, useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
@@ -57,14 +57,20 @@ export default function GroupChatBody() {
     useState(false); /* Added for emoji functionality */
   const emojiPickerRef = useRef(null); /* Added for emoji functionality */
   const [highlightedMessageId, setHighlightedMessageId] = useState(null);
-  const [messageInfoModal, setMessageInfoModal] = useState({ isOpen: false, message: null });
-  const [forwardModal, setForwardModal] = useState({ show: false, message: null });
+  const [messageInfoModal, setMessageInfoModal] = useState({
+    isOpen: false,
+    message: null,
+  });
+  const [forwardModal, setForwardModal] = useState({
+    show: false,
+    message: null,
+  });
   const [forwardSearch, setForwardSearch] = useState("");
+  const [initialUnreadId, setInitialUnreadId] = useState(null);
 
   const dispatch = useDispatch();
-  const { openChatPopups, openGroupChatPopups, openSupportChatPopups } = useSelector(
-    (state) => state.chatPopups
-  );
+  const { openChatPopups, openGroupChatPopups, openSupportChatPopups } =
+    useSelector((state) => state.chatPopups);
 
   const {
     activeGroup,
@@ -102,7 +108,9 @@ export default function GroupChatBody() {
       return;
     }
     const total =
-      openChatPopups.length + openGroupChatPopups.length + openSupportChatPopups.length;
+      openChatPopups.length +
+      openGroupChatPopups.length +
+      openSupportChatPopups.length;
     if (total >= 4) {
       toast.error("Maximum of 4 chat windows can be open at a time.");
       return;
@@ -116,7 +124,159 @@ export default function GroupChatBody() {
   const navigate = useNavigate();
   const scrollRef = useRef(null);
   const fileRef = useRef(null);
+  const hasAutoScrolledToUnread = useRef(false);
+  const hasPreventedBottomScrollAfterUnread = useRef(false);
 
+  const currentUserId = Number(localStorage.getItem("userId")) || -1;
+  //change korlm bhai
+  // const isMessageReadByCurrentUser = (message) => {
+  //   if (!message) return true;
+
+  //   const senderId = Number(message.sender_id || message.user?.id || -1);
+  //   if (senderId === currentUserId) return true;
+
+  //   if (message.type === "reply" || message.type === "group_message_reply") {
+  //     if (message.is_read || message.read_at) return true;
+  //   }
+
+  //   if (message.is_read) return true;
+
+  //   const receipts = message.read_receipts || [];
+  //   return receipts.some(
+  //     (receipt) =>
+  //       Number(receipt.reader_id || receipt.user_id || -1) === currentUserId,
+  //   );
+  // };
+  const isMessageReadByCurrentUser = (message) => {
+    if (!message) return true;
+
+    const senderId = Number(message.sender_id || message.user?.id || -1);
+
+    // amar nijer message unread na
+    if (senderId === currentUserId) {
+      return true;
+    }
+
+    // backend read status
+    if (message.is_read === true) {
+      return true;
+    }
+
+    // read receipt check
+    const receipts = message.read_receipts || [];
+
+    const hasReadReceipt = receipts.some(
+      (receipt) =>
+        Number(receipt.reader_id || receipt.user_id || -1) === currentUserId,
+    );
+
+    return hasReadReceipt;
+  };
+  const firstUnreadMessageId = useMemo(() => {
+    const unreadMessage = messages.find(
+      (message) => !isMessageReadByCurrentUser(message),
+    );
+    return unreadMessage ? unreadMessage.id : null;
+  }, [messages, currentUserId]);
+
+  const orderedMessages = useMemo(
+    () => groupMessagesByDate(messages || []),
+    [messages],
+  );
+
+  const firstUnreadMessageIndex = useMemo(() => {
+    return orderedMessages.findIndex(
+      (item) => item && !item.meta && !isMessageReadByCurrentUser(item),
+    );
+  }, [orderedMessages, currentUserId]);
+
+  const messagesWithUnreadDivider = useMemo(() => {
+    const unreadIndex = orderedMessages.findIndex(
+      (item) => item && !item.meta && !isMessageReadByCurrentUser(item),
+    );
+
+    if (unreadIndex === -1) return orderedMessages;
+
+    return [
+      ...orderedMessages.slice(0, unreadIndex),
+      {
+        meta: true,
+        metaText: "Unread Messages",
+        unreadDivider: true,
+        id: "unread-divider",
+      },
+      ...orderedMessages.slice(unreadIndex),
+    ];
+  }, [orderedMessages, currentUserId]);
+
+  useEffect(() => {
+    hasAutoScrolledToUnread.current = false;
+    hasPreventedBottomScrollAfterUnread.current = false;
+  }, [activeGroup?.id]);
+  useEffect(() => {
+    if (firstUnreadMessageId && !initialUnreadId) {
+      setInitialUnreadId(firstUnreadMessageId);
+    }
+  }, [firstUnreadMessageId, initialUnreadId]);
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+
+    const hasUnreadDivider = messagesWithUnreadDivider.some(
+      (m) => m?.unreadDivider,
+    );
+
+    // If any unread message exists, do not auto-scroll to bottom.
+    if (initialUnreadId || firstUnreadMessageId || hasUnreadDivider) {
+      hasPreventedBottomScrollAfterUnread.current = true;
+      return;
+    }
+
+    if (hasPreventedBottomScrollAfterUnread.current) return;
+    el.scrollTop = el.scrollHeight;
+  }, [
+    messages,
+    typingUsers,
+    firstUnreadMessageId,
+    initialUnreadId,
+    messagesWithUnreadDivider,
+  ]);
+
+  useEffect(() => {
+    if (!initialUnreadId || hasAutoScrolledToUnread.current) return;
+
+    const timer = setTimeout(() => {
+      const dividerElement = document.getElementById("unread-divider");
+      if (dividerElement) {
+        dividerElement.scrollIntoView({ behavior: "smooth", block: "start" });
+        setHighlightedMessageId(initialUnreadId);
+        setTimeout(() => setHighlightedMessageId(null), 3000);
+      } else {
+        scrollToMessage(initialUnreadId);
+      }
+
+      hasAutoScrolledToUnread.current = true;
+      hasPreventedBottomScrollAfterUnread.current = true;
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [initialUnreadId, activeGroup?.id, messagesWithUnreadDivider]);
+  useEffect(() => {
+    if (!initialUnreadId) return;
+
+    const unreadStillExists = messages.some(
+      (msg) => msg.id === initialUnreadId && !isMessageReadByCurrentUser(msg),
+    );
+
+    let removeTimer = null;
+    if (!unreadStillExists) {
+      // Delay removal so user sees the divider disappear smoothly after message marked read
+      removeTimer = setTimeout(() => setInitialUnreadId(null), 2500);
+    }
+
+    return () => {
+      if (removeTimer) clearTimeout(removeTimer);
+    };
+  }, [messages, initialUnreadId]);
   useEffect(() => {
     const prevent = (e) => {
       e.preventDefault();
@@ -173,13 +333,6 @@ export default function GroupChatBody() {
     }
   }, [activeGroup]);
 
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (el) {
-      el.scrollTop = el.scrollHeight;
-    }
-  }, [messages, typingUsers]); // Added typingUsers to trigger scroll on typing indicator
-
   const scrollToBottom = () => {
     const el = scrollRef.current;
     if (el) {
@@ -202,6 +355,22 @@ export default function GroupChatBody() {
       setTimeout(() => setHighlightedMessageId(null), 3000); // Remove highlight after 3 seconds
     }
   };
+
+  const prevMessagesLength = useRef((messages || []).length);
+
+  useEffect(() => {
+    const prev = prevMessagesLength.current;
+    const len = messages.length;
+    if (len > prev) {
+      const last = messages[len - 1];
+      const lastSenderId = Number(last?.sender_id || last?.user?.id || -1);
+      if (last && lastSenderId === currentUserId) {
+        // small delay to ensure DOM updated
+        setTimeout(() => scrollToBottom(), 50);
+      }
+    }
+    prevMessagesLength.current = len;
+  }, [messages]);
 
   if (!activeGroup) {
     return (
@@ -319,24 +488,38 @@ export default function GroupChatBody() {
       </div>
       <SimpleBar
         className="nk-chat-panel"
-        style={{ flex: 1, height: 0, minHeight: 0, overflowY: "auto", position: "relative" }}
-        scrollableNodeProps={{ ref: (n) => (scrollRef.current = n), onScroll: handleScroll }}
+        style={{
+          flex: 1,
+          height: 0,
+          minHeight: 0,
+          overflowY: "auto",
+          position: "relative",
+        }}
+        scrollableNodeProps={{
+          ref: (n) => (scrollRef.current = n),
+          onScroll: handleScroll,
+        }}
       >
-        {groupMessagesByDate(messages).map((m, idx) => {
-          if (m.meta)
-            return <MetaChat key={`meta-${idx}`} item={m.meta.metaText} />;
-          const currentUserId = Number(localStorage.getItem("userId")) || -1;
+        {messagesWithUnreadDivider.map((m, idx) => {
+          if (m?.meta) {
+            return (
+              <MetaChat
+                id={m.unreadDivider ? "unread-divider" : undefined}
+                key={`meta-${m.unreadDivider ? "unread" : idx}`}
+                item={m.meta?.metaText || m.metaText}
+                className={m.unreadDivider ? "chat-sap-unread" : ""}
+              />
+            );
+          }
+
           const messageSenderId =
             Number(m?.sender_id || m?.user?.id || -1) || -1;
-
           const isMe = messageSenderId === currentUserId;
 
           const safeDate = m.created_at ? new Date(m.created_at) : new Date();
-
           const item = {
             id: m.id,
-            chat: m.message || "", // 🔥 CLEAN
-
+            chat: m.message || "",
             date: isNaN(safeDate.getTime())
               ? ""
               : safeDate
@@ -345,14 +528,49 @@ export default function GroupChatBody() {
                     minute: "2-digit",
                   })
                   .toUpperCase(),
-
             isReply: m.type === "reply" || m.type === "group_message_reply",
-
             parentMsg: m.parentMsg || null,
           };
 
-          return (
-            <div key={`message-${m.id}-${idx}`}>
+          const messageNode = (
+            <div id={`message-${m.id}`} key={`message-${m.id}-${idx}`}>
+              {m.id === initialUnreadId && (
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    margin: "18px 0",
+                    position: "relative",
+                  }}
+                >
+                  <div
+                    style={{
+                      position: "absolute",
+                      left: 0,
+                      right: 0,
+                      height: "1px",
+                      background: "#e5e7eb",
+                    }}
+                  />
+
+                  <div
+                    style={{
+                      background: "#fff5f5",
+                      color: "#ef4444",
+                      padding: "6px 14px",
+                      borderRadius: "999px",
+                      fontSize: "12px",
+                      fontWeight: "600",
+                      border: "1px solid #fecaca",
+                      zIndex: 2,
+                      boxShadow: "0 2px 6px rgba(0,0,0,0.06)",
+                    }}
+                  >
+                    Unread Messages
+                  </div>
+                </div>
+              )}
               {/* ✅ MAIN MESSAGE */}
               {isMe ? (
                 <GroupMeChat
@@ -371,12 +589,19 @@ export default function GroupChatBody() {
                     setDeleteModal({
                       isOpen: true,
                       messageId,
-                      messageType: (m.type === "reply" || m.type === "group_message_reply") ? "reply" : "message",
+                      messageType:
+                        m.type === "reply" || m.type === "group_message_reply"
+                          ? "reply"
+                          : "message",
                     })
                   }
                   onReply={handleReply}
-                  onForward={(msg) => setForwardModal({ show: true, message: msg })}
-                  onInfo={(msg) => setMessageInfoModal({ isOpen: true, message: msg })}
+                  onForward={(msg) =>
+                    setForwardModal({ show: true, message: msg })
+                  }
+                  onInfo={(msg) =>
+                    setMessageInfoModal({ isOpen: true, message: msg })
+                  }
                   onScrollToMessage={scrollToMessage}
                   highlightedMessageId={highlightedMessageId}
                   isDeleted={m.is_deleted}
@@ -389,7 +614,9 @@ export default function GroupChatBody() {
                   groupMembers={groupMembers}
                   activeGroup={activeGroup}
                   onReply={handleReply}
-                  onForward={(msg) => setForwardModal({ show: true, message: msg })}
+                  onForward={(msg) =>
+                    setForwardModal({ show: true, message: msg })
+                  }
                   onScrollToMessage={scrollToMessage}
                   highlightedMessageId={highlightedMessageId}
                   isDeleted={m.is_deleted}
@@ -400,6 +627,53 @@ export default function GroupChatBody() {
               {/* 🔥 REPLIES RENDER (THIS WAS MISSING) */}
             </div>
           );
+
+          // if (!m.meta && m.id === initialUnreadId) {
+          //   return (
+          //     <div key={`wrapper-${m.id}`}>
+          //       <div
+          //         style={{
+          //           display: "flex",
+          //           alignItems: "center",
+          //           margin: "16px 0",
+          //           padding: "0 12px",
+          //         }}
+          //       >
+          //         <div
+          //           style={{
+          //             flex: 1,
+          //             height: "1px",
+          //             background: "#d1d5db",
+          //           }}
+          //         />
+
+          //         <span
+          //           style={{
+          //             padding: "0 12px",
+          //             fontSize: "12px",
+          //             fontWeight: "600",
+          //             color: "#ef4444",
+          //             whiteSpace: "nowrap",
+          //           }}
+          //         >
+          //           Unread Messages
+          //         </span>
+
+          //         <div
+          //           style={{
+          //             flex: 1,
+          //             height: "1px",
+          //             background: "#d1d5db",
+          //           }}
+          //         />
+          //       </div>
+
+          //       {messageNode}
+          //     </div>
+          //   );
+          // }
+
+          return messageNode;
         })}
       </SimpleBar>
 
@@ -543,13 +817,23 @@ export default function GroupChatBody() {
         onForwardToGroup={forwardMessageToGroup}
         forwardSearch={forwardSearch}
         setForwardSearch={setForwardSearch}
-        recentForwardUsers={directChat?.recentChats?.map(chat => {
-          const user = directChat.allUsers?.find(u => u.id === chat.recipient_id);
-          return user || null;
-        }).filter(Boolean) || []}
-        allForwardUsers={directChat?.allUsers?.filter(u => 
-          `${u.first_name} ${u.last_name}`.toLowerCase().includes(forwardSearch.toLowerCase())
-        ) || []}
+        recentForwardUsers={
+          directChat?.recentChats
+            ?.map((chat) => {
+              const user = directChat.allUsers?.find(
+                (u) => u.id === chat.recipient_id,
+              );
+              return user || null;
+            })
+            .filter(Boolean) || []
+        }
+        allForwardUsers={
+          directChat?.allUsers?.filter((u) =>
+            `${u.first_name} ${u.last_name}`
+              .toLowerCase()
+              .includes(forwardSearch.toLowerCase()),
+          ) || []
+        }
         onForward={(messageId, recipientId) => {
           if (forwardMessageToUser) {
             forwardMessageToUser(forwardModal.message, recipientId);

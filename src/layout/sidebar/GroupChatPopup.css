@@ -1,41 +1,184 @@
-.group-chat-popup {
-  /* Existing styles */
-}
-
-.group-chat-header {
-  /* Existing styles */
-}
+/* =========================
+   GROUP CHAT MESSAGES
+========================= */
 
 .group-chat-messages {
-  /* Existing styles */
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+  position: relative;
+  scrollbar-width: thin;
 }
 
-.group-chat-input {
-  /* Existing styles */
+.group-chat-message-item-first {
+  margin-top: auto;
 }
 
-/* Mention List Styling */
+.group-chat-message-meta,
+.group-chat-message-row {
+  max-width: 100%;
+  min-width: 0;
+}
+
+.group-chat-message-meta {
+  flex-wrap: wrap;
+}
+
+.group-chat-message-meta-me {
+  justify-content: flex-start;
+}
+
+.group-chat-message-row {
+  min-height: 36px;
+}
+
+.group-chat-message-actions {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 32px;
+  align-items: center;
+}
+
+.group-chat-message-bubble {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.group-chat-message-text {
+  max-width: 100%;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* =========================
+   DROPDOWN WRAPPER
+========================= */
+
+.message-dropdown-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  z-index: 999999;
+}
+
+/* =========================
+   MESSAGE DROPDOWN MENU
+========================= */
+
+.message-dropdown-menu {
+  position: absolute;
+
+  top: 36px;
+  left: 0;
+
+  min-width: 150px;
+
+  background: #ffffff;
+  border-radius: 12px;
+
+  padding: 6px 0;
+
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+
+  overflow: hidden;
+
+  z-index: 999999999;
+
+  animation: dropdownFade 0.15s ease;
+
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+/* =========================
+   DROPDOWN BUTTONS
+========================= */
+
+.message-dropdown-menu button {
+  width: 100%;
+
+  border: none;
+  outline: none;
+
+  background: transparent;
+
+  padding: 10px 14px;
+
+  text-align: left;
+
+  font-size: 13px;
+  font-weight: 500;
+
+  transition: all 0.2s ease;
+
+  display: flex;
+  align-items: center;
+
+  cursor: pointer;
+}
+
+.message-dropdown-menu button:hover {
+  background: #f1f3f5;
+}
+
+/* =========================
+   DROPDOWN ANIMATION
+========================= */
+
+@keyframes dropdownFade {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* =========================
+   MENTION LIST CONTAINER
+========================= */
+
 .mention-list-container {
   position: absolute;
-  bottom: 80px; /* Adjust based on input area height */
+
+  bottom: 80px;
   left: 16px;
   right: 16px;
-  background-color: #fff;
+
+  background-color: #ffffff;
+
   border: 1px solid #e0e0e0;
   border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+
   max-height: 200px;
+
   overflow-y: auto;
-  z-index: 10;
+
+  z-index: 999;
+
   padding: 8px 0;
 }
+
+/* =========================
+   MENTION ITEM
+========================= */
 
 .mention-list-item {
   display: flex;
   align-items: center;
+
   padding: 8px 16px;
+
   cursor: pointer;
-  transition: background-color 0.2s;
+
+  transition: background-color 0.2s ease;
 }
 
 .mention-list-item:hover {
@@ -47,44 +190,61 @@
   font-style: italic;
 }
 
+/* =========================
+   MENTION AVATAR
+========================= */
+
 .mention-avatar {
   width: 28px;
   height: 28px;
+
   border-radius: 50%;
+
   object-fit: cover;
+
   margin-right: 8px;
 }
 
 .mention-avatar-initials {
   width: 28px;
   height: 28px;
+
   border-radius: 50%;
+
   background-color: #007bff;
-  color: #fff;
+  color: #ffffff;
+
   display: flex;
   align-items: center;
   justify-content: center;
+
   font-size: 12px;
   font-weight: bold;
+
   margin-right: 8px;
 }
 
-/* Dark Mode Adjustments */
+/* =========================
+   DARK MODE
+========================= */
+
 body.dark-mode .mention-list-container,
 .dark-mode .mention-list-container {
   background-color: #212529;
-  border-color: #343a40;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-}
 
-body.dark-mode .mention-list-item:hover,
-.dark-mode .mention-list-item:hover {
-  background-color: #343a40;
+  border-color: #343a40;
+
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 body.dark-mode .mention-list-item,
 .dark-mode .mention-list-item {
   color: #f8f9fa;
+}
+
+body.dark-mode .mention-list-item:hover,
+.dark-mode .mention-list-item:hover {
+  background-color: #343a40;
 }
 
 body.dark-mode .mention-list-item.no-results,
@@ -94,5 +254,5 @@ body.dark-mode .mention-list-item.no-results,
 
 body.dark-mode .mention-avatar-initials,
 .dark-mode .mention-avatar-initials {
-  background-color: #6c757d; /* Adjust for dark mode if primary is too bright */
+  background-color: #6c757d;
 }
