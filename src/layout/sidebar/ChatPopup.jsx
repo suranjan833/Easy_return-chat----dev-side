@@ -59,7 +59,11 @@ const ChatPopup = ({ user, onClose, initialPosition, index }) => {
   const [showUnreadDivider, setShowUnreadDivider] = useState(false);
 
   const meId = direct?.ME_ID;
-  const isOnline = direct?.activeUserIDs?.includes(user.id);
+  const popupUserId = Number(user?.id || user?.other_user?.id);
+
+  const isOnline = (direct?.activeUserIDs || []).some(
+    (id) => Number(id) === popupUserId,
+  );
 
   // ── select this user in the per-popup context on mount ──
   useEffect(() => {
