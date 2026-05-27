@@ -463,12 +463,23 @@ class ChatService {
           }
         } else if (data.type === "typing") {
           this.notifySubscribers("typing", data);
-        } else if (data.type === "read_reply") {
+        } else if (
+          data.type === "read_reply" ||
+          data.type === "reply_read" ||
+          data.type === "mark_reply_read"
+        ) {
           // ✅ Direct read_reply event from server - normalize payload
           const replyId =
             data.reply_id ||
+            data.id ||
             data?.data?.reply_id ||
+            data?.data?.id ||
             data?.data?.reply?.id ||
+            null;
+          const parentReplyId =
+            data.parent_reply_id ||
+            data?.data?.parent_reply_id ||
+            data?.data?.reply?.parent_reply_id ||
             null;
           const messageId =
             data.message_id ||
@@ -479,20 +490,30 @@ class ChatService {
             data.read_at || data.timestamp || data?.data?.read_at || null;
           console.log(
             "[ChatService] ✅ Direct read_reply event received - normalized:",
-            { replyId, messageId, readAt },
+            { replyId, parentReplyId, messageId, readAt },
           );
           this.notifySubscribers("read_reply", {
-            type: "read_reply",
+            type: data.type || "read_reply",
             reply_id: replyId,
+            parent_reply_id: parentReplyId,
             message_id: messageId,
             read_at: readAt,
           });
-        } else if (data.type === "status_update") {
+        } else if (
+          data.type === "status_update" ||
+          data.type === "update_status" ||
+          data.type === "status_updated"
+        ) {
           // Normalize status updates - if it contains reply_id treat as read_reply
           const replyId =
             data.reply_id ||
             data?.data?.reply_id ||
             data?.data?.reply?.id ||
+            null;
+          const parentReplyId =
+            data.parent_reply_id ||
+            data?.data?.parent_reply_id ||
+            data?.data?.reply?.parent_reply_id ||
             null;
           const messageId =
             data.message_id ||
@@ -506,11 +527,12 @@ class ChatService {
           if (replyId) {
             console.log(
               "[ChatService] ✅ Reply read status received - normalized:",
-              { replyId, messageId, readAt },
+              { replyId, parentReplyId, messageId, readAt },
             );
             this.notifySubscribers("read_reply", {
               type: "read_reply",
               reply_id: replyId,
+              parent_reply_id: parentReplyId,
               message_id: messageId,
               read_at: readAt,
             });

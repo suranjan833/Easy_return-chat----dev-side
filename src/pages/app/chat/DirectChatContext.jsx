@@ -158,6 +158,7 @@ export function DirectChatProvider({ children }) {
   const [typingUsers, setTypingUsers] = useState({});
   const typingDebounceRef = useRef(null);
   const messageRefs = useRef({});
+  const pendingReadIdsRef = useRef(new Set());
   // Added: Reply and edit states for UI
   const [replyingTo, setReplyingTo] = useState(null);
   const [editingReply, setEditingReply] = useState(null);
@@ -192,6 +193,39 @@ export function DirectChatProvider({ children }) {
 
     return normalized;
   }, []);
+
+  const getMessageIdentityIds = useCallback((message) => {
+    return [
+      message?.id,
+      message?.message_id,
+      message?.reply_id,
+      message?.parent_reply_id,
+    ]
+      .filter(Boolean)
+      .map((id) => Number(id))
+      .filter((id) => !Number.isNaN(id));
+  }, []);
+
+  const applyPendingReadStatus = useCallback(
+    (message) => {
+      const ids = getMessageIdentityIds(message);
+      const hasPendingRead = ids.some((id) => pendingReadIdsRef.current.has(id));
+
+      if (!hasPendingRead) {
+        return message;
+      }
+
+      ids.forEach((id) => pendingReadIdsRef.current.delete(id));
+
+      return {
+        ...message,
+        read: true,
+        delivered: true,
+        read_at: message.read_at || new Date().toISOString(),
+      };
+    },
+    [getMessageIdentityIds],
+  );
 
   const markLoadedUnreadAsRead = useCallback(
     (loadedMessages) => {
@@ -629,7 +663,7 @@ export function DirectChatProvider({ children }) {
         var idToMark = message.message_id || message.id;
 
         if (message.type == "message_reply") {
-          idToMark = message.id;
+          idToMark = message.reply_id || message.id;
           markReplyAsRead(idToMark);
         } else {
           markMessageAsRead(idToMark);
@@ -773,7 +807,7 @@ export function DirectChatProvider({ children }) {
             return prev
               .map((m) =>
                 m.id === tempMsg.id
-                  ? {
+                  ? applyPendingReadStatus({
                       ...message,
                       timestamp:
                         message.timestamp ||
@@ -782,7 +816,7 @@ export function DirectChatProvider({ children }) {
                       forwarded:
                         message.forwarded === true ||
                         message.forwarded_from_message_id !== undefined,
-                    }
+                    })
                   : m,
               )
               .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
@@ -803,16 +837,20 @@ export function DirectChatProvider({ children }) {
               m.type === "message_reply" &&
               String(m.reply_id || m.id) ===
                 String(message.reply_id || message.id)
-                ? {
-                    ...m,
-                    ...message,
-                    id: m.tempId ? message.id : m.id,
-                    reply_id: message.reply_id || m.reply_id,
-                    tempId: false,
-                    delivered: message.delivered ?? m.delivered ?? true,
-                    read: message.read ?? m.read ?? false,
-                    read_at: message.read_at || m.read_at,
-                  }
+                ? (() => {
+                    const incomingMessage = applyPendingReadStatus(message);
+                    return {
+                      ...m,
+                      ...incomingMessage,
+                      id: m.tempId ? message.id : m.id,
+                      reply_id: message.reply_id || m.reply_id,
+                      tempId: false,
+                      delivered:
+                        incomingMessage.delivered ?? m.delivered ?? true,
+                      read: incomingMessage.read ?? m.read ?? false,
+                      read_at: incomingMessage.read_at || m.read_at,
+                    };
+                  })()
                 : m,
             );
           }
@@ -829,7 +867,7 @@ export function DirectChatProvider({ children }) {
             "[DirectChat] ➕ Adding new message to thread:",
             message.id,
           );
-          const newMsg = {
+          const newMsg = applyPendingReadStatus({
             ...message,
             timestamp:
               message.timestamp ||
@@ -838,7 +876,7 @@ export function DirectChatProvider({ children }) {
             forwarded:
               message.forwarded === true ||
               message.forwarded_from_message_id !== undefined,
-          };
+          });
 
           const updated = [...prev, newMsg].sort(
             (a, b) => new Date(a.timestamp) - new Date(b.timestamp),
@@ -856,7 +894,7 @@ export function DirectChatProvider({ children }) {
         );
       }
     },
-    [ME_ID, allUsers, dispatch, normalizeDirectMessage],
+    [ME_ID, allUsers, applyPendingReadStatus, dispatch, normalizeDirectMessage],
   );
 
   const handleStatusUpdate = useCallback(
@@ -879,19 +917,32 @@ export function DirectChatProvider({ children }) {
       // Collect many possible id locations the server might use for replies/messages
       const candidateIds = [
         payload.reply_id,
+        payload.parent_reply_id,
         payload.message_id,
         payload.id,
         data.reply_id,
+        data.parent_reply_id,
         data.message_id,
         data.id,
         payload.reply && payload.reply.id,
+        payload.reply && payload.reply.reply_id,
+        payload.reply && payload.reply.parent_reply_id,
         payload.message && payload.message.id,
+        payload.message && payload.message.reply_id,
         payload.data && payload.data.reply_id,
+        payload.data && payload.data.parent_reply_id,
         payload.data && payload.data.message_id,
         payload.data && payload.data.reply && payload.data.reply.id,
+        payload.data && payload.data.reply && payload.data.reply.reply_id,
+        payload.data &&
+          payload.data.reply &&
+          payload.data.reply.parent_reply_id,
         data.data && data.data.reply_id,
+        data.data && data.data.parent_reply_id,
         data.data && data.data.message_id,
         data.data && data.data.reply && data.data.reply.id,
+        data.data && data.data.reply && data.data.reply.reply_id,
+        data.data && data.data.reply && data.data.reply.parent_reply_id,
       ]
         .filter(Boolean)
         .map((v) => Number(v))
@@ -901,7 +952,20 @@ export function DirectChatProvider({ children }) {
 
       const statusType = payload.type || data.type;
       const isReplyRead =
-        statusType === "read_reply" || statusType === "reply_read";
+        statusType === "read_reply" ||
+        statusType === "reply_read" ||
+        statusType === "mark_reply_read";
+      const statusValue = payload.status || data.status;
+      const isReadStatus =
+        isReplyRead ||
+        statusValue === "read" ||
+        payload.read === true ||
+        data.read === true ||
+        Boolean(payload.read_at || data.read_at);
+
+      if (isReadStatus) {
+        candidateIds.forEach((id) => pendingReadIdsRef.current.add(id));
+      }
 
       console.log("[DirectChat] 🎯 Status Update:", {
         rawType: data.type,
@@ -914,10 +978,11 @@ export function DirectChatProvider({ children }) {
       const matchMessageAsRead = (m) => {
         const msgId = Number(m.id || m.message_id || 0);
         const replyId = Number(m.reply_id || 0);
+        const parentReplyId = Number(m.parent_reply_id || 0);
 
         // If server provided multiple candidate ids, match against all of them
         const matchesCandidate = candidateIds.some(
-          (cid) => cid === msgId || cid === replyId,
+          (cid) => cid === msgId || cid === replyId || cid === parentReplyId,
         );
 
         if (isReplyRead) {
@@ -936,14 +1001,27 @@ export function DirectChatProvider({ children }) {
         const updated = prev.map((m) => {
           const matched = matchMessageAsRead(m);
           const hasReplyToUpdate = Array.isArray(m.replies_mentions)
-            ? m.replies_mentions.some((r) => Number(r.id) === targetId)
+            ? m.replies_mentions.some((r) =>
+                candidateIds.some(
+                  (cid) =>
+                    cid === Number(r.id) ||
+                    cid === Number(r.reply_id) ||
+                    cid === Number(r.parent_reply_id),
+                ),
+              )
             : false;
 
           if (hasReplyToUpdate) {
+            candidateIds.forEach((id) => pendingReadIdsRef.current.delete(id));
             return {
               ...m,
               replies_mentions: m.replies_mentions.map((r) =>
-                Number(r.id) === targetId
+                candidateIds.some(
+                  (cid) =>
+                    cid === Number(r.id) ||
+                    cid === Number(r.reply_id) ||
+                    cid === Number(r.parent_reply_id),
+                )
                   ? { ...r, read: true, delivered: true, read_at: readAt }
                   : r,
               ),
@@ -951,6 +1029,9 @@ export function DirectChatProvider({ children }) {
           }
 
           if (matched && !m.read) {
+            getMessageIdentityIds(m).forEach((id) =>
+              pendingReadIdsRef.current.delete(id),
+            );
             return {
               ...m,
               read: true,
@@ -993,14 +1074,27 @@ export function DirectChatProvider({ children }) {
         const updated = prev.map((m) => {
           const matched = matchMessageAsRead(m);
           const hasReplyToUpdate = Array.isArray(m.replies_mentions)
-            ? m.replies_mentions.some((r) => Number(r.id) === targetId)
+            ? m.replies_mentions.some((r) =>
+                candidateIds.some(
+                  (cid) =>
+                    cid === Number(r.id) ||
+                    cid === Number(r.reply_id) ||
+                    cid === Number(r.parent_reply_id),
+                ),
+              )
             : false;
 
           if (hasReplyToUpdate) {
+            candidateIds.forEach((id) => pendingReadIdsRef.current.delete(id));
             return {
               ...m,
               replies_mentions: m.replies_mentions.map((r) =>
-                Number(r.id) === targetId
+                candidateIds.some(
+                  (cid) =>
+                    cid === Number(r.id) ||
+                    cid === Number(r.reply_id) ||
+                    cid === Number(r.parent_reply_id),
+                )
                   ? { ...r, read: true, delivered: true, read_at: readAt }
                   : r,
               ),
@@ -1008,6 +1102,9 @@ export function DirectChatProvider({ children }) {
           }
 
           if (matched && !m.read) {
+            getMessageIdentityIds(m).forEach((id) =>
+              pendingReadIdsRef.current.delete(id),
+            );
             return {
               ...m,
               read: true,
@@ -1115,7 +1212,7 @@ export function DirectChatProvider({ children }) {
         console.warn("[DirectChat] ⚠️ No active users/popups found");
       }
     },
-    [ME_ID],
+    [ME_ID, getMessageIdentityIds],
   );
 
   const handleTypingEvent = useCallback(
