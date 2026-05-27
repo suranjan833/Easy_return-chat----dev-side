@@ -537,9 +537,33 @@ export function DirectChatProvider({ children }) {
 
   const handleOnlineUpdates = useCallback(
     (data) => {
-      setActiveUserIDs(data?.online_users || []);
+      // If server sends a full online_users list, use it directly
+      if (data?.online_users) {
+        setActiveUserIDs(data.online_users);
+        return;
+      }
+
+      // Handle individual user connect/disconnect events
+      const userId = data?.user_id;
+      if (!userId) return;
+
+      setActiveUserIDs((prev) => {
+        const id = Number(userId);
+        if (data.type === "user_connected") {
+          // Add user if not already in the list
+          if (prev.some((existingId) => Number(existingId) === id)) {
+            return prev;
+          }
+          return [...prev, id];
+        }
+        if (data.type === "user_disconnected") {
+          // Remove user from the list
+          return prev.filter((existingId) => Number(existingId) !== id);
+        }
+        return prev;
+      });
     },
-    [ME_ID],
+    [],
   );
 
   const handleNewMessage = useCallback(
@@ -816,6 +840,11 @@ export function DirectChatProvider({ children }) {
                       forwarded:
                         message.forwarded === true ||
                         message.forwarded_from_message_id !== undefined,
+                      // Preserve critical reply fields if server doesn't send them back
+                      message_id: message.message_id ?? tempMsg.message_id,
+                      parent_reply_id: message.parent_reply_id ?? tempMsg.parent_reply_id,
+                      parent_content: message.parent_content ?? tempMsg.parent_content,
+                      parentMsg: message.parentMsg ?? tempMsg.parentMsg,
                     })
                   : m,
               )
@@ -849,6 +878,11 @@ export function DirectChatProvider({ children }) {
                         incomingMessage.delivered ?? m.delivered ?? true,
                       read: incomingMessage.read ?? m.read ?? false,
                       read_at: incomingMessage.read_at || m.read_at,
+                      // Preserve critical reply fields if server doesn't send them back
+                      message_id: incomingMessage.message_id ?? m.message_id,
+                      parent_reply_id: incomingMessage.parent_reply_id ?? m.parent_reply_id,
+                      parent_content: incomingMessage.parent_content ?? m.parent_content,
+                      parentMsg: incomingMessage.parentMsg ?? m.parentMsg,
                     };
                   })()
                 : m,
@@ -1441,6 +1475,15 @@ export function DirectChatProvider({ children }) {
       setAllUsers(currentAllUsers);
     }
 
+    // Seed activeUserIDs from ChatService singleton's cached online users
+    // This is critical for popups: each popup gets its own DirectChatProvider,
+    // so without this seed, new popups start with [] and show everyone "Offline"
+    // until a new online_update event arrives.
+    const initialOnlineUsers = chatService.getOnlineUsers();
+    if (initialOnlineUsers.length > 0) {
+      setActiveUserIDs(initialOnlineUsers);
+    }
+
     return () => {
       chatService.unsubscribe("initial_data", handleInitialData);
       chatService.unsubscribe("connection", handleConnection);
@@ -1895,7 +1938,7 @@ export function DirectChatProvider({ children }) {
           recipient_id: activeUser.id,
           message_id:
             actualReplyToMessage.type == "message_reply"
-              ? actualReplyToMessage.message_id
+              ? (actualReplyToMessage.message_id || actualReplyToMessage.parent_reply_id || actualReplyToMessage.id)
               : actualReplyToMessage.id,
           parent_reply_id:
             actualReplyToMessage.type === "message_reply"

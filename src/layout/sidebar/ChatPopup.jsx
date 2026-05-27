@@ -419,12 +419,15 @@ const ChatPopup = ({ user, onClose, initialPosition, index }) => {
     // Resolve original message for reply context
     let originalContent = null;
     let originalSenderName = null;
-    if (isReply && msg.message_id) {
-      const orig = direct?.messages?.find((m) => m.id === msg.message_id);
+    if (isReply && (msg.message_id || msg.parent_reply_id)) {
+      // For reply-on-reply, use parent_reply_id (immediate parent)
+      // For regular reply, use message_id (original message)
+      const parentId = msg.parent_reply_id || msg.message_id;
+      const orig = direct?.messages?.find((m) => m.id === parentId);
       originalContent =
         msg.parent_content ||
-        orig?.content ||
         orig?.reply_content ||
+        orig?.content ||
         "Original message";
       originalSenderName =
         Number(orig?.sender_id) === Number(meId) ? "You" : user.first_name;
@@ -494,10 +497,12 @@ const ChatPopup = ({ user, onClose, initialPosition, index }) => {
                 </div>
               )}
 
-            {/* Reply context */}
-            {isReply && originalContent && (
+            {/* Reply context (hidden for deleted messages) */}
+            {isReply && originalContent && !msg.is_deleted && (
               <div
-                onClick={() => scrollToMessage(msg.message_id)}
+                onClick={() =>
+                  scrollToMessage(msg.parent_reply_id || msg.message_id)
+                }
                 style={{
                   cursor: "pointer",
                   marginBottom: "6px",

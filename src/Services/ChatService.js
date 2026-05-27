@@ -34,7 +34,14 @@ class ChatService {
     this.lastPong = Date.now();
 
     this.messageQueue = [];
+
+    // Track online users across all instances
+    this.onlineUsers = new Set();
   }
+  getOnlineUsers() {
+    return Array.from(this.onlineUsers);
+  }
+
   async fetchUserName(userId) {
     if (this.userNameCache.has(userId)) {
       return this.userNameCache.get(userId);
@@ -556,7 +563,23 @@ class ChatService {
           data.type === "user_disconnected" ||
           data.type === "user_connected"
         ) {
-          this.notifySubscribers("online_update", data);
+          // Maintain definitive online users list in ChatService singleton
+          const userId = data.user_id ? Number(data.user_id) : null;
+          if (data.online_users) {
+            // Full list provided — use it directly
+            this.onlineUsers = new Set(data.online_users.map(Number));
+          } else if (userId) {
+            if (data.type === "user_connected") {
+              this.onlineUsers.add(userId);
+            } else if (data.type === "user_disconnected") {
+              this.onlineUsers.delete(userId);
+            }
+          }
+          // Enrich data with current full online list so all subscribers can seed their state
+          this.notifySubscribers("online_update", {
+            ...data,
+            online_users: Array.from(this.onlineUsers),
+          });
         }
       } catch (err) {
         console.error("Socket message parse error:", err);
