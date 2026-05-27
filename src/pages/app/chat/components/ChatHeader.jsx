@@ -1,7 +1,18 @@
 import { Icon } from "@/components/Component";
 import React from "react";
 
-const ChatHeader = ({ activeUser, activeUserIDs, isSelectionMode, selectedMessages, onDeleteSelected, onToggleSelection, onMinimize }) => {
+const ChatHeader = ({
+  activeUser,
+  activeUserIDs,
+  isSelectionMode,
+  selectedMessages,
+  onDeleteSelected,
+  onToggleSelection,
+  onMinimize,
+  showSearchBar,
+
+  setShowSearchBar,
+}) => {
   return (
     <div className="modern-chat-header">
       <div className="modern-chat-header-user">
@@ -44,11 +55,26 @@ const ChatHeader = ({ activeUser, activeUserIDs, isSelectionMode, selectedMessag
         ) : (
           <>
             {onMinimize && (
-              <button className="modern-chat-header-btn" onClick={onMinimize} title="Minimize">
+              <button
+                className="modern-chat-header-btn"
+                onClick={onMinimize}
+                title="Minimize"
+              >
                 <i className="bi bi-dash-lg" />
               </button>
             )}
-            <button className="modern-chat-header-btn" onClick={() => onToggleSelection(true)}>
+            <button
+              className="modern-chat-header-btn"
+              onClick={() => setShowSearchBar((prev) => !prev)}
+              title="Search"
+            >
+              <i className="bi bi-search" />
+            </button>
+
+            <button
+              className="modern-chat-header-btn"
+              onClick={() => onToggleSelection(true)}
+            >
               <Icon name="check" />
             </button>
           </>

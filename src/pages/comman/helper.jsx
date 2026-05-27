@@ -103,10 +103,11 @@ export const renderMessageWithLinks = (text = "") => {
         target="_blank"
         rel="noopener noreferrer"
         style={{
-          color: "white",
+          color: "#7dd3fc",
           textDecoration: "underline",
           wordBreak: "break-word",
           cursor: "pointer",
+          fontWeight: "500",
         }}
         title={part.href}
       >

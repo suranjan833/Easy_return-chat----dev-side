@@ -22,6 +22,7 @@ export const GroupMeChat = ({
   const senderId = Number(message.sender_id || message.user?.id || 0);
   const isOwnMessage = senderId === currentUserId;
   const messageDropdownRefs = useRef({});
+  const dropdownRef = useRef(null);
   const [showDropdownForMessageId, setShowDropdownForMessageId] =
     useState(null);
 
@@ -48,7 +49,22 @@ export const GroupMeChat = ({
     isReadByAll = otherMembersCount > 0 && readByCount >= otherMembersCount;
     isReadBySome = readByCount > 0;
   }
+  React.useEffect(() => {
+    const handleClickOutside = (event) => {
+      const currentDropdown =
+        messageDropdownRefs.current[showDropdownForMessageId];
 
+      if (currentDropdown && !currentDropdown.contains(event.target)) {
+        setShowDropdownForMessageId(null);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showDropdownForMessageId]);
   return (
     <div
       id={`message-${message.id}`}
@@ -1039,107 +1055,6 @@ export const GroupYouChat = ({
     </div>
   );
 };
-
-// export const GroupReplyChat = ({ reply, originalMessage, onEdit, onDelete, onReply }) => {
-//   const [menuOpen, setMenuOpen] = useState(false);
-//   const currentUserId = parseInt(localStorage.getItem("userId") || "0");
-//   const isOwnReply = reply.user.id === currentUserId || reply.user?.id === currentUserId;
-//   const isDeleted = reply.reply_message === 'Reply deleted';
-
-//   return (
-//     <div className={`chat ${isOwnReply ? 'is-me' : 'is-you'}`}>
-//       {!isOwnReply && (
-//         <div className="chat-avatar">
-//           <UserAvatar
-//             theme="secondary"
-//             text={(reply.user?.first_name || "U").slice(0, 1).toUpperCase()}
-//             size="sm"
-//           />
-//         </div>
-//       )}
-//       {!isDeleted && (
-//         <div className="ms-2">
-//           <button
-//             className="btn border-0"
-//             onClick={() => onReply(reply)}
-//             style={{ fontSize: '12px', padding: '4px 8px' }}
-//           >
-//             <Icon name="reply" className="me-1" />
-//           </button>
-//         </div>
-//       )}
-//       <div className="chat-content">
-//         <div className="chat-bubbles">
-//           <div className="reply-context mb-2">
-//             <small className="text-muted">
-//               Replying to {originalMessage?.user?.first_name || 'User'}: {originalMessage?.message?.slice(0, 50)}
-//               {originalMessage?.message?.length > 50 ? '...' : ''}
-//             </small>
-//           </div>
-//           <div className="chat-bubble">
-//             <div className={`chat-msg ${isOwnReply ? 'bg-primary' : ''} ${isDeleted ? 'deleted-message bg-light text-muted' : ''}`}>
-//               {reply.reply_message || 'Empty reply'}
-//             </div>
-
-//             {isOwnReply && !isDeleted && (
-//               <ul className="chat-msg-more">
-//                 <li className="d-sm-block">
-//                   <UncontrolledDropdown isOpen={menuOpen} toggle={() => setMenuOpen(!menuOpen)}>
-//                     <DropdownToggle tag="a" className="btn btn-icon btn-sm btn-trigger dropdown-toggle">
-//                       <Icon name="more-h" />
-//                     </DropdownToggle>
-//                     <DropdownMenu end>
-//                       <ul className="link-list-opt no-bdr">
-//                         <li>
-//                           <DropdownItem
-//                             tag="a"
-//                             href="#edit"
-//                             onClick={(ev) => {
-//                               ev.preventDefault();
-//                               setMenuOpen(false);
-//                               onEdit(reply, reply.original_message_id);
-//                             }}
-//                           >
-//                             <Icon name="edit" className="me-2" />
-//                             Edit
-//                           </DropdownItem>
-//                         </li>
-//                         <li>
-//                           <DropdownItem
-//                             tag="a"
-//                             href="#delete"
-//                             onClick={(ev) => {
-//                               ev.preventDefault();
-//                               setMenuOpen(false);
-//                               onDelete(reply.id);
-//                             }}
-//                           >
-//                             <Icon name="trash" className="me-2" />
-//                             Delete
-//                           </DropdownItem>
-//                         </li>
-//                       </ul>
-//                     </DropdownMenu>
-//                   </UncontrolledDropdown>
-//                 </li>
-//               </ul>
-//             )}
-//           </div>
-//         </div>
-//         <ul className="chat-meta">
-//           <li>{isOwnReply ? 'You' : reply.user?.first_name || 'User'}</li>
-//           <li>{formatDistanceToNow(new Date(reply.created_at), { addSuffix: true })}</li>
-//           {reply.updated_at !== reply.created_at && (
-//             <li className="text-muted">
-//               {/* <small>(edited)</small> */}
-//             </li>
-//           )}
-//         </ul>
-
-//       </div>
-//     </div>
-//   );
-// };
 
 export const MetaChat = ({ item, className = "", id }) => {
   return (

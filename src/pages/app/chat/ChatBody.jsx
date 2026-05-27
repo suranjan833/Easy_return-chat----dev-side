@@ -336,8 +336,8 @@ const ChatBody = ({ id, mobileView, setMobileView, setSelectedId }) => {
     const handleScroll = () => {
       const current = container.scrollTop;
       const maxScroll = container.scrollHeight - container.clientHeight;
-      if (current < lastScrollTop.current - 5) setShowSearchBar(true);
-      if (current >= maxScroll - 10) setShowSearchBar(false);
+      // if (current < lastScrollTop.current - 5) setShowSearchBar(true);
+      // if (current >= maxScroll - 10) setShowSearchBar(false);
       setShowScrollDown(current < maxScroll - 150);
       if (current < 80 && direct?.hasHidden && !direct?.isLoadingMore) {
         const prevHeight = container.scrollHeight;
@@ -867,6 +867,8 @@ const ChatBody = ({ id, mobileView, setMobileView, setSelectedId }) => {
           <ChatHeader
             activeUser={direct.activeUser}
             activeUserIDs={direct.activeUserIDs}
+            showSearchBar={showSearchBar}
+            setShowSearchBar={setShowSearchBar}
             isSelectionMode={direct.isSelectionMode}
             selectedMessages={direct.selectedMessages}
             onDeleteSelected={direct.deleteSelected}
@@ -1061,6 +1063,12 @@ const ChatBody = ({ id, mobileView, setMobileView, setSelectedId }) => {
                 onClick={() => setChatOptions(!chatOptions)}
               >
                 <Icon name="more-h" />
+              </button>
+              <button
+                className="modern-chat-header-btn"
+                onClick={() => setShowSearchBar((prev) => !prev)}
+              >
+                <i className="bi bi-search"></i>
               </button>
             </div>
           </div>

@@ -47,7 +47,8 @@ const ChatPopup = ({ user, onClose, initialPosition, index }) => {
     message: null,
   });
   const [forwardSearch, setForwardSearch] = useState("");
-
+  const [showSearchBar, setShowSearchBar] = useState(false);
+  const [currentSearchIndex, setCurrentSearchIndex] = useState(0);
   const scrollRef = useRef(null);
   const unreadDividerRef = useRef(null);
   const prevMessageCountRef = useRef(0);
@@ -273,7 +274,38 @@ const ChatPopup = ({ user, onClose, initialPosition, index }) => {
       }, 2000);
     }
   };
+  //search
 
+  const goToNextResult = () => {
+    if (!direct?.searchResults?.length) return;
+
+    const next =
+      currentSearchIndex + 1 >= direct.searchResults.length
+        ? 0
+        : currentSearchIndex + 1;
+
+    setCurrentSearchIndex(next);
+    scrollToMessage(direct.searchResults[next].id);
+  };
+
+  const goToPrevResult = () => {
+    if (!direct?.searchResults?.length) return;
+
+    const prev =
+      currentSearchIndex - 1 < 0
+        ? direct.searchResults.length - 1
+        : currentSearchIndex - 1;
+
+    setCurrentSearchIndex(prev);
+    scrollToMessage(direct.searchResults[prev].id);
+  };
+  useEffect(() => {
+    if (!showSearchBar) {
+      direct?.setMessageSearchTerm("");
+
+      setCurrentSearchIndex(0);
+    }
+  }, [showSearchBar]);
   const confirmDelete = () => {
     if (!deleteModal.messageId) return;
     direct?.deleteMessage(deleteModal.messageId);
@@ -383,6 +415,7 @@ const ChatPopup = ({ user, onClose, initialPosition, index }) => {
     const isEmojiOnly =
       !msg.is_deleted && !msg.attachment && isOnlyEmojis(displayContent);
 
+    const isSearchMatch = direct?.searchResults?.some((m) => m.id === msg.id);
     // Resolve original message for reply context
     let originalContent = null;
     let originalSenderName = null;
@@ -688,6 +721,30 @@ const ChatPopup = ({ user, onClose, initialPosition, index }) => {
             </span>
           </div>
         </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          <button
+            type="button"
+            onClick={() => setShowSearchBar((prev) => !prev)}
+            title="Search"
+            style={{
+              width: "28px",
+              height: "28px",
+              borderRadius: "50%",
+              border: "none",
+              background: "rgba(255,255,255,0.15)",
+              color: "#fff",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              cursor: "pointer",
+            }}
+          >
+            <i className="bi bi-search" style={{ fontSize: "12px" }} />
+          </button>
+        </div>
+        <div
+          style={{ display: "flex", alignItems: "center", gap: "10px" }}
+        ></div>
         <button
           type="button"
           className="chat-close"
@@ -697,6 +754,59 @@ const ChatPopup = ({ user, onClose, initialPosition, index }) => {
           <i className="bi bi-x" />
         </button>
       </div>
+      {showSearchBar && (
+        <div
+          style={{
+            padding: "8px",
+            borderBottom: "1px solid #e9ecef",
+            background: "#fff",
+            display: "flex",
+            alignItems: "center",
+            gap: "16px",
+          }}
+        >
+          <input
+            type="text"
+            placeholder="Search messages..."
+            value={direct?.messageSearchTerm || ""}
+            onChange={(e) => direct?.setMessageSearchTerm(e.target.value)}
+            style={{
+              flex: 1,
+              border: "1px solid #ddd",
+              borderRadius: "8px",
+              padding: "6px 10px",
+              fontSize: "12px",
+              outline: "none",
+            }}
+          />
+
+          <button
+            onClick={goToPrevResult}
+            style={{
+              border: "none",
+              background: "#f1f3f5",
+              borderRadius: "6px",
+              width: "28px",
+              height: "28px",
+            }}
+          >
+            <i className="bi bi-chevron-up" />
+          </button>
+
+          <button
+            onClick={goToNextResult}
+            style={{
+              border: "none",
+              background: "#f1f3f5",
+              borderRadius: "6px",
+              width: "28px",
+              height: "28px",
+            }}
+          >
+            <i className="bi bi-chevron-down" />
+          </button>
+        </div>
+      )}
 
       {/* Messages */}
       <SimpleBar

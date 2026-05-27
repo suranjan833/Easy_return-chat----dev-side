@@ -48,7 +48,7 @@ function GroupChatInner() {
                           onClick={(e) => e.preventDefault()}
                           className="dropdown-item"
                         >
-                          Groupssss
+                          Groups
                         </a>
                       </li>
                     </ul>
@@ -83,7 +83,17 @@ function GroupChatInner() {
             </div>
             <GroupChatAside />
           </div>
-          <div style={{ flex: 1, minWidth: 0, position: "relative", display: "flex", flexDirection: "column", overflow: "hidden", minHeight: 0 }}>
+          <div
+            style={{
+              flex: 1,
+              minWidth: 0,
+              position: "relative",
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+              minHeight: 0,
+            }}
+          >
             <GroupChatBody />
           </div>
         </div>

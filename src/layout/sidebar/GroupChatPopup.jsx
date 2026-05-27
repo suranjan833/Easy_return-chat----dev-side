@@ -1255,7 +1255,6 @@ const GroupChatPopup = ({
       ref={chatWindowRef}
       className="group-chat-popup"
       style={{
-        position: "fixed",
         left: position.x,
         top: position.y,
         zIndex: 1000 + index,
