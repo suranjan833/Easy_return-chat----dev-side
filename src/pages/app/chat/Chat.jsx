@@ -236,6 +236,7 @@ const Chat = () => {
                   filteredChatList={filteredChatList}
                   filterText={filterText}
                   chatItemClick={chatItemClick}
+                  setMobileView={setMobileView}
                 />
               )}
 
@@ -245,7 +246,7 @@ const Chat = () => {
             {/* DIRECT CHAT */}
             {mainTab === "Chats" && (
               <div style={{ flex: 1, minWidth: 0, position: "relative", display: "flex", flexDirection: "column", overflow: "hidden", height: "100%" }}>
-                <ChatBody id={7657865876} />
+                <ChatBody id={7657865876} mobileView={mobileView} setMobileView={setMobileView} />
               </div>
             )}
 

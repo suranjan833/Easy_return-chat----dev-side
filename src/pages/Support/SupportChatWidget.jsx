@@ -65,6 +65,7 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [isHumanHandoff, setIsHumanHandoff] = useState(false);
   const [showHistoricalTickets, setShowHistoricalTickets] = useState(false);
+  const [mobileView, setMobileView] = useState(false);
   const [socket, setSocket] = useState(null);
   // const reconnectAttemptsRef = useRef(0);
   // const maxReconnectAttempts = 3;
@@ -1574,14 +1575,50 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
     }
   };
 
+  // Detect mobile on mount and on resize
+  useEffect(() => {
+    const checkMobile = () => {
+      const isMobile = window.innerWidth < 768;
+      setMobileView(isMobile);
+    };
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+  // Listen for ticket status changes from minimized popups (SupportTicketPopup)
+  useEffect(() => {
+    const handleTicketStatusChange = (event) => {
+      const { ticket_number: tn, status } = event.detail;
+      if (!tn || !status) return;
+      // Update the ticket in the tickets list
+      updateTicketPartial(tn, { status });
+      // If the currently selected ticket is the one that was closed, deselect it
+      if (selectedTicket?.ticket_number === tn && (status === "closed" || status === "resolved")) {
+        setSelectedTicket(null);
+        setTicketNumber(null);
+      }
+    };
+
+    window.addEventListener('support-ticket-status-changed', handleTicketStatusChange);
+    return () => window.removeEventListener('support-ticket-status-changed', handleTicketStatusChange);
+  }, [updateTicketPartial, selectedTicket]);
+
+  // When a ticket is selected on mobile, auto-show chat panel
+  useEffect(() => {
+    if (mobileView && selectedTicket) {
+      // Sidebar stays hidden, chat panel shows
+    }
+  }, [mobileView, selectedTicket]);
+
   // console.log(tickets)
 
   return (
     <>
       <Head title="Support Chat"></Head>
       <div className="support-chat-wrapper">
-        <div className="support-chat-container">
-          <div className="sidebar">
+        <div className={`support-chat-container ${mobileView && selectedTicket ? "mobile-chat-open" : ""}`}>
+          <div className={`sidebar ${mobileView && selectedTicket ? "d-none" : ""}`}>
             {/* Gear icon switcher — switch between Chats, Groups, Support */}
             <div style={{ display: "flex", alignItems: "center", marginBottom: "12px" }}>
               <UncontrolledDropdown>
@@ -1647,7 +1684,7 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
                 resetFilteredTickets={resetFilteredTickets}
               />
             ) : (
-              <div className="filter-panel mb-3 p-3 bg-light border rounded">
+              <div className="filter-panel mb-2 p-2 bg-light border rounded">
                 <h5>
                   {dateFilter === "active"
                     ? "Active Tickets "
@@ -1944,7 +1981,7 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
               </>
             )}
           </div>
-          <div className="chat-panel">
+          <div className={`chat-panel ${mobileView && !selectedTicket ? "d-none" : ""}`}>
             {!selectedTicket && !isAgent ? (
               <div className="card new-ticket-card">
                 <div className="card-body text-center py-5">
@@ -1955,8 +1992,21 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
               </div>
             ) : (
               <div className="card chat-card">
-                <div className="card-header d-flex justify-content-between align-items-center">
-                  <div className="d-flex align-items-center">
+                <div className="card-header d-flex justify-content-between align-items-center support-chat-header">
+                  <div className="d-flex align-items-center flex-wrap support-header-left">
+                    {/* Back button for mobile */}
+                    {mobileView && (
+                      <button
+                        className="btn btn-sm btn-outline-secondary me-2 support-back-btn"
+                        onClick={() => {
+                          setSelectedTicket(null);
+                          setTicketNumber(null);
+                        }}
+                        aria-label="Back to tickets"
+                      >
+                        <i className="bi bi-arrow-left" />
+                      </button>
+                    )}
                     {selectedTicket?.name && (
                       <div
                         style={{
@@ -2247,7 +2297,7 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
                     </span>
                   </div>
                 </div>
-                <div className="card-subheader p-2 bg-light border-bottom">
+                <div className="card-subheader p-2 bg-light border-bottom support-subheader">
                   <p className="ticket-issue mb-0">
                     <strong>
                       <b>Department:</b>{" "}
@@ -2340,6 +2390,7 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
                     </span>
                   </p>
                 </div>
+                <div className="support-chat-body-wrapper">
                 <ChatMessages
                   messages={messages}
                   selectedTicket={selectedTicket}
@@ -2354,6 +2405,7 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
                   localAgentEmail={localAgentEmail}
                   setMessageToDelete={setMessageToDelete}
                 />
+                </div>
                 {/* selected ticket after closing */}
                 <div className="card-footer">
                   {selectedTicket &&
@@ -2396,6 +2448,7 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
                         theme={theme} // Pass the theme prop
                       />
                       <div className="action-buttons">
+                        <div className="action-buttons support-action-buttons">
                         {/* Join button — show when not yet connected */}
                         {!hasJoined &&
                           selectedTicket?.status !== "closed" &&
@@ -2427,6 +2480,7 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
                             </button>
                           )}
                       </div>
+                    </div>
                     </>
                   ) : (
                     <div className="text-muted text-center py-2">

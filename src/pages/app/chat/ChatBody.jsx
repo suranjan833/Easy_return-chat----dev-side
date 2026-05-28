@@ -124,6 +124,17 @@ const ChatBody = ({ id, mobileView, setMobileView, setSelectedId }) => {
     return elements;
   };
 
+  // ── Safety: reset loading if it stays true too long ──────────────────────────
+  useEffect(() => {
+    if (!direct?.isInitialLoading) return;
+    const timer = setTimeout(() => {
+      if (direct?.isInitialLoading) {
+        direct.setIsInitialLoading(false);
+      }
+    }, 15000);
+    return () => clearTimeout(timer);
+  }, [direct?.isInitialLoading, direct?.activeUser?.id]);
+
   // ── Search navigation ────────────────────────────────────────────────────────
   const goToNextResult = () => {
     if (!direct?.searchResults?.length) return;
@@ -495,10 +506,9 @@ const ChatBody = ({ id, mobileView, setMobileView, setSelectedId }) => {
         className={`d-flex mb-2 ${isMe ? "justify-content-end" : "justify-content-start"}`}
       >
         <div
-          className={`p-2 shadow-sm ${isMe ? "bg-primary text-white" : "bg-white"}`}
+          className={`chat-message-bubble p-2 shadow-sm ${isMe ? "bg-primary text-white" : "bg-white"}`}
           style={{
             borderRadius: 12,
-            maxWidth: "70%",
             outline: isSearchMatch ? "2px solid #ffc107" : "none",
             backgroundColor: isSearchMatch ? "#fff3cd" : undefined,
           }}
@@ -864,6 +874,23 @@ const ChatBody = ({ id, mobileView, setMobileView, setSelectedId }) => {
             direct?.handleFileChange(validFile);
           }}
         >
+          {/* Mobile back button */}
+          {mobileView && (
+            <div className="modern-chat-mobile-back">
+              <button
+                className="modern-chat-back-btn"
+                onClick={() => {
+                  setMobileView(false);
+                  setSelectedId && setSelectedId(null);
+                  direct?.selectUser && direct.selectUser(null);
+                }}
+                title="Back"
+              >
+                <i className="bi bi-arrow-left" />
+              </button>
+            </div>
+          )}
+
           <ChatHeader
             activeUser={direct.activeUser}
             activeUserIDs={direct.activeUserIDs}

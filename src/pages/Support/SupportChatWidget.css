@@ -29,19 +29,38 @@
 }
 
 .sidebar {
-  width: 320px;
+  width: 300px;
   flex-shrink: 0;
   background: linear-gradient(145deg, #ffffff, #f0f4ff);
   border-right: 1px solid rgba(99, 102, 241, 0.1);
-  padding: 20px;
+  padding: 12px;
   overflow-y: auto;
   box-shadow: 2px 0 15px rgba(0, 0, 0, 0.05);
   transition: all 0.3s ease;
 }
 
+/* Sidebar filter panel — compact */
+.sidebar .filter-panel {
+  padding: 10px;
+}
+
+.sidebar .filter-panel h5 {
+  font-size: 0.85rem;
+  margin-bottom: 8px;
+}
+
+.sidebar .filter-panel .btn-group .btn {
+  font-size: 0.75rem;
+  padding: 4px 6px !important;
+}
+
+.sidebar .filter-panel .btn-group .btn .badge {
+  font-size: 0.6rem;
+}
+
 .sidebar-title {
-  font-size: 1.5rem;
-  margin-bottom: 20px;
+  font-size: 1rem;
+  margin-bottom: 10px;
   color: #1e293b;
   font-weight: 600;
   background: linear-gradient(90deg, #6366f1, #4f46e5);
@@ -51,14 +70,14 @@
 }
 
 .ticket-card {
-  padding: 12px; /* Slightly reduced padding */
+  padding: 8px;
   border: none;
-  border-radius: 10px; /* Slightly smaller border-radius */
-  margin-bottom: 8px; /* Reduced margin-bottom */
+  border-radius: 6px;
+  margin-bottom: 4px;
   cursor: pointer;
   transition: all 0.3s ease;
   background: #ffffff;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04); /* Softer shadow */
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.04);
 }
 
 .ticket-card:hover {
@@ -77,32 +96,33 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 6px; /* Adjusted margin */
+  margin-bottom: 3px;
 }
 
 .ticket-header strong {
-  font-size: 1rem; /* Adjusted font for name */
+  font-size: 0.8rem;
   font-weight: 600;
   color: #1e293b;
 }
 
 .ticket-issue {
-  font-size: 0.85rem; /* Adjusted font for description */
+  font-size: 0.75rem;
   color: #475569;
-  margin: 6px 0; /* Adjusted margin */
-  word-wrap: break-word; /* Allow long words to break */
-  white-space: normal; /* Allow text to wrap */
+  margin: 2px 0;
+  word-wrap: break-word;
+  white-space: normal;
 }
 
 .ticket-card small {
-  font-size: 0.75rem; /* Consistent smaller font for details */
+  font-size: 0.65rem;
   color: #64748b;
-  margin-top: 4px; /* Added margin-top for spacing */
+  margin-top: 1px;
+  line-height: 1.3;
 }
 
 .chat-panel {
   flex: 1;
-  padding: 20px;
+  padding: 8px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -112,7 +132,7 @@
 .new-ticket-card,
 .chat-card {
   border: none;
-  border-radius: 16px;
+  border-radius: 12px;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
   background: #ffffff;
   transition: all 0.3s ease;
@@ -129,8 +149,77 @@
   align-items: center;
   background: linear-gradient(90deg, #f8f9fa, #e0e7ff);
   border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-  padding: 15px 20px;
-  border-radius: 16px 16px 0 0;
+  padding: 10px 16px;
+  border-radius: 12px 12px 0 0;
+  flex-shrink: 0;
+  min-height: 48px;
+}
+
+/* Desktop: compact header text so all buttons fit */
+.chat-card .card-header.support-chat-header b {
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.chat-card .card-header.support-chat-header b.ms-3 {
+  margin-left: 6px !important;
+}
+
+.chat-card .card-header.support-chat-header .support-header-left {
+  gap: 4px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  -ms-overflow-style: none;
+  padding-bottom: 2px;
+}
+
+.chat-card .card-header.support-chat-header .support-header-left::-webkit-scrollbar {
+  height: 3px;
+}
+
+.chat-card .card-header.support-chat-header .support-header-left::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 4px;
+}
+
+/* Compact action buttons row on desktop */
+.chat-card .card-header.support-chat-header .btn-success {
+  font-size: 0.75rem;
+  padding: 3px 8px;
+  white-space: nowrap;
+}
+
+.chat-card .card-header.support-chat-header .btn-outline-secondary,
+.chat-card .card-header.support-chat-header .btn-outline-danger,
+.chat-card .card-header.support-chat-header .btn-sm {
+  padding: 2px 6px;
+  font-size: 0.75rem;
+}
+
+.chat-card .card-header.support-chat-header .badge {
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+
+.chat-card .card-header .dropdown {
+  flex-shrink: 0;
+}
+
+/* Right side of header — compact gap */
+.chat-card .card-header.support-chat-header .d-flex.align-items-center.gap-2 {
+  gap: 4px !important;
+  flex-shrink: 0;
+}
+
+.chat-card .card-header.support-chat-header .dropdown {
+  margin-left: 2px !important;
+  margin-right: 2px !important;
+}
+
+/* ChatTransfer and TransferHistory compact */
+.chat-card .card-header.support-chat-header .support-header-left > * {
   flex-shrink: 0;
 }
 
@@ -142,7 +231,7 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 20px;
+  padding: 12px;
   background: #f9fafb;
 }
 
@@ -219,16 +308,16 @@
 }
 
 .card-footer {
-  padding: 16px 20px 14px;
+  padding: 8px 14px;
   background: linear-gradient(90deg, #f8f9fa, #e0e7ff);
   border-top: 1px solid rgba(99, 102, 241, 0.12);
-  border-radius: 0 0 16px 16px;
+  border-radius: 0 0 12px 12px;
   position: sticky;
   bottom: 0;
   z-index: 10;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
 .input-group {
@@ -318,6 +407,15 @@
   flex-wrap: wrap;
   align-items: center;
   margin-top: 0;
+}
+
+/* Wrapper around ChatMessages — fills remaining space in chat-card */
+.support-chat-body-wrapper {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .feedback-form {
@@ -511,37 +609,311 @@ z-index: 1000;
   }
 }
 
+/* =============================
+   MOBILE OPTIMISATION — < 768px
+   ============================= */
 @media (max-width: 768px) {
   .support-chat-container {
     flex-direction: column;
+    position: relative;
+  }
+
+  /* When a chat is open, hide sidebar, take full height */
+  .support-chat-container.mobile-chat-open {
+    flex-direction: column;
+  }
+
+  .support-chat-container.mobile-chat-open .sidebar.d-none {
+    display: none !important;
+  }
+
+  .support-chat-container.mobile-chat-open .chat-panel {
+    display: flex !important;
+    flex: 1;
+    min-height: 100%;
+    padding: 6px;
   }
 
   .sidebar {
     width: 100%;
-    max-height: 260px;
+    max-height: 100%;
     flex-shrink: 0;
+    padding: 12px;
+    overflow-y: auto;
+  }
+
+  .sidebar-title {
+    font-size: 1.2rem;
+    margin-bottom: 12px;
+  }
+
+  .ticket-card {
+    padding: 8px 10px;
+    margin-bottom: 6px;
+    border-radius: 8px;
+  }
+
+  .ticket-card .ticket-header strong {
+    font-size: 0.9rem;
+  }
+
+  .ticket-issue {
+    font-size: 0.75rem;
+    margin: 4px 0;
+  }
+
+  .ticket-card small {
+    font-size: 0.7rem;
+  }
+
+  .filter-panel h5 {
+    font-size: 0.95rem;
+  }
+
+  .filter-panel .btn-group .btn {
+    font-size: 0.8rem;
+    padding: 4px 8px !important;
   }
 
   .chat-panel {
-    padding: 10px;
+    padding: 6px;
     flex: 1;
     min-height: 0;
   }
 
-  .message {
-    max-width: 90%;
+  .chat-card .card-header.support-chat-header {
+    padding: 8px 10px;
+    border-radius: 12px 12px 0 0;
+    flex-wrap: wrap;
+    gap: 4px;
   }
 
-  .support-chat-container.no-sidebar .chat-panel {
+  .support-header-left {
+    flex: 1 1 auto;
+    min-width: 0;
+    gap: 4px;
+  }
+
+  .support-back-btn {
+    padding: 2px 8px;
+    font-size: 0.8rem;
+    line-height: 1.4;
+  }
+
+  .chat-card .card-header b {
+    font-size: 0.75rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 80px;
+  }
+
+  .chat-card .card-header b.ms-3 {
+    margin-left: 4px !important;
+  }
+
+  .chat-card .card-header .dropdown {
+    margin-left: 2px !important;
+  }
+
+  .chat-card .card-header .btn-success {
+    font-size: 0.7rem;
+    padding: 2px 6px;
+  }
+
+  .support-subheader {
+    padding: 6px 10px !important;
+  }
+
+  .support-subheader .ticket-issue {
+    font-size: 0.7rem;
+  }
+
+  .support-subheader .ticket-issue strong {
+    font-size: 0.75rem;
+  }
+
+  .chat-body {
     padding: 10px;
   }
 
+  .message {
+    max-width: 92%;
+  }
+
+  .message-content {
+    padding: 8px 12px;
+    font-size: 0.85rem;
+  }
+
+  .support-chat-body-wrapper .chat-body {
+    flex: 1;
+    min-height: 0;
+  }
+
+  .card-footer {
+    padding: 8px 10px;
+  }
+
   .input-group {
-    flex-wrap: wrap;
-    gap: 5px;
+    flex-wrap: nowrap;
+    gap: 4px;
+    padding: 4px 6px;
+  }
+
+  .input-group input {
+    font-size: 0.85rem;
+    padding: 6px 8px;
+  }
+
+  .action-buttons .btn {
+    font-size: 0.8rem;
+    padding: 4px 10px;
+  }
+
+  .support-action-buttons {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .support-action-buttons .btn {
+    width: 100%;
+  }
+
+  .btn-group.mb-2.w-100 .btn {
+    font-size: 0.7rem;
+    padding: 3px 6px !important;
+  }
+
+  .pagination .page-link {
+    padding: 4px 8px;
+    font-size: 0.75rem;
+  }
+
+  .support-chat-container.no-sidebar .chat-panel {
+    padding: 6px;
   }
 
   .input-group input[type="file"] {
     max-width: 100%;
+  }
+
+  .new-ticket-card .card-body {
+    padding: 20px 10px !important;
+  }
+
+  .new-ticket-card h5 {
+    font-size: 0.9rem;
+  }
+
+  .chat-card .card-header .btn-outline-secondary,
+  .chat-card .card-header .btn-outline-danger {
+    padding: 2px 6px;
+    font-size: 0.7rem;
+  }
+
+  .chat-card .card-header .badge {
+    font-size: 0.65rem;
+  }
+
+  .chat-card .card-header .btn-sm {
+    padding: 2px 6px;
+  }
+}
+
+/* =============================
+   EXTRA SMALL — < 480px
+   ============================= */
+@media (max-width: 480px) {
+  .sidebar {
+    padding: 8px;
+  }
+
+  .sidebar-title {
+    font-size: 1rem;
+  }
+
+  .ticket-card {
+    padding: 6px 8px;
+    margin-bottom: 4px;
+  }
+
+  .chat-card .card-header.support-chat-header {
+    padding: 6px 8px;
+  }
+
+  .chat-card .card-header b {
+    font-size: 0.65rem;
+    max-width: 60px;
+  }
+
+  .support-subheader {
+    padding: 4px 8px !important;
+  }
+
+  .support-subheader .ticket-issue {
+    font-size: 0.65rem;
+  }
+
+  .chat-body {
+    padding: 6px;
+  }
+
+  .message {
+    max-width: 95%;
+  }
+
+  .message-content {
+    padding: 6px 10px;
+    font-size: 0.8rem;
+    border-radius: 14px;
+  }
+
+  .card-footer {
+    padding: 6px 8px;
+  }
+
+  .input-group {
+    padding: 3px 5px;
+  }
+
+  .input-group input {
+    font-size: 0.8rem;
+    padding: 5px 6px;
+  }
+
+  .action-buttons .btn {
+    font-size: 0.75rem;
+    padding: 3px 8px;
+  }
+
+  .chat-card .card-header .btn-outline-secondary,
+  .chat-card .card-header .btn-outline-danger {
+    padding: 1px 4px;
+    font-size: 0.65rem;
+  }
+
+  .chat-card .card-header .badge {
+    font-size: 0.6rem;
+    padding: 2px 6px;
+  }
+
+  .chat-card .card-header .btn-sm {
+    padding: 1px 4px;
+  }
+
+  .support-back-btn {
+    padding: 1px 6px;
+    font-size: 0.7rem;
+  }
+
+  .btn-group.mb-2.w-100 .btn {
+    font-size: 0.65rem;
+    padding: 2px 4px !important;
+  }
+
+  .pagination .page-link {
+    padding: 3px 6px;
+    font-size: 0.7rem;
   }
 }

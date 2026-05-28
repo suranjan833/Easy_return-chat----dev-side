@@ -17,7 +17,7 @@ const formatTime = (timestamp) => {
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 };
 
-export const ChatAsideBody = ({}) => {
+export const ChatAsideBody = ({ setMobileView }) => {
   const direct = useContext(DirectChatContext);
   const dispatch = useDispatch();
   const { openChatPopups, openGroupChatPopups, openSupportChatPopups } =
@@ -66,6 +66,10 @@ export const ChatAsideBody = ({}) => {
       selectUser(null, null);
     } else {
       selectUser(userId, userObj?.conversation_id || userObj?.pairKey);
+      // On mobile, switch to the chat view (hide sidebar)
+      if (window.innerWidth < 860 && setMobileView) {
+        setMobileView(true);
+      }
     }
   };
 

@@ -697,6 +697,13 @@ export default function GroupChatBody() {
         </ul>
         <div className="nk-chat-head-actions">
           <button
+            className="btn btn-sm btn-icon group-chat-back-btn d-lg-none"
+            onClick={() => selectGroup(null)}
+            title="Back"
+          >
+            <i className="bi bi-arrow-left" />
+          </button>
+          <button
             className="btn btn-sm btn-icon group-chat-search-toggle"
             onClick={() => {
               if (!showSearch) {

@@ -114,6 +114,7 @@ export function DirectChatProvider({ children }) {
     messageSkipRef.current = 0;
     setHasMore(false);
     setMessagesStatus("loading");
+    setIsInitialLoading(true);
   }, []);
 
   // Ref so callbacks can always read the latest activeUser without being in deps

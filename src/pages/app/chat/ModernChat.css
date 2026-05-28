@@ -463,6 +463,15 @@
   flex-shrink: 0;
 }
 
+/* Message bubble max-width */
+.chat-message-bubble {
+  max-width: 70%;
+}
+
+.mobile-mode .chat-message-bubble {
+  max-width: 88%;
+}
+
 /* Reply Preview */
 .modern-reply-preview {
   background: rgba(102, 126, 234, 0.1);
@@ -645,42 +654,99 @@
 @media (max-width: 768px) {
   .modern-chat-container {
     flex-direction: column;
+    overflow: hidden;
   }
-  
+
   .modern-chat-sidebar {
     width: 100%;
     height: auto;
-    max-height: 60vh;
+    max-height: 100%;
+    flex-shrink: 0;
   }
-  
+
+  .modern-chat-sidebar.has-aside {
+    display: none;
+  }
+
   .modern-chat-main {
     flex: 1;
+    min-height: 0;
   }
-  
-  .modern-chat-messages {
-    padding: 16px;
+
+  .modern-chat-header {
+    padding: 10px 12px !important;
   }
-  
-  .modern-chat-input-area {
-    padding: 16px;
+
+  .modern-chat-header-avatar {
+    width: 32px;
+    height: 32px;
   }
-  
-  .modern-message-bubble {
-    max-width: 85%;
+
+  .modern-chat-header-info h5 {
+    font-size: 14px;
   }
-  
-  .modern-selection-mode {
-    margin: 12px 16px;
-    padding: 12px 16px;
-    flex-direction: column;
-    gap: 12px;
+
+  .modern-chat-header-info p {
+    font-size: 11px;
   }
-  
-  .modern-selection-mode-actions {
-    width: 100%;
+
+  .modern-chat-header-btn {
+    width: 34px;
+    height: 34px;
+    font-size: 14px;
+  }
+
+  /* Mobile back button */
+  .modern-chat-mobile-back {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px 0;
+  }
+
+  .modern-chat-back-btn {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(0, 0, 0, 0.05);
+    color: #333;
+    display: flex;
+    align-items: center;
     justify-content: center;
+    cursor: pointer;
+    font-size: 16px;
+    transition: all 0.2s ease;
   }
-  
+
+  .modern-chat-back-btn:hover {
+    background: rgba(0, 0, 0, 0.1);
+  }
+
+  .modern-chat-messages {
+    padding: 12px !important;
+  }
+
+  .modern-chat-input-area {
+    padding: 10px 12px !important;
+  }
+
+  .modern-chat-input-field {
+    font-size: 14px;
+    padding: 10px 12px;
+  }
+
+  .modern-chat-input-attach,
+  .modern-chat-input-send {
+    width: 38px;
+    height: 38px;
+    min-width: 38px;
+  }
+
+  .modern-message-bubble,
+  .chat-message-bubble {
+    max-width: 88% !important;
+  }
+
   .modern-message-actions {
     position: fixed;
     top: auto;
@@ -688,6 +754,105 @@
     bottom: 16px;
     opacity: 1;
     z-index: 1000;
+  }
+
+  .modern-selection-mode {
+    margin: 12px 16px;
+    padding: 12px 16px;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .modern-selection-mode-actions {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .modern-chat-empty-content {
+    padding: 24px;
+    max-width: 300px;
+  }
+
+  .modern-chat-empty-icon {
+    font-size: 48px;
+  }
+
+  .modern-chat-empty-content h3 {
+    font-size: 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .modern-chat-header {
+    padding: 8px 10px !important;
+  }
+
+  .modern-chat-header-avatar {
+    width: 28px;
+    height: 28px;
+  }
+
+  .modern-chat-header-info h5 {
+    font-size: 13px;
+  }
+
+  .modern-chat-messages {
+    padding: 8px !important;
+  }
+
+  .modern-chat-input-area {
+    padding: 8px 10px !important;
+  }
+
+  .modern-chat-input-attach,
+  .modern-chat-input-send {
+    width: 34px;
+    height: 34px;
+    min-width: 34px;
+    font-size: 13px;
+  }
+
+  .modern-chat-input-field {
+    font-size: 13px;
+    padding: 8px 10px;
+    min-height: 34px;
+  }
+
+  .modern-message-bubble,
+  .chat-message-bubble {
+    max-width: 92% !important;
+    padding: 8px 12px;
+  }
+
+  .modern-chat-mobile-back {
+    padding: 4px 8px 0;
+  }
+
+  .modern-chat-back-btn {
+    width: 30px;
+    height: 30px;
+    font-size: 14px;
+  }
+
+  .modern-chat-sidebar-header {
+    padding: 12px 16px;
+  }
+
+  .modern-chat-sidebar-title {
+    font-size: 16px;
+  }
+
+  .modern-chat-item {
+    padding: 10px 16px;
+  }
+
+  .modern-chat-item-avatar {
+    width: 40px;
+    height: 40px;
+  }
+
+  .modern-chat-search {
+    padding: 10px 16px;
   }
 }
 

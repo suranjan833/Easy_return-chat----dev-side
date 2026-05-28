@@ -12,8 +12,11 @@ import {
   blockUser,
 } from "../../Services/widget";
 import { joinChat, leaveChat } from "../../redux/slices/chatConnectionSlice";
+import AttachmentDisplay from "../../components/custom/Attachment/AttachmentDisplay";
+import AttachmentInputPreview from "../../components/custom/Attachment/AttachmentInputPreview";
 import DeleteConfirmationModal from "../../components/custom/DeleteConfirmationModal";
 import BlockUserModal from "../../components/custom/BlockUserModal";
+import { AttechmentSizeLimit } from "../../pages/comman/helper";
 
 const formatTime = (t) =>
   t ? new Date(t).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
@@ -54,11 +57,15 @@ const SupportTicketPopup = ({ ticket, onClose, initialPosition, index }) => {
   const [typingStatus, setTypingStatus] = useState(null);
   const [position, setPosition]         = useState(initialPosition || { x: 20, y: 20 });
   const [isDragging, setIsDragging]     = useState(false);
+  const [isDraggingFiles, setIsDraggingFiles] = useState(false);
+  const [attachment, setAttachment]     = useState(null);
+  const [attachmentPreview, setAttachmentPreview] = useState(null);
 
   const socketRef     = useRef(null);
   const scrollRef     = useRef(null);
   const chatWindowRef = useRef(null);
   const dragOffset    = useRef({ x: 0, y: 0 });
+  const fileInputRef  = useRef(null);
   const typingTimeoutRef = useRef(null);
 
   const isClosed = ticketStatus === "closed" || ticketStatus === "resolved";
@@ -82,6 +89,8 @@ const SupportTicketPopup = ({ ticket, onClose, initialPosition, index }) => {
           setConnected(false);
           dispatch(leaveChat({ ticketNumber: ticket_number }));
           toast.info(`Ticket #${ticket_number} closed.`);
+          // Tell the widget (maximized view) to update this ticket's status
+          window.dispatchEvent(new CustomEvent('support-ticket-status-changed', { detail: { ticket_number, status: 'closed' } }));
           return;
         }
 
@@ -92,6 +101,8 @@ const SupportTicketPopup = ({ ticket, onClose, initialPosition, index }) => {
           setConnected(false);
           dispatch(leaveChat({ ticketNumber: ticket_number }));
           toast.info("Ticket closed by user.");
+          // Tell the widget (maximized view) to update this ticket's status
+          window.dispatchEvent(new CustomEvent('support-ticket-status-changed', { detail: { ticket_number, status: 'closed' } }));
           return;
         }
 
@@ -297,6 +308,8 @@ const SupportTicketPopup = ({ ticket, onClose, initialPosition, index }) => {
       dispatch(leaveChat({ ticketNumber: ticket_number }));
       setTicketStatus("closed");
       setConnected(false);
+      // Tell the widget (maximized view) to update this ticket's status
+      window.dispatchEvent(new CustomEvent('support-ticket-status-changed', { detail: { ticket_number, status: 'closed' } }));
     } catch (err) {
       toast.error(err?.message || "Failed to close ticket.");
     } finally {
@@ -377,6 +390,99 @@ const SupportTicketPopup = ({ ticket, onClose, initialPosition, index }) => {
     setInputText("");
   };
 
+  // ── drag-and-drop file handlers ──
+  const handleDragEnter = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingFiles(true);
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingFiles(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingFiles(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingFiles(false);
+
+    const files = Array.from(e.dataTransfer.files || []);
+    files.forEach((f) => handleFileSelect(f));
+  };
+
+  // ── file select (from input click or paste) ──
+  const handleFileSelect = (file) => {
+    if (!file) return;
+    const valid = AttechmentSizeLimit(file, { target: { value: null } });
+    if (!valid) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (file.type.startsWith("image/")) {
+        setAttachmentPreview({ url: reader.result, type: "image", name: file.name });
+      } else if (file.type === "application/pdf") {
+        setAttachmentPreview({ type: "pdf", name: file.name, url: reader.result });
+      } else {
+        setAttachmentPreview({ type: "doc", name: file.name, url: reader.result });
+      }
+      setAttachment({
+        base64: reader.result.split(",")[1],
+        type: file.type,
+        name: file.name,
+      });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // ── send file message via WebSocket ──
+  const sendFileMessage = () => {
+    if (!attachment || !canSend) return;
+    if (!socketRef.current || socketRef.current.readyState !== WebSocket.OPEN) {
+      toast.error("Not connected.");
+      return;
+    }
+
+    const authData = JSON.parse(localStorage.getItem("auth") || "{}");
+    const agentName = authData.user?.first_name
+      ? `${authData.user.first_name} ${authData.user.last_name || ""}`.trim()
+      : "Agent";
+
+    const payload = {
+      message_type: "file_upload",
+      sender_type: "agent",
+      sender_email: agent_email,
+      sender_name: agentName,
+      content: attachment.base64,
+      filename: attachment.name,
+      file_type: attachment.type,
+      ticket_number,
+      timestamp: new Date().toISOString(),
+    };
+    socketRef.current.send(JSON.stringify(payload));
+    // No optimistic message — the server will respond with the real file message
+    // including the server-generated filename, so we avoid showing a broken URL.
+    setAttachment(null);
+    setAttachmentPreview(null);
+  };
+
+  // ── copy text to clipboard ──
+  const copyToClipboard = (text) => {
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(() => {
+      toast.success("Copied to clipboard!");
+    }).catch(() => {
+      toast.error("Failed to copy");
+    });
+  };
+
   const statusColor = {
     initiated:     "#0ea5e9",
     agent_engaged: "#22c55e",
@@ -405,7 +511,7 @@ const SupportTicketPopup = ({ ticket, onClose, initialPosition, index }) => {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
           <div style={{ overflow: "hidden", flex: 1, minWidth: 0 }}>
             <div style={{ fontWeight: 600, fontSize: "13px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-              #{ticket_number} — {name || "Support"}
+              {name || "Support"}
             </div>
             <div style={{ fontSize: "10px", display: "flex", alignItems: "center", gap: "4px", marginTop: "2px" }}>
               <span style={{ width: 6, height: 6, borderRadius: "50%", background: statusColor, display: "inline-block", flexShrink: 0 }} />
@@ -445,67 +551,113 @@ const SupportTicketPopup = ({ ticket, onClose, initialPosition, index }) => {
       </div>
 
       {/* Messages */}
-      <SimpleBar
-        style={{ flex: 1, height: 0, minHeight: 0, overflowY: "auto", padding: "12px", background: "#f8f9fa" }}
-        scrollableNodeProps={{ ref: (n) => { scrollRef.current = n; } }}
+      <div
+        style={{ position: "relative", flex: 1, height: 0, minHeight: 0 }}
+        onDragEnter={handleDragEnter}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
       >
-        {messages.length === 0 && (
-          <div style={{ textAlign: "center", color: "#aaa", fontSize: "12px", marginTop: "20px" }}>No messages yet</div>
-        )}
-        {messages.map((msg, i) => {
-          // Correct: use sender_type, not message_type (both agent and user send message_type:"text")
-          const isAgent = msg.sender_type === "agent" || msg.message_type === "agent_message";
-          const text = msg.message || msg.content || "";
-          const isDeleted = msg.is_deleted;
-          const myEmail = JSON.parse(localStorage.getItem("auth") || "{}").user?.email || agent_email;
-          const isOwn = isAgent && (msg.sender_email === myEmail || msg.sender_email === agent_email);
-          return (
-            <div key={msg.id || i} style={{ display: "flex", flexDirection: "column", alignItems: isAgent ? "flex-end" : "flex-start", marginBottom: "8px" }}>
-              <div style={{
-                maxWidth: "80%", padding: "8px 12px",
-                borderRadius: isAgent ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
-                background: isAgent ? "#6366f1" : "#fff",
-                color: isAgent ? "#fff" : "#333",
-                border: isAgent ? "none" : "1px solid #e9ecef",
-                fontSize: "13px", wordBreak: "break-word",
-                boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
-                opacity: isDeleted ? 0.5 : 1,
-              }}>
-                {isDeleted
-                  ? <em style={{ fontSize: "11px" }}>Message deleted</em>
-                  : text}
-                {msg.is_edited && !isDeleted && <span style={{ fontSize: "10px", opacity: 0.6, marginLeft: "4px" }}>(edited)</span>}
-                <div style={{ fontSize: "10px", opacity: 0.65, textAlign: "right", marginTop: "3px", display: "flex", justifyContent: "flex-end", gap: "6px", alignItems: "center" }}>
-                  <span>{formatTime(msg.timestamp)}</span>
-                  {/* Seen tick — only on agent messages */}
-                  {isAgent && !isDeleted && (
-                    msg.is_read
-                      ? <i className="bi bi-check2-all" style={{ fontSize: "13px", color: "#34B7F1" }} title="Seen" />
-                      : <i className="bi bi-check2" style={{ fontSize: "13px", color: "rgba(255,255,255,0.5)" }} title="Sent" />
-                  )}
-                  {/* Edit / Delete — only own agent messages, not deleted */}
-                  {isOwn && !isDeleted && canSend && (
-                    <>
-                      <button onClick={() => startEditing(msg)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.7)", cursor: "pointer", padding: 0, fontSize: "11px" }} title="Edit">
-                        <i className="bi bi-pencil" />
-                      </button>
-                      <button onClick={() => setDeleteModal({ isOpen: true, messageId: msg.id, content: text })} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.7)", cursor: "pointer", padding: 0, fontSize: "11px" }} title="Delete">
-                        <i className="bi bi-trash" />
-                      </button>                    </>
-                  )}
-                </div>
-              </div>
+        {/* Drag overlay */}
+        {isDraggingFiles && (
+          <div
+            style={{
+              position: "absolute", inset: 0, zIndex: 100,
+              backgroundColor: "rgba(99, 102, 241, 0.08)",
+              border: "2px dashed #6366f1",
+              borderRadius: "8px",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              pointerEvents: "none",
+            }}
+          >
+            <div style={{ textAlign: "center", color: "#6366f1", fontWeight: 600, fontSize: "14px" }}>
+              <div style={{ marginBottom: "8px", fontSize: "24px" }}>📁</div>
+              <div>Drop file to upload</div>
             </div>
-          );
-        })}
-
-        {/* Typing indicator */}
-        {typingStatus && (
-          <div style={{ fontSize: "11px", color: "#888", fontStyle: "italic", padding: "4px 0" }}>
-            {typingStatus.sender_type === "user" ? (name || "User") : "Agent"} is typing…
           </div>
         )}
-      </SimpleBar>
+        <SimpleBar
+          style={{ height: "100%", overflowY: "auto", padding: "12px", background: "#f8f9fa" }}
+          scrollableNodeProps={{ ref: (n) => { scrollRef.current = n; } }}
+        >
+          {messages.length === 0 && (
+            <div style={{ textAlign: "center", color: "#aaa", fontSize: "12px", marginTop: "20px" }}>No messages yet</div>
+          )}
+          {messages.map((msg, i) => {
+            // Correct: use sender_type, not message_type (both agent and user send message_type:"text")
+            const isAgent = msg.sender_type === "agent" || msg.message_type === "agent_message";
+            const text = msg.message || msg.content || "";
+            const isDeleted = msg.is_deleted;
+            const myEmail = JSON.parse(localStorage.getItem("auth") || "{}").user?.email || agent_email;
+            const isOwn = isAgent && (msg.sender_email === myEmail || msg.sender_email === agent_email);
+            // Check if this is a file message (has a filename or URL that looks like a file)
+            const isFileMsg = msg.message_type === "file" || msg.message_type === "file_upload" || msg.filename;
+            return (
+              <div key={msg.id || i} style={{ display: "flex", flexDirection: "column", alignItems: isAgent ? "flex-end" : "flex-start", marginBottom: "8px" }}>
+                <div style={{
+                  maxWidth: "80%", padding: isFileMsg && !isDeleted ? (isAgent ? "0" : "8px 12px") : "8px 12px",
+                  borderRadius: isAgent ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
+                  background: isAgent ? (isFileMsg && !isDeleted ? "transparent" : "#6366f1") : "#fff",
+                  color: isAgent ? "#fff" : "#333",
+                  border: isAgent ? (isFileMsg && !isDeleted ? "none" : "none") : "1px solid #e9ecef",
+                  fontSize: "13px", wordBreak: "break-word",
+                  boxShadow: isFileMsg && !isDeleted ? "none" : "0 1px 4px rgba(0,0,0,0.08)",
+                  opacity: isDeleted ? 0.5 : 1,
+                }}>
+                  {isDeleted ? (
+                    <em style={{ fontSize: "11px" }}>Message deleted</em>
+                  ) : isFileMsg ? (
+                    <AttachmentDisplay
+                      attachment={{
+                        url: text,
+                        filename: msg.filename || msg.content?.split("/").pop(),
+                      }}
+                      isMe={isAgent}
+                      message={msg}
+                    />
+                  ) : (
+                    text
+                  )}
+                  {msg.is_edited && !isDeleted && !isFileMsg && <span style={{ fontSize: "10px", opacity: 0.6, marginLeft: "4px" }}>(edited)</span>}
+                  <div style={{ fontSize: "10px", opacity: 0.65, textAlign: "right", marginTop: isDeleted || isFileMsg ? "3px" : "3px", display: "flex", justifyContent: "flex-end", gap: "6px", alignItems: "center" }}>
+                    <span>{formatTime(msg.timestamp)}</span>
+                    {/* Seen tick — only on agent messages */}
+                    {isAgent && !isDeleted && (
+                      msg.is_read
+                        ? <i className="bi bi-check2-all" style={{ fontSize: "13px", color: "#34B7F1" }} title="Seen" />
+                        : <i className="bi bi-check2" style={{ fontSize: "13px", color: "rgba(255,255,255,0.5)" }} title="Sent" />
+                    )}
+                    {/* Copy — own agent messages */}
+                    {isOwn && !isDeleted && !isFileMsg && (
+                      <button onClick={() => copyToClipboard(text)} style={{ background: "none", border: "none", color: isAgent ? "rgba(255,255,255,0.7)" : "#999", cursor: "pointer", padding: 0, fontSize: "11px" }} title="Copy">
+                        <i className="bi bi-files" />
+                      </button>
+                    )}
+                    {/* Edit / Delete — only own agent messages, not deleted */}
+                    {isOwn && !isDeleted && !isFileMsg && canSend && (
+                      <>
+                        <button onClick={() => startEditing(msg)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.7)", cursor: "pointer", padding: 0, fontSize: "11px" }} title="Edit">
+                          <i className="bi bi-pencil" />
+                        </button>
+                        <button onClick={() => setDeleteModal({ isOpen: true, messageId: msg.id, content: text })} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.7)", cursor: "pointer", padding: 0, fontSize: "11px" }} title="Delete">
+                          <i className="bi bi-trash" />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Typing indicator */}
+          {typingStatus && (
+            <div style={{ fontSize: "11px", color: "#888", fontStyle: "italic", padding: "4px 0" }}>
+              {typingStatus.sender_type === "user" ? (name || "User") : "Agent"} is typing…
+            </div>
+          )}
+        </SimpleBar>
+      </div>
 
       {/* Delete confirmation */}
       <DeleteConfirmationModal
@@ -521,6 +673,13 @@ const SupportTicketPopup = ({ ticket, onClose, initialPosition, index }) => {
         userName={name || email}
         onConfirm={handleBlockUser}
         onCancel={() => setBlockModal(false)}
+      />
+
+      {/* Attachment preview */}
+      <AttachmentInputPreview
+        selectedFile={attachment}
+        filePreview={attachmentPreview?.url}
+        onRemove={() => { setAttachment(null); setAttachmentPreview(null); }}
       />
 
       {/* Footer */}
@@ -544,19 +703,69 @@ const SupportTicketPopup = ({ ticket, onClose, initialPosition, index }) => {
                 type="text"
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    if (attachment) {
+                      sendFileMessage();
+                    } else {
+                      sendMessage();
+                    }
+                  }
+                }}
+                onPaste={(e) => {
+                  const items = e.clipboardData?.items;
+                  if (!items) return;
+                  for (let item of items) {
+                    if (item.kind === "file") {
+                      const file = item.getAsFile();
+                      if (!file) continue;
+                      handleFileSelect(file);
+                      e.preventDefault();
+                      break;
+                    }
+                  }
+                }}
                 placeholder={canSend ? (editingId ? "Edit message…" : "Type a message…") : "Join to send messages"}
                 disabled={!canSend}
                 style={{ flex: 1, borderRadius: "20px", border: "1px solid #e0e0e0", padding: "8px 12px", fontSize: "13px", outline: "none", background: canSend ? "#fff" : "#f5f5f5", color: canSend ? "#333" : "#aaa" }}
               />
+              {/* Attachment button */}
               <button
-                onClick={sendMessage}
-                disabled={!canSend || !inputText.trim()}
-                style={{ borderRadius: "50%", width: 34, height: 34, padding: 0, display: "flex", alignItems: "center", justifyContent: "center", background: editingId ? "#ffc107" : "#6366f1", border: "none", cursor: canSend && inputText.trim() ? "pointer" : "not-allowed", color: editingId ? "#333" : "#fff", opacity: (!canSend || !inputText.trim()) ? 0.4 : 1, flexShrink: 0 }}
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={!canSend}
+                title="Attach file"
+                style={{ borderRadius: "50%", width: 34, height: 34, padding: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "transparent", border: "1px solid #e0e0e0", cursor: canSend ? "pointer" : "not-allowed", color: "#888", opacity: canSend ? 1 : 0.4, flexShrink: 0 }}
+              >
+                <i className="bi bi-paperclip" style={{ fontSize: "14px" }} />
+              </button>
+              <button
+                onClick={() => {
+                  if (attachment) {
+                    sendFileMessage();
+                  } else {
+                    sendMessage();
+                  }
+                }}
+                disabled={!canSend || (!inputText.trim() && !attachment)}
+                style={{ borderRadius: "50%", width: 34, height: 34, padding: 0, display: "flex", alignItems: "center", justifyContent: "center", background: editingId ? "#ffc107" : "#6366f1", border: "none", cursor: canSend && (inputText.trim() || attachment) ? "pointer" : "not-allowed", color: editingId ? "#333" : "#fff", opacity: (!canSend || (!inputText.trim() && !attachment)) ? 0.4 : 1, flexShrink: 0 }}
               >
                 {editingId ? <i className="bi bi-check2" style={{ fontSize: "14px" }} /> : <BiSend size={14} />}
               </button>
             </div>
+            {/* Hidden file input */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              style={{ display: "none" }}
+              accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) handleFileSelect(file);
+                e.target.value = "";
+              }}
+            />
             <div style={{ padding: "0 12px 10px", display: "flex", gap: "8px" }}>
               {!hasJoined && (
                 <button className="btn btn-success btn-sm" onClick={handleJoin} disabled={submitting} style={{ flex: 1, fontSize: "12px" }}>
