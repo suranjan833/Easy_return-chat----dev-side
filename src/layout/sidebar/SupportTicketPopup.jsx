@@ -17,6 +17,7 @@ import AttachmentInputPreview from "../../components/custom/Attachment/Attachmen
 import DeleteConfirmationModal from "../../components/custom/DeleteConfirmationModal";
 import BlockUserModal from "../../components/custom/BlockUserModal";
 import { AttechmentSizeLimit } from "../../pages/comman/helper";
+import ReplyPreview from "../../components/custom/ReplyPreview";
 
 const formatTime = (t) =>
   t ? new Date(t).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
@@ -48,6 +49,8 @@ const SupportTicketPopup = ({ ticket, onClose, initialPosition, index }) => {
   const [messages, setMessages]         = useState(initialMessages || []);
   const [inputText, setInputText]       = useState("");
   const [editingId, setEditingId]       = useState(null);
+  const [replyToMessageId, setReplyToMessageId] = useState(null);
+  const [replyingToMessage, setReplyingToMessage] = useState(null);
   const [ticketStatus, setTicketStatus] = useState(initialStatus || "initiated");
   const [submitting, setSubmitting]     = useState(false);
   const [connected, setConnected]       = useState(false);
@@ -60,6 +63,7 @@ const SupportTicketPopup = ({ ticket, onClose, initialPosition, index }) => {
   const [isDraggingFiles, setIsDraggingFiles] = useState(false);
   const [attachment, setAttachment]     = useState(null);
   const [attachmentPreview, setAttachmentPreview] = useState(null);
+  const [highlightedMsgId, setHighlightedMsgId] = useState(null);
 
   const socketRef     = useRef(null);
   const scrollRef     = useRef(null);
@@ -67,6 +71,7 @@ const SupportTicketPopup = ({ ticket, onClose, initialPosition, index }) => {
   const dragOffset    = useRef({ x: 0, y: 0 });
   const fileInputRef  = useRef(null);
   const typingTimeoutRef = useRef(null);
+  const highlightTimeoutRef = useRef(null);
 
   const isClosed = ticketStatus === "closed" || ticketStatus === "resolved";
   const canSend  = hasJoined && !isClosed && connected;
@@ -147,7 +152,7 @@ const SupportTicketPopup = ({ ticket, onClose, initialPosition, index }) => {
         if (["text", "file_upload", "file", "notification", "message", "agent_message"].includes(msg.message_type)) {
           setMessages((prev) => {
             let content = msg.content;
-            if (msg.message_type === "file") {
+            if (msg.message_type === "file" || msg.message_type === "file_upload") {
               content = `https://supportdesk.fskindia.com/support/serve-file/${msg.filename}`;
             }
             const nm = {
@@ -361,11 +366,36 @@ const SupportTicketPopup = ({ ticket, onClose, initialPosition, index }) => {
       content: text,
       ticket_number,
       timestamp: new Date().toISOString(),
+      parent_message_id: replyToMessageId ? String(replyToMessageId) : undefined,
     };
     socketRef.current.send(JSON.stringify(payload));
     // Optimistic
     setMessages((prev) => [...prev, { ...payload, id: `temp-${Date.now()}`, is_read: false }]);
     setInputText("");
+    setReplyToMessageId(null);
+    setReplyingToMessage(null);
+  };
+
+  // ── reply ──
+  const handleReplyToMessage = (msg) => {
+    setReplyToMessageId(msg.id);
+    setReplyingToMessage(msg);
+  };
+
+  const handleCancelReply = () => {
+    setReplyToMessageId(null);
+    setReplyingToMessage(null);
+  };
+
+  // ── scroll to message and highlight ──
+  const scrollToMessage = (messageId) => {
+    const el = scrollRef.current?.querySelector(`[data-msg-id="${messageId}"]`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      setHighlightedMsgId(String(messageId));
+      if (highlightTimeoutRef.current) clearTimeout(highlightTimeoutRef.current);
+      highlightTimeoutRef.current = setTimeout(() => setHighlightedMsgId(null), 2000);
+    }
   };
 
   // ── delete ──
@@ -584,62 +614,134 @@ const SupportTicketPopup = ({ ticket, onClose, initialPosition, index }) => {
             <div style={{ textAlign: "center", color: "#aaa", fontSize: "12px", marginTop: "20px" }}>No messages yet</div>
           )}
           {messages.map((msg, i) => {
-            // Correct: use sender_type, not message_type (both agent and user send message_type:"text")
             const isAgent = msg.sender_type === "agent" || msg.message_type === "agent_message";
-            const text = msg.message || msg.content || "";
             const isDeleted = msg.is_deleted;
             const myEmail = JSON.parse(localStorage.getItem("auth") || "{}").user?.email || agent_email;
             const isOwn = isAgent && (msg.sender_email === myEmail || msg.sender_email === agent_email);
-            // Check if this is a file message (has a filename or URL that looks like a file)
             const isFileMsg = msg.message_type === "file" || msg.message_type === "file_upload" || msg.filename;
+            // For file messages, use the serve-file URL (attachment_url for API messages, content for WebSocket)
+            const fileUrl = isFileMsg ? (msg.attachment_url || msg.content || "") : "";
+            const displayText = isFileMsg ? fileUrl : (msg.message || msg.content || "");
+            const isReply = !!msg.parent_message_id;
+
+            // Resolve parent message for reply reference
+            let parentContent = null;
+            let parentSender = null;
+            if (isReply) {
+              const parentMsg = messages.find((m) => String(m.id) === String(msg.parent_message_id));
+              if (parentMsg) {
+                parentContent = parentMsg.message || parentMsg.content || "Original message";
+                parentSender = (parentMsg.sender_type === "agent" && parentMsg.sender_name)
+                  ? parentMsg.sender_name
+                  : (parentMsg.sender_type === "agent" ? "Agent" : name || "User");
+              }
+            }
+
             return (
-              <div key={msg.id || i} style={{ display: "flex", flexDirection: "column", alignItems: isAgent ? "flex-end" : "flex-start", marginBottom: "8px" }}>
+              <div
+                key={msg.id || i}
+                data-msg-id={msg.id}                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: isAgent ? "flex-end" : "flex-start",
+                    marginBottom: "8px",
+                    padding: "4px 6px",
+                    borderRadius: "8px",
+                    background: String(msg.id) === highlightedMsgId ? "rgba(99, 102, 241, 0.12)" : "transparent",
+                    transition: "background 0.3s ease, box-shadow 0.3s ease",
+                    boxShadow: String(msg.id) === highlightedMsgId ? "0 0 0 2px rgba(99, 102, 241, 0.3)" : "none",
+                  }}
+              >
                 <div style={{
-                  maxWidth: "80%", padding: isFileMsg && !isDeleted ? (isAgent ? "0" : "8px 12px") : "8px 12px",
+                  maxWidth: "80%",
+                  padding: isFileMsg && !isDeleted ? (isAgent ? "4px" : "8px 12px") : "8px 12px",
                   borderRadius: isAgent ? "16px 16px 4px 16px" : "16px 16px 16px 4px",
-                  background: isAgent ? (isFileMsg && !isDeleted ? "transparent" : "#6366f1") : "#fff",
-                  color: isAgent ? "#fff" : "#333",
-                  border: isAgent ? (isFileMsg && !isDeleted ? "none" : "none") : "1px solid #e9ecef",
+                  background: isAgent
+                    ? (isFileMsg && !isDeleted ? "#e8e4ff" : "#6366f1")
+                    : "#fff",
+                  color: isAgent ? (isFileMsg && !isDeleted ? "#333" : "#fff") : "#333",
+                  border: isAgent ? (isFileMsg && !isDeleted ? "1px solid #d0c8ff" : "none") : "1px solid #e9ecef",
                   fontSize: "13px", wordBreak: "break-word",
-                  boxShadow: isFileMsg && !isDeleted ? "none" : "0 1px 4px rgba(0,0,0,0.08)",
+                  boxShadow: isFileMsg && !isDeleted ? "0 1px 4px rgba(0,0,0,0.06)" : "0 1px 4px rgba(0,0,0,0.08)",
                   opacity: isDeleted ? 0.5 : 1,
                 }}>
+                  {/* Reply parent reference */}
+                  {isReply && parentContent && !isDeleted && (
+                    <div
+                      onClick={() => scrollToMessage(msg.parent_message_id)}
+                      title="Click to navigate to original message"
+                      style={{
+                        cursor: "pointer",
+                        marginBottom: "6px",
+                        background: isAgent ? (isFileMsg ? "rgba(99,102,241,0.08)" : "rgba(255,255,255,0.15)") : "#f0f0f0",
+                        borderLeft: `3px solid ${isAgent ? "rgba(255,255,255,0.5)" : "#6366f1"}`,
+                        borderRadius: "4px",
+                        padding: "4px 8px",
+                        fontSize: "11px",
+                        color: isAgent ? "rgba(255,255,255,0.85)" : "#555",
+                        transition: "background 0.2s",
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = isAgent
+                          ? (isFileMsg ? "rgba(99,102,241,0.15)" : "rgba(255,255,255,0.25)")
+                          : "#e8e4ff";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = isAgent
+                          ? (isFileMsg ? "rgba(99,102,241,0.08)" : "rgba(255,255,255,0.15)")
+                          : "#f0f0f0";
+                      }}
+                    >
+                      <div style={{ fontWeight: 600, marginBottom: "2px", fontSize: "10px" }}>
+                        {parentSender}
+                      </div>
+                      <div style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {parentContent.slice(0, 60)}{parentContent.length > 60 ? "…" : ""}
+                      </div>
+                    </div>
+                  )}
+
                   {isDeleted ? (
                     <em style={{ fontSize: "11px" }}>Message deleted</em>
                   ) : isFileMsg ? (
                     <AttachmentDisplay
                       attachment={{
-                        url: text,
-                        filename: msg.filename || msg.content?.split("/").pop(),
+                        url: fileUrl,
+                        filename: msg.filename || fileUrl.split("/").pop(),
                       }}
                       isMe={isAgent}
                       message={msg}
                     />
                   ) : (
-                    text
+                    displayText
                   )}
                   {msg.is_edited && !isDeleted && !isFileMsg && <span style={{ fontSize: "10px", opacity: 0.6, marginLeft: "4px" }}>(edited)</span>}
                   <div style={{ fontSize: "10px", opacity: 0.65, textAlign: "right", marginTop: isDeleted || isFileMsg ? "3px" : "3px", display: "flex", justifyContent: "flex-end", gap: "6px", alignItems: "center" }}>
                     <span>{formatTime(msg.timestamp)}</span>
-                    {/* Seen tick — only on agent messages */}
                     {isAgent && !isDeleted && (
                       msg.is_read
-                        ? <i className="bi bi-check2-all" style={{ fontSize: "13px", color: "#34B7F1" }} title="Seen" />
-                        : <i className="bi bi-check2" style={{ fontSize: "13px", color: "rgba(255,255,255,0.5)" }} title="Sent" />
+                        ? <i className="bi bi-check2-all" style={{ fontSize: "13px", color: isFileMsg ? "#34B7F1" : "#34B7F1" }} title="Seen" />
+                        : <i className="bi bi-check2" style={{ fontSize: "13px", color: isFileMsg ? "rgba(0,0,0,0.3)" : "rgba(255,255,255,0.5)" }} title="Sent" />
                     )}
                     {/* Copy — own agent messages */}
                     {isOwn && !isDeleted && !isFileMsg && (
-                      <button onClick={() => copyToClipboard(text)} style={{ background: "none", border: "none", color: isAgent ? "rgba(255,255,255,0.7)" : "#999", cursor: "pointer", padding: 0, fontSize: "11px" }} title="Copy">
+                      <button onClick={() => copyToClipboard(displayText)} style={{ background: "none", border: "none", color: isAgent ? (isFileMsg ? "#6366f1" : "rgba(255,255,255,0.7)") : "#999", cursor: "pointer", padding: 0, fontSize: "11px" }} title="Copy">
                         <i className="bi bi-files" />
                       </button>
                     )}
-                    {/* Edit / Delete — only own agent messages, not deleted */}
+                    {/* Reply button — on all non-deleted messages */}
+                    {!isDeleted && canSend && (
+                      <button onClick={() => handleReplyToMessage(msg)} style={{ background: "none", border: "none", color: isAgent ? (isFileMsg ? "#6366f1" : "rgba(255,255,255,0.7)") : "#999", cursor: "pointer", padding: 0, fontSize: "11px" }} title="Reply">
+                        <i className="bi bi-reply" />
+                      </button>
+                    )}
+                    {/* Edit / Delete — only own agent messages */}
                     {isOwn && !isDeleted && !isFileMsg && canSend && (
                       <>
-                        <button onClick={() => startEditing(msg)} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.7)", cursor: "pointer", padding: 0, fontSize: "11px" }} title="Edit">
+                        <button onClick={() => startEditing(msg)} style={{ background: "none", border: "none", color: isAgent ? (isFileMsg ? "#6366f1" : "rgba(255,255,255,0.7)") : "#999", cursor: "pointer", padding: 0, fontSize: "11px" }} title="Edit">
                           <i className="bi bi-pencil" />
                         </button>
-                        <button onClick={() => setDeleteModal({ isOpen: true, messageId: msg.id, content: text })} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.7)", cursor: "pointer", padding: 0, fontSize: "11px" }} title="Delete">
+                        <button onClick={() => setDeleteModal({ isOpen: true, messageId: msg.id, content: displayText })} style={{ background: "none", border: "none", color: isAgent ? (isFileMsg ? "#dc3545" : "rgba(255,255,255,0.7)") : "#999", cursor: "pointer", padding: 0, fontSize: "11px" }} title="Delete">
                           <i className="bi bi-trash" />
                         </button>
                       </>
@@ -680,6 +782,12 @@ const SupportTicketPopup = ({ ticket, onClose, initialPosition, index }) => {
         selectedFile={attachment}
         filePreview={attachmentPreview?.url}
         onRemove={() => { setAttachment(null); setAttachmentPreview(null); }}
+      />
+
+      {/* Reply preview */}
+      <ReplyPreview
+        replyToMessage={replyingToMessage}
+        setReplyToMessage={() => handleCancelReply()}
       />
 
       {/* Footer */}
@@ -726,7 +834,7 @@ const SupportTicketPopup = ({ ticket, onClose, initialPosition, index }) => {
                     }
                   }
                 }}
-                placeholder={canSend ? (editingId ? "Edit message…" : "Type a message…") : "Join to send messages"}
+                placeholder={canSend ? (editingId ? "Edit message…" : replyToMessageId ? "Type reply…" : "Type a message…") : "Join to send messages"}
                 disabled={!canSend}
                 style={{ flex: 1, borderRadius: "20px", border: "1px solid #e0e0e0", padding: "8px 12px", fontSize: "13px", outline: "none", background: canSend ? "#fff" : "#f5f5f5", color: canSend ? "#333" : "#aaa" }}
               />

@@ -1,7 +1,7 @@
 import "bootstrap-icons/font/bootstrap-icons.css";
 import { formatDistanceToNow } from "date-fns";
 import EmojiPicker from "emoji-picker-react";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button, Form } from "react-bootstrap";
 import { useLocation, useNavigate } from "react-router-dom"; // Import useNavigate and useLocation
 import { toast } from "react-toastify";
@@ -14,10 +14,12 @@ import {
   isOnlyEmojis,
   renderMessageWithLinks,
 } from "../../pages/comman/helper";
-import { getGroupMessages } from "../../Services/api.js";
+import { getGroupMessages, getGroups } from "../../Services/api.js";
 import groupChatService from "../../Services/GroupChatService";
+import chatService from "../../Services/ChatService";
 import "./GroupChatPopup.css";
-import MessageInfoModal from "./MessageInfoModal";
+import MessageInfoModal from "../../components/custom/MessageInfoModal";
+import ForwardMessageModal from "../../pages/app/chat/modals/ForwardMessageModal";
 
 const GroupChatPopup = ({
   group,
@@ -62,6 +64,12 @@ const GroupChatPopup = ({
     isOpen: false,
     message: null,
   }); // State for Message Info Modal
+  const [forwardModal, setForwardModal] = useState({
+    show: false,
+    message: null,
+  });
+  const [forwardSearch, setForwardSearch] = useState("");
+  const [allGroups, setAllGroups] = useState([]);
 
   const [messagesAreaPaddingBottom, setMessagesAreaPaddingBottom] =
     useState(88); // Default for input area only
@@ -364,7 +372,14 @@ const GroupChatPopup = ({
     } else {
       setShowUnreadDivider(false);
       setHasScrolledToUnread(true);
-      scrollToBottom();
+      // Instant scroll to bottom (no smooth animation) when no unread messages
+      // to avoid the jarring "top to bottom" animation
+      const messagesArea = chatWindowRef.current?.querySelector(
+        ".group-chat-messages",
+      );
+      if (messagesArea) {
+        messagesArea.scrollTop = messagesArea.scrollHeight;
+      }
     }
   }, [initialLoadComplete, allMessages, userId, hasScrolledToUnread]);
 
@@ -473,86 +488,125 @@ const GroupChatPopup = ({
     };
 
     const handleMessageReply = (data) => {
-      // if (data.groupId !== group.id) return; // Backend might not send groupId in reply payload, so we rely on finding the original message
+      if (!data) return;
+
+      // Backend sends reply data in two possible formats:
+      // 1. With .reply wrapper: { reply: { id, original_message_id, ... } }
+      // 2. Flat/top-level: { id, original_message_id, ... }
+      const replyData = data.reply || data;
+
+      // Must match the correct group (data.group_id or data.groupId)
+      const replyGroupId = replyData.group_id || replyData.groupId;
+      if (replyGroupId && replyGroupId !== group.id) return;
+
+      // Skip invalid events — must have an id and sender
+      if (!replyData.id || !(replyData.user_id || replyData.sender_id)) return;
+
+      // Determine the target parent to attach this reply under.
+      // Support both original_message_id (reply to message) and parent_reply_id (reply-on-reply).
+      // For reply-on-reply: if only parent_reply_id is given, we need to find which message
+      // contains that parent reply in its replies_mentions array.
+      const rawParentId = replyData.original_message_id || replyData.parent_reply_id;
+      if (!rawParentId) return;
+
+      const parentMsgId = parseInt(rawParentId);
 
       setMessages((prev) => {
+        // Determine the actual parent message ID: if the parent is itself a reply,
+        // find which top-level message holds that reply.
+        let targetMessageId = parentMsgId;
+        const parentIsReply =
+          replyData.parent_reply_id && !replyData.original_message_id;
+        if (parentIsReply) {
+          const containerMsg = prev.find((m) =>
+            m.replies_mentions?.some((r) => r.id === parentMsgId),
+          );
+          if (containerMsg) {
+            targetMessageId = containerMsg.id;
+          }
+          // If container not found, fall back to using parentMsgId (might be a top-level msg id)
+        }
+
         const newMessages = prev.map((msg) => {
-          if (msg.id === data.reply.original_message_id) {
-            const existingReplies = msg.replies_mentions || [];
-            if (existingReplies.some((reply) => reply.id === data.reply.id)) {
-              return msg; // Avoid duplicate replies
-            }
-            const originalMessage = prev.find(
-              (m) => m.id === data.reply.original_message_id,
-            );
-            const replySender = group.group_members.find(
-              (member) => member.id === parseInt(data.reply.user_id),
-            );
-            const newReply = {
-              id: data.reply.id,
-              type: "reply",
-              created_at: data.reply.created_at,
-              updated_at: data.reply.updated_at,
-              user:
-                parseInt(data.reply.user_id) === userId
-                  ? {
-                      id: userId,
-                      first_name: "You",
-                      last_name: "",
-                      email: "",
-                      profile_picture: "",
-                    }
-                  : replySender || {
-                      id: data.reply.user?.id || parseInt(data.reply.user_id),
-                      first_name: data.reply.user?.first_name || "Unknown",
-                      last_name: data.reply.user?.last_name || "",
-                      email: data.reply.user?.email || "",
-                      profile_picture: data.reply.user?.profile_picture || "",
-                    },
-              user_id: parseInt(data.reply.user_id),
-              original_message_id: data.reply.original_message_id,
-              original_message_content: originalMessage
-                ? originalMessage.content
-                : "Original message not found", // Add original message content
-              reply_message: data.reply.reply_message,
-            };
-            // Check for temporary reply to replace
-            const tempReplyIndex = existingReplies.findIndex(
-              (r) =>
-                r.tempId &&
-                r.user_id === parseInt(data.reply.user_id) &&
-                r.reply_message === data.reply.reply_message,
-            );
+          if (msg.id !== targetMessageId) return msg;
 
-            if (tempReplyIndex !== -1) {
-              // Replace temporary reply with real one
-              const updatedReplies = [...existingReplies];
-              updatedReplies[tempReplyIndex] = newReply;
-              return {
-                ...msg,
-                replies_mentions: updatedReplies.sort(
-                  (a, b) => new Date(a.created_at) - new Date(b.created_at),
-                ),
-              };
-            }
+          const existingReplies = msg.replies_mentions || [];
+          if (existingReplies.some((reply) => reply.id === replyData.id)) {
+            return msg; // Avoid duplicate replies
+          }
 
+          const originalMessage = prev.find(
+            (m) => m.id === targetMessageId,
+          );
+          const replySender = group.group_members.find(
+            (member) => member.id === parseInt(replyData.user_id || replyData.sender_id),
+          );
+
+          const newReply = {
+            id: replyData.id,
+            type: "reply",
+            created_at: replyData.created_at,
+            updated_at: replyData.updated_at,
+            user:
+              parseInt(replyData.user_id || replyData.sender_id) === userId
+                ? {
+                    id: userId,
+                    first_name: "You",
+                    last_name: "",
+                    email: "",
+                    profile_picture: "",
+                  }
+                : replySender || {
+                    id: replyData.user?.id || replyData.sender?.id || parseInt(replyData.user_id || replyData.sender_id),
+                    first_name: replyData.user?.first_name || replyData.sender?.first_name || "Unknown",
+                    last_name: replyData.user?.last_name || replyData.sender?.last_name || "",
+                    email: replyData.user?.email || replyData.sender?.email || "",
+                    profile_picture: replyData.user?.profile_picture || replyData.sender?.profile_picture || "",
+                  },
+            user_id: parseInt(replyData.user_id || replyData.sender_id),
+            original_message_id: targetMessageId,
+            original_message_content: originalMessage
+              ? originalMessage.content
+              : "Original message not found",
+            reply_message: replyData.reply_message || replyData.content || replyData.message || "",
+          };
+
+          // Check for temporary reply to replace
+          const tempReplyIndex = existingReplies.findIndex(
+            (r) =>
+              r.tempId &&
+              r.user_id === parseInt(replyData.user_id || replyData.sender_id) &&
+              r.reply_message === (replyData.reply_message || replyData.content || replyData.message),
+          );
+
+          if (tempReplyIndex !== -1) {
+            const updatedReplies = [...existingReplies];
+            updatedReplies[tempReplyIndex] = newReply;
             return {
               ...msg,
-              replies_mentions: [...existingReplies, newReply].sort(
+              replies_mentions: updatedReplies.sort(
                 (a, b) => new Date(a.created_at) - new Date(b.created_at),
               ),
             };
           }
-          return msg;
+
+          return {
+            ...msg,
+            replies_mentions: [...existingReplies, newReply].sort(
+              (a, b) => new Date(a.created_at) - new Date(b.created_at),
+            ),
+          };
         });
-        const updatedMessages = newMessages;
-        return updatedMessages;
+        return newMessages;
       });
       scrollToBottom();
     };
 
     const handleReplyEdit = (data) => {
-      if (data.groupId !== group.id) return;
+      if (!data || !data.reply) return;
+      // Support both data.groupId and data.reply.group_id
+      const editGroupId = data.groupId || data.reply?.group_id;
+      if (editGroupId && editGroupId !== group.id) return;
 
       setMessages((prev) => {
         const updatedMessages = prev.map((msg) => {
@@ -583,7 +637,7 @@ const GroupChatPopup = ({
     };
 
     const handleReplyDelete = (data) => {
-      if (data.groupId !== group.id) return;
+      if (data.groupId && data.groupId !== group.id) return;
 
       setMessages((prev) => {
         const updatedMessages = prev.map((msg) => {
@@ -655,6 +709,52 @@ const GroupChatPopup = ({
       }
     };
 
+    // Handle server errors (e.g., "Message not found")
+    const handleError = (data) => {
+      if (!data) return;
+      const errorMsg = data.message || data.error || "An error occurred";
+      console.error("[GroupChatPopup] Server error:", errorMsg);
+      toast.error(errorMsg);
+    };
+
+    // Handle read receipts for messages
+    const handleGroupMessageRead = (data) => {
+      if (data.group_id !== group.id) return;
+      setMessages((prev) =>
+        prev.map((m) => {
+          if (m.id !== data.message_id) return m;
+          return {
+            ...m,
+            is_read: true,
+            read: true,
+            read_at: data.read_at || m.read_at,
+          };
+        }),
+      );
+    };
+
+    // Handle read receipts for replies
+    const handleGroupReplyRead = (data) => {
+      if (data.group_id !== group.id) return;
+      setMessages((prev) =>
+        prev.map((m) => {
+          if (!m.replies_mentions) return m;
+          const hasReply = m.replies_mentions.some(
+            (r) => r.id === data.reply_id,
+          );
+          if (!hasReply) return m;
+          return {
+            ...m,
+            replies_mentions: m.replies_mentions.map((r) =>
+              r.id === data.reply_id
+                ? { ...r, is_read: true, read_at: data.read_at || r.read_at }
+                : r,
+            ),
+          };
+        }),
+      );
+    };
+
     // Subscribe to GroupChatService events
     groupChatService.subscribe("new_group_message", handleNewMessage);
     groupChatService.subscribe("group_message_edit", handleMessageEdit);
@@ -665,6 +765,9 @@ const GroupChatPopup = ({
     groupChatService.subscribe("group_mention", handleMention);
     groupChatService.subscribe("group_typing", handleTyping);
     groupChatService.subscribe("connection", handleConnection);
+    groupChatService.subscribe("error", handleError);
+    groupChatService.subscribe("group_message_read", handleGroupMessageRead);
+    groupChatService.subscribe("group_reply_read", handleGroupReplyRead);
 
     // Set initial connection status
     setConnectionStatus(groupChatService.getConnectionStatus());
@@ -682,6 +785,9 @@ const GroupChatPopup = ({
       groupChatService.unsubscribe("group_mention", handleMention);
       groupChatService.unsubscribe("group_typing", handleTyping);
       groupChatService.unsubscribe("connection", handleConnection);
+      groupChatService.unsubscribe("error", handleError);
+      groupChatService.unsubscribe("group_message_read", handleGroupMessageRead);
+      groupChatService.unsubscribe("group_reply_read", handleGroupReplyRead);
     };
   }, [group, userId]);
 
@@ -813,9 +919,15 @@ const GroupChatPopup = ({
     try {
       // Handle edit message
       if (editMessageId) {
+        const msgId = parseInt(editMessageId);
+        if (isNaN(msgId)) {
+          console.error("[GroupChatPopup] Invalid editMessageId:", editMessageId);
+          setSending(false);
+          return;
+        }
         const payload = {
           type: "edit_group_message",
-          message_id: parseInt(editMessageId),
+          message_id: msgId,
           new_content: messageText,
         };
 
@@ -844,9 +956,15 @@ const GroupChatPopup = ({
 
       // Handle edit reply
       if (editingReply) {
+        const editReplyId = parseInt(editingReply.id);
+        if (isNaN(editReplyId)) {
+          console.error("[GroupChatPopup] Invalid editingReply.id:", editingReply.id);
+          setSending(false);
+          return;
+        }
         const payload = {
           type: "edit_group_reply",
-          reply_id: parseInt(editingReply.id),
+          reply_id: editReplyId,
           reply_message: messageText,
         };
 
@@ -889,17 +1007,30 @@ const GroupChatPopup = ({
           replyingTo.type === "reply" ||
           replyingTo.type === "group_message_reply";
 
+        const parentId = replyingTo.isOptimistic
+          ? Number(replyingTo.original_message_id)
+          : Number(replyingTo.id);
+        if (isNaN(parentId)) {
+          console.error(
+            "[GroupChatPopup] Invalid parent ID:",
+            replyingTo.id,
+            "Cannot send reply",
+          );
+          setSending(false);
+          return;
+        }
+
         const payload = isReplyingToReply
           ? {
               type: "reply_on_reply",
               group_id: group.id,
-              parent_reply_id: parseInt(replyingTo.id),
+              parent_reply_id: parentId,
               reply_content: messageText,
             }
           : {
               type: "group_message_reply",
               group_id: group.id,
-              original_message_id: parseInt(replyingTo.id),
+              original_message_id: parentId,
               reply_message: messageText,
             };
 
@@ -1029,6 +1160,67 @@ const GroupChatPopup = ({
     setEditMessageId(null);
   };
 
+  const handleForward = (message) => {
+    setForwardModal({ show: true, message });
+    // Lazy-fetch groups for the forward-to-group tab if not already fetched
+    if (allGroups.length === 0) {
+      getGroups()
+        .then((data) => setAllGroups(data))
+        .catch(() => {});
+    }
+  };
+
+  const handleForwardToUser = useCallback((message, recipientId) => {
+    if (!groupChatService.isInitialized()) return;
+
+    const isReply =
+      message.messageType === "reply" || message.type === "reply";
+
+    const payload = {
+      type: "forward_to_dm",
+      source_message_id: message.id,
+      source_type: isReply ? "group_reply" : "group_message",
+      recipient_id: recipientId,
+    };
+
+    chatService.sendMessage(payload);
+    toast.success("Message forwarded to user");
+    setForwardModal({ show: false, message: null });
+    setForwardSearch("");
+  }, []);
+
+  const handleForwardToGroup = useCallback((message, targetGroupId) => {
+    if (!groupChatService.isInitialized()) return;
+
+    const isReply =
+      message.messageType === "reply" || message.type === "reply";
+
+    if (isReply) {
+      const payload = {
+        type: "forward_reply",
+        source_reply_id: message.id,
+        target_group_id: targetGroupId,
+        is_reply: true,
+        original_message_id:
+          message.original_message_id || message.message_id,
+        parent_reply_id: message.parent_reply_id || null,
+      };
+      groupChatService.sendMessage(payload);
+    } else {
+      const payload = {
+        type: "forward_message",
+        source_message_id: message.id,
+        target_group_id: targetGroupId,
+        source_type: "group_message",
+      };
+      groupChatService.sendMessage(payload);
+    }
+
+    toast.success("Message forwarded to group");
+    setForwardModal({ show: false, message: null });
+    setForwardSearch("");
+  }, []);
+
   // Function to scroll to original message when clicking on reply context
   const scrollToMessage = (messageId) => {
     const messageElement = messageRefs.current[`message-${messageId}`];
@@ -1052,6 +1244,10 @@ const GroupChatPopup = ({
   };
 
   const deleteMessage = (messageId) => {
+    if (isNaN(parseInt(messageId))) {
+      console.error("[GroupChatPopup] Invalid messageId for delete:", messageId);
+      return;
+    }
     const messageToDelete = messages.find((m) => m.id === messageId);
     setDeleteModal({
       isOpen: true,
@@ -1062,6 +1258,11 @@ const GroupChatPopup = ({
   };
 
   const deleteReply = (replyId) => {
+    if (isNaN(parseInt(replyId))) {
+      console.error("[GroupChatPopup] Invalid replyId:", replyId);
+      return;
+    }
+
     // Find the reply in the messages
     let replyToDelete = null;
     messages.forEach((msg) => {
@@ -1085,9 +1286,14 @@ const GroupChatPopup = ({
     const { messageId, messageType } = deleteModal;
 
     if (messageType === "message") {
+      const delMsgId = parseInt(messageId);
+      if (isNaN(delMsgId)) {
+        console.error("[GroupChatPopup] Invalid messageId for delete:", messageId);
+        return;
+      }
       const payload = {
         type: "delete_group_message",
-        message_id: parseInt(messageId),
+        message_id: delMsgId,
       };
 
       if (groupChatService.sendMessage(payload)) {
@@ -1101,9 +1307,14 @@ const GroupChatPopup = ({
         toast.success("Message deleted successfully");
       }
     } else if (messageType === "reply") {
+      const delReplyId = parseInt(messageId);
+      if (isNaN(delReplyId)) {
+        console.error("[GroupChatPopup] Invalid replyId for delete:", messageId);
+        return;
+      }
       const payload = {
         type: "delete_group_reply",
-        reply_id: parseInt(messageId),
+        reply_id: delReplyId,
       };
 
       if (groupChatService.sendMessage(payload)) {
@@ -1359,6 +1570,27 @@ const GroupChatPopup = ({
       el.classList.add("chat-search-highlight");
     }
   };
+
+  // Group members as forward user candidates (exclude self)
+  const groupMemberForwardUsers = useMemo(() => {
+    return (group.group_members || [])
+      .filter((m) => m.id !== userId)
+      .map((m) => ({
+        id: m.id,
+        first_name: m.first_name,
+        last_name: m.last_name || "",
+        profile_picture: m.profile_picture || "",
+      }));
+  }, [group.group_members, userId]);
+
+  const filteredForwardUsers = useMemo(() => {
+    if (!forwardSearch) return groupMemberForwardUsers;
+    return groupMemberForwardUsers.filter((u) =>
+      `${u.first_name} ${u.last_name}`
+        .toLowerCase()
+        .includes(forwardSearch.toLowerCase()),
+    );
+  }, [groupMemberForwardUsers, forwardSearch]);
 
   // Click outside search bar to close
   useEffect(() => {
@@ -1916,87 +2148,99 @@ const GroupChatPopup = ({
                     justifyContent: isMe ? "flex-end" : "flex-start",
                   }}
                 >
-                  {/* Reply Icon and Menu - for messages only */}
-                  {isMe ? (
-                    <div className="group-chat-message-actions">
-                      <div
-                        className="message-dropdown-wrapper"
-                        ref={(el) => {
-                          if (el) messageDropdownRefs.current[item.id] = el;
-                        }}
-                      >
-                        <Button
-                          size="sm"
-                          variant="border-0"
-                          onClick={() =>
-                            setShowDropdownForMessageId(
-                              showDropdownForMessageId === item.id
-                                ? null
-                                : item.id,
-                            )
-                          }
-                          style={{
-                            padding: "4px 8px",
-                            fontSize: "13px",
-                            minWidth: "32px",
-                            height: "32px",
+                  {/* Message Actions (three-dot menu + reply + forward) */}
+                  <div className="group-chat-message-actions">
+                    {!isReply && (
+                      <>
+                        <div
+                          className="message-dropdown-wrapper"
+                          ref={(el) => {
+                            if (el) messageDropdownRefs.current[item.id] = el;
                           }}
                         >
-                          <i className="bi bi-three-dots-vertical"></i>
-                        </Button>
-                        {showDropdownForMessageId === item.id && (
-                          <div className="message-dropdown-menu">
-                            <button
-                              onClick={() => {
-                                setMessageInfoModal({
-                                  isOpen: true,
-                                  message: item,
-                                });
-                                setShowDropdownForMessageId(null);
-                              }}
-                            >
-                              <i className="bi bi-info-circle me-2"></i>
-                              Info
-                            </button>
-
-                            <button
-                              onClick={() => {
-                                startEditing(item);
-                                setShowDropdownForMessageId(null);
-                              }}
-                            >
-                              <i className="bi bi-pencil me-2"></i>
-                              Edit
-                            </button>
-
-                            <button
-                              onClick={() => {
-                                deleteMessage(item.id);
-                                setShowDropdownForMessageId(null);
-                              }}
-                              style={{ color: "#dc3545" }}
-                            >
-                              <i className="bi bi-trash me-2"></i>
-                              Delete
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                      <Button
-                        size="lg"
-                        variant="border-0"
-                        onClick={() => handleReply(item)}
-                        style={{
-                          padding: "4px 8px",
-                          fontSize: "15px",
-                          minWidth: "32px",
-                          height: "32px",
-                        }}
-                      >
-                        <i className="bi bi-reply"></i>
-                      </Button>
-                    </div>
-                  ) : null}
+                          <button
+                            className="message-dropdown-toggle"
+                            onClick={() =>
+                              setShowDropdownForMessageId(
+                                showDropdownForMessageId === item.id
+                                  ? null
+                                  : item.id,
+                              )
+                            }
+                          >
+                            <i className="bi bi-three-dots-vertical"></i>
+                          </button>
+                          {showDropdownForMessageId === item.id && (
+                            <div className="message-dropdown-menu">
+                              {isMe ? (
+                                <>
+                                  <button
+                                    onClick={() => {
+                                      setMessageInfoModal({
+                                        isOpen: true,
+                                        message: item,
+                                      });
+                                      setShowDropdownForMessageId(null);
+                                    }}
+                                  >
+                                    <i className="bi bi-info-circle"></i>
+                                    Info
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      startEditing(item);
+                                      setShowDropdownForMessageId(null);
+                                    }}
+                                  >
+                                    <i className="bi bi-pencil"></i>
+                                    Edit
+                                  </button>
+                                  <div className="dropdown-divider" />
+                                  <button
+                                    className="dropdown-action-danger"
+                                    onClick={() => {
+                                      deleteMessage(item.id);
+                                      setShowDropdownForMessageId(null);
+                                    }}
+                                  >
+                                    <i className="bi bi-trash"></i>
+                                    Delete
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  <button
+                                    onClick={() => {
+                                      setMessageInfoModal({
+                                        isOpen: true,
+                                        message: item,
+                                      });
+                                      setShowDropdownForMessageId(null);
+                                    }}
+                                  >
+                                    <i className="bi bi-info-circle"></i>
+                                    Info
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                        <button
+                          className="message-reply-btn"
+                          onClick={() => handleReply(item)}
+                        >
+                          <i className="bi bi-reply"></i>
+                        </button>
+                      </>
+                    )}
+                    <button
+                      className="message-forward-btn"
+                      onClick={() => handleForward(item)}
+                    >
+                      <i className="bi bi-forward"></i>
+                    </button>
+                  </div>
 
                   {/* Message/Reply Content Bubble */}
                   <div
@@ -2006,7 +2250,7 @@ const GroupChatPopup = ({
                       color: isMe ? "#fff" : "#212529",
                       padding: "10px 14px",
                       borderRadius: "18px",
-                      maxWidth: "75%",
+                      maxWidth: "calc(100% - 56px)",
                       border: isMe ? "none" : "1px solid #dee2e6",
                       wordBreak: "break-word",
                       overflowWrap: "anywhere",
@@ -2175,24 +2419,7 @@ const GroupChatPopup = ({
                       )}
                   </div>
 
-                  {/* Reply button for received messages */}
-                  {!isReply && !isMe ? (
-                    <div style={{ order: 2, marginRight: "8px" }}>
-                      <Button
-                        size="sm"
-                        variant="border-0"
-                        onClick={() => handleReply(item)}
-                        style={{
-                          padding: "4px 8px",
-                          fontSize: "15px",
-                          minWidth: "32px",
-                          height: "32px",
-                        }}
-                      >
-                        <i className="bi bi-reply"></i>
-                      </Button>
-                    </div>
-                  ) : null}
+                  {/* Reply button is now in actions above */}
                 </div>                </div>
               </React.Fragment>
             );
@@ -2504,14 +2731,36 @@ const GroupChatPopup = ({
         </Form>
       </div>
 
-      {messageInfoModal.isOpen && (
-        <MessageInfoModal
-          isOpen={messageInfoModal.isOpen}
-          onClose={() => setMessageInfoModal({ isOpen: false, message: null })}
-          message={messageInfoModal.message}
-          group={group}
-        />
-      )}
+      <MessageInfoModal
+        isOpen={messageInfoModal.isOpen}
+        message={messageInfoModal.message}
+        groupMembers={group.group_members}
+        onClose={() => setMessageInfoModal({ isOpen: false, message: null })}
+      />
+
+      {/* Forward Message Modal */}
+      <ForwardMessageModal
+        show={forwardModal.show}
+        onClose={() => {
+          setForwardModal({ show: false, message: null });
+          setForwardSearch("");
+        }}
+        forwardMessage={forwardModal.message}
+        forwardSearch={forwardSearch}
+        setForwardSearch={setForwardSearch}
+        recentForwardUsers={[]}
+        allForwardUsers={filteredForwardUsers}
+        onForward={(messageId, recipientId) => {
+          if (forwardModal.message) {
+            handleForwardToUser(forwardModal.message, recipientId);
+          }
+        }}
+        groups={allGroups.filter((g) => g.id !== group.id)}
+        onForwardToGroup={(msg, groupId) => {
+          handleForwardToGroup(msg, groupId);
+        }}
+        currentGroupId={group.id}
+      />
     </div>
   );
 };

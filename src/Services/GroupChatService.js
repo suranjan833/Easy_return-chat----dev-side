@@ -379,6 +379,18 @@ class GroupChatService {
           console.log("[GroupChatService] 🔔 System message:", data);
           this.updateMetadata(data.group_id, data.created_at);
           this.notifySubscribers("system_message", data);
+        } else if (data.type === "error") {
+          console.error("[GroupChatService] ❌ Server error:", data.message);
+          this.notifySubscribers("error", data);
+        } else if (data.type === "edit_group_message") {
+          console.log("[GroupChatService] ✏️ Message edited:", data);
+          this.notifySubscribers("group_message_edit", data);
+        } else if (data.type === "edit_group_reply") {
+          console.log("[GroupChatService] ✏️ Reply edited:", data);
+          this.notifySubscribers("group_reply_edit", data);
+        } else if (data.type === "reply_on_reply") {
+          console.log("[GroupChatService] 💬 Reply-on-reply:", data);
+          this.notifySubscribers("group_message_reply", data);
         } else {
           console.log(
             "[GroupChatService] ⚠️ Unhandled message type:",
