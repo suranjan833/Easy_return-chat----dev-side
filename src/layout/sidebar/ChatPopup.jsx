@@ -27,8 +27,6 @@ const ChatPopup = ({ user, onClose, initialPosition, index }) => {
   const direct = useContext(DirectChatContext);
   const groupChat = useContext(GroupChatContext);
 
-  console.log("GROUP CHAT CONTEXT =", groupChat);
-  console.log("GROUPS =", groupChat?.groups);
   const dispatch = useDispatch();
 
   // ── drag state only ──

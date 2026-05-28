@@ -1,7 +1,7 @@
 import "bootstrap-icons/font/bootstrap-icons.css";
 import { formatDistanceToNow } from "date-fns";
 import EmojiPicker from "emoji-picker-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Button, Form } from "react-bootstrap";
 import { useLocation, useNavigate } from "react-router-dom"; // Import useNavigate and useLocation
 import { toast } from "react-toastify";
@@ -67,7 +67,15 @@ const GroupChatPopup = ({
     useState(88); // Default for input area only
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [isDraggingFiles, setIsDraggingFiles] = useState(false);
+  const [showUnreadDivider, setShowUnreadDivider] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
+  const matchElementsRef = useRef([]);
+  const searchRef = useRef(null);
+  const searchInputRef = useRef(null);
   const messagesEndRef = useRef(null);
+  const unreadDividerRef = useRef(null);
   const chatWindowRef = useRef(null);
   const fileInputRef = useRef(null);
   const contentEditableRef = useRef(null); // New ref for contentEditable div
@@ -283,15 +291,6 @@ const GroupChatPopup = ({
     });
   };
 
-  useEffect(() => {
-    if (initialLoadComplete && !hasScrolledToUnread && messages.length > 0) {
-      setTimeout(() => {
-        scrollToBottom();
-      }, 0);
-      setHasScrolledToUnread(true);
-    }
-  }, [messages, initialLoadComplete, hasScrolledToUnread]);
-
   const sortMessages = (messages) => {
     return messages.sort(
       (a, b) =>
@@ -334,6 +333,47 @@ const GroupChatPopup = ({
         new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
     );
   }, [messages]);
+
+  // Detect unread messages, show divider, and scroll to it
+  useEffect(() => {
+    if (!initialLoadComplete || hasScrolledToUnread || allMessages.length === 0) return;
+
+    const hasUnread = allMessages.some((item) => {
+      const isMe =
+        item.messageType === "reply"
+          ? item?.user?.id === userId
+          : item.sender_id === userId;
+      return !isMe && !item.is_read;
+    });
+
+    if (hasUnread) {
+      setShowUnreadDivider(true);
+      // Defer scroll to let React render the divider first
+      const timer = setTimeout(() => {
+        if (unreadDividerRef.current) {
+          unreadDividerRef.current.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+          });
+        } else {
+          scrollToBottom();
+        }
+        setHasScrolledToUnread(true);
+      }, 120);
+      return () => clearTimeout(timer);
+    } else {
+      setShowUnreadDivider(false);
+      setHasScrolledToUnread(true);
+      scrollToBottom();
+    }
+  }, [initialLoadComplete, allMessages, userId, hasScrolledToUnread]);
+
+  // Auto-hide the unread divider after 10.5 seconds
+  useEffect(() => {
+    if (!showUnreadDivider) return;
+    const timer = setTimeout(() => setShowUnreadDivider(false), 10500);
+    return () => clearTimeout(timer);
+  }, [showUnreadDivider]);
 
   // Subscribe to GroupChatService events
   useEffect(() => {
@@ -1250,6 +1290,111 @@ const GroupChatPopup = ({
     };
   }, [messageText]);
 
+  // ── Search functions ──
+  const handleSearchChange = (e) => {
+    const query = e.target.value.toLowerCase();
+    setSearchQuery(query);
+    setCurrentMatchIndex(0);
+
+    document.querySelectorAll(".chat-search-highlight").forEach((h) => {
+      h.classList.remove("chat-search-highlight");
+    });
+
+    if (!query) {
+      matchElementsRef.current = [];
+      return;
+    }
+
+    const container = chatWindowRef.current?.querySelector(
+      ".group-chat-messages",
+    );
+    if (!container) return;
+    const messageEls = container.querySelectorAll('[id^="msg-"]');
+    const matches = Array.from(messageEls).filter((el) =>
+      el.textContent.toLowerCase().includes(query),
+    );
+    matchElementsRef.current = matches;
+
+    if (matches.length > 0) {
+      matches[0].scrollIntoView({ behavior: "smooth", block: "center" });
+      highlightMatch(matches[0]);
+    }
+  };
+
+  const navigateSearch = (direction) => {
+    const matches = matchElementsRef.current;
+    if (matches.length === 0) return;
+
+    let newIndex;
+    if (direction === "up") {
+      newIndex =
+        currentMatchIndex <= 0 ? matches.length - 1 : currentMatchIndex - 1;
+    } else {
+      newIndex =
+        currentMatchIndex >= matches.length - 1 ? 0 : currentMatchIndex + 1;
+    }
+
+    setCurrentMatchIndex(newIndex);
+    matches[newIndex].scrollIntoView({ behavior: "smooth", block: "center" });
+    highlightMatch(matches[newIndex]);
+  };
+
+  const handleSearchKeyDown = (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      navigateSearch(e.shiftKey ? "up" : "down");
+    }
+    if (e.key === "Escape") {
+      setShowSearch(false);
+      setSearchQuery("");
+      matchElementsRef.current = [];
+    }
+  };
+
+  const highlightMatch = (el) => {
+    document.querySelectorAll(".chat-search-highlight").forEach((h) => {
+      h.classList.remove("chat-search-highlight");
+    });
+    if (el) {
+      el.classList.add("chat-search-highlight");
+    }
+  };
+
+  // Click outside search bar to close
+  useEffect(() => {
+    if (!showSearch) return;
+
+    const handleClickOutside = (event) => {
+      if (
+        searchRef.current &&
+        !searchRef.current.contains(event.target)
+      ) {
+        // Don't close if clicking the search toggle button
+        const toggle = chatWindowRef.current?.querySelector(
+          '[title="Search messages"]',
+        );
+        if (toggle && toggle.contains(event.target)) return;
+        setShowSearch(false);
+      }
+    };
+
+    const timer = setTimeout(() => {
+      document.addEventListener("mousedown", handleClickOutside);
+    }, 0);
+
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showSearch]);
+
+  // Auto-focus search input when shown
+  useEffect(() => {
+    if (showSearch && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [showSearch]);
+
   return (
     <div
       ref={chatWindowRef}
@@ -1368,6 +1513,36 @@ const GroupChatPopup = ({
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: "4px" }}>
           <button
+            onClick={() => {
+              if (!showSearch) {
+                setSearchQuery("");
+                matchElementsRef.current = [];
+                setCurrentMatchIndex(0);
+              }
+              setShowSearch((prev) => !prev);
+            }}
+            style={{
+              background: "none",
+              border: "none",
+              color: "#fff",
+              fontSize: "14px",
+              cursor: "pointer",
+              padding: "0",
+              width: "24px",
+              height: "24px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              opacity: 0.8,
+              transition: "opacity 0.2s",
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
+            onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.8")}
+            title="Search messages"
+          >
+            <i className="bi bi-search" style={{ fontSize: "13px" }} />
+          </button>
+          <button
             onClick={() => onClose(group.id)}
             style={{
               background: "none",
@@ -1387,6 +1562,64 @@ const GroupChatPopup = ({
           </button>
         </div>
       </div>
+
+      {/* ── Search Bar ── */}
+      {showSearch && (
+        <div
+          className="group-chat-popup-search-bar"
+          ref={searchRef}
+        >
+          <div className="group-chat-popup-search-input-wrap">
+            <i className="bi bi-search group-chat-popup-search-icon" />
+            <input
+              ref={searchInputRef}
+              type="text"
+              className="group-chat-popup-search-input"
+              placeholder="Search messages…"
+              aria-label="Search messages"
+              value={searchQuery}
+              onChange={handleSearchChange}
+              onKeyDown={handleSearchKeyDown}
+            />
+            {searchQuery && (
+              <span className="group-chat-popup-search-count">
+                {matchElementsRef.current.length > 0
+                  ? `${currentMatchIndex + 1} of ${matchElementsRef.current.length}`
+                  : "No matches"}
+              </span>
+            )}
+          </div>
+          {searchQuery && matchElementsRef.current.length > 0 && (
+            <div className="group-chat-popup-search-nav">
+              <button
+                className="group-chat-popup-search-nav-btn"
+                onClick={() => navigateSearch("up")}
+                title="Previous match"
+              >
+                <i className="bi bi-chevron-up" />
+              </button>
+              <button
+                className="group-chat-popup-search-nav-btn"
+                onClick={() => navigateSearch("down")}
+                title="Next match"
+              >
+                <i className="bi bi-chevron-down" />
+              </button>
+            </div>
+          )}
+          <button
+            className="group-chat-popup-search-close"
+            onClick={() => {
+              setShowSearch(false);
+              setSearchQuery("");
+              matchElementsRef.current = [];
+            }}
+            title="Close search"
+          >
+            <i className="bi bi-x" />
+          </button>
+        </div>
+      )}
 
       {/* Members Dropdown */}
       {showMembersDropdown &&
@@ -1520,11 +1753,25 @@ const GroupChatPopup = ({
             // Skip deleted messages
 
             return (
+              <React.Fragment key={`${item.messageType}-${item.id}`}>
+                {/* Unread divider — shown before the first unread message */}
+                {isFirstUnread && showUnreadDivider && (
+                  <div
+                    ref={unreadDividerRef}
+                    className="group-chat-unread-divider"
+                  >
+                    <div className="group-chat-unread-divider-line" />
+                    <span className="group-chat-unread-divider-text">
+                      Unread messages
+                    </span>
+                    <div className="group-chat-unread-divider-line" />
+                  </div>
+                )}
               <div
+                id={`msg-${item.messageType}-${item.id}`}
                 className={`group-chat-message-item ${
                   i === 0 ? "group-chat-message-item-first" : ""
                 }`}
-                key={`${item.messageType}-${item.id}`}
                 ref={(el) => {
                   if (el) {
                     // Store ref for both messages and replies
@@ -1946,8 +2193,8 @@ const GroupChatPopup = ({
                       </Button>
                     </div>
                   ) : null}
-                </div>
-              </div>
+                </div>                </div>
+              </React.Fragment>
             );
           })
         )}

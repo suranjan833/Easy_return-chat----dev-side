@@ -162,6 +162,14 @@ export default function GroupChatBody() {
   const [forwardSearch, setForwardSearch] = useState("");
   const [initialUnreadId, setInitialUnreadId] = useState(null);
 
+  // ── Search state ──
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
+  const matchElementsRef = useRef([]);
+  const searchRef = useRef(null);
+  const searchInputRef = useRef(null);
+
   const dispatch = useDispatch();
   const { openChatPopups, openGroupChatPopups, openSupportChatPopups } =
     useSelector((state) => state.chatPopups);
@@ -466,6 +474,118 @@ export default function GroupChatBody() {
     prevMessagesLength.current = len;
   }, [messages]);
 
+  // ── Search functions ──
+  const handleSearchChange = (e) => {
+    const query = e.target.value.toLowerCase();
+    setSearchQuery(query);
+    setCurrentMatchIndex(0);
+
+    // Clear highlights
+    document.querySelectorAll(".chat-search-highlight").forEach((h) => {
+      h.classList.remove("chat-search-highlight");
+    });
+
+    if (!query) {
+      matchElementsRef.current = [];
+      return;
+    }
+
+    // Search against the data array (message text only), not DOM textContent
+    // This avoids false matches from timestamps, delivery info, user names, etc.
+    const matchedMessages = (messages || []).filter((m) => {
+      const text = (
+        m.message ||
+        m.reply_message ||
+        m.content ||
+        ""
+      ).toLowerCase();
+      return text.includes(query);
+    });
+
+    // Find corresponding DOM elements by id
+    const elements = matchedMessages
+      .map((m) => document.getElementById(`message-${m.id}`))
+      .filter(Boolean);
+
+    matchElementsRef.current = elements;
+
+    if (elements.length > 0) {
+      elements[0].scrollIntoView({ behavior: "smooth", block: "center" });
+      highlightMatch(elements[0]);
+    }
+  };
+
+  const navigateSearch = (direction) => {
+    const matches = matchElementsRef.current;
+    if (matches.length === 0) return;
+
+    let newIndex;
+    if (direction === "up") {
+      newIndex =
+        currentMatchIndex <= 0 ? matches.length - 1 : currentMatchIndex - 1;
+    } else {
+      newIndex =
+        currentMatchIndex >= matches.length - 1 ? 0 : currentMatchIndex + 1;
+    }
+
+    setCurrentMatchIndex(newIndex);
+    matches[newIndex].scrollIntoView({ behavior: "smooth", block: "center" });
+    highlightMatch(matches[newIndex]);
+  };
+
+  const handleSearchKeyDown = (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      navigateSearch(e.shiftKey ? "up" : "down");
+    }
+    if (e.key === "Escape") {
+      setShowSearch(false);
+      setSearchQuery("");
+      matchElementsRef.current = [];
+    }
+  };
+
+  const highlightMatch = (el) => {
+    document.querySelectorAll(".chat-search-highlight").forEach((h) => {
+      h.classList.remove("chat-search-highlight");
+    });
+    if (el) {
+      el.classList.add("chat-search-highlight");
+    }
+  };
+
+  // Click outside search bar to close
+  useEffect(() => {
+    if (!showSearch) return;
+
+    const handleClickOutside = (event) => {
+      if (
+        searchRef.current &&
+        !searchRef.current.contains(event.target)
+      ) {
+        const toggle = document.querySelector(".group-chat-search-toggle");
+        if (toggle && toggle.contains(event.target)) return;
+        setShowSearch(false);
+      }
+    };
+
+    const timer = setTimeout(() => {
+      document.addEventListener("mousedown", handleClickOutside);
+    }, 0);
+
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showSearch]);
+
+  // Auto-focus search input when shown
+  useEffect(() => {
+    if (showSearch && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [showSearch]);
+
   if (!activeGroup) {
     return (
       <div className="nk-chat-body">
@@ -575,14 +695,86 @@ export default function GroupChatBody() {
             </div>
           </li>
         </ul>
-        <button
-          className="btn btn-sm btn-icon"
-          onClick={handleMinimize}
-          title="Minimize"
-        >
-          <i className="bi bi-dash-lg" />
-        </button>
+        <div className="nk-chat-head-actions">
+          <button
+            className="btn btn-sm btn-icon group-chat-search-toggle"
+            onClick={() => {
+              if (!showSearch) {
+                setSearchQuery("");
+                matchElementsRef.current = [];
+                setCurrentMatchIndex(0);
+              }
+              setShowSearch((prev) => !prev);
+            }}
+            title="Search"
+          >
+            <i className="bi bi-search" />
+          </button>
+          <button
+            className="btn btn-sm btn-icon"
+            onClick={handleMinimize}
+            title="Minimize"
+          >
+            <i className="bi bi-dash-lg" />
+          </button>
+        </div>
       </div>
+
+      {/* ── Search Bar ── */}
+      {showSearch && (
+        <div className="group-chat-search-bar" ref={searchRef}>
+          <div className="group-chat-search-input-wrap">
+            <i className="bi bi-search group-chat-search-icon" />
+            <input
+              ref={searchInputRef}
+              type="text"
+              className="group-chat-search-input"
+              placeholder="Search messages…"
+              aria-label="Search messages"
+              value={searchQuery}
+              onChange={handleSearchChange}
+              onKeyDown={handleSearchKeyDown}
+            />
+            {searchQuery && (
+              <span className="group-chat-search-count">
+                {matchElementsRef.current.length > 0
+                  ? `${currentMatchIndex + 1} of ${matchElementsRef.current.length}`
+                  : "No matches"}
+              </span>
+            )}
+          </div>
+          {searchQuery && matchElementsRef.current.length > 0 && (
+            <div className="group-chat-search-nav">
+              <button
+                className="btn btn-sm btn-icon group-chat-search-nav-btn"
+                onClick={() => navigateSearch("up")}
+                title="Previous match"
+              >
+                <i className="bi bi-chevron-up" />
+              </button>
+              <button
+                className="btn btn-sm btn-icon group-chat-search-nav-btn"
+                onClick={() => navigateSearch("down")}
+                title="Next match"
+              >
+                <i className="bi bi-chevron-down" />
+              </button>
+            </div>
+          )}
+          <button
+            className="btn btn-sm btn-icon group-chat-search-close"
+            onClick={() => {
+              setShowSearch(false);
+              setSearchQuery("");
+              matchElementsRef.current = [];
+            }}
+            title="Close search"
+          >
+            <i className="bi bi-x" />
+          </button>
+        </div>
+      )}
+
       <SimpleBar
         className="nk-chat-panel"
         style={{
@@ -630,7 +822,7 @@ export default function GroupChatBody() {
           };
 
           const messageNode = (
-            <div id={`message-${m.id}`} key={`message-${m.id}-${idx}`}>
+            <div key={`message-${m.id}-${idx}`}>
               {m.id === initialUnreadId && (
                 <div
                   style={{
