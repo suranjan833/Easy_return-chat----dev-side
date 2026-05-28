@@ -1628,7 +1628,7 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
                 <DropdownMenu end>
                   <ul className="link-list-opt no-bdr">
                     <li>
-                      <DropdownItem tag="a" href="#" onClick={(e) => { e.preventDefault(); navigate("/messages"); }}>
+                      <DropdownItem tag="a" href="#" onClick={(e) => { e.preventDefault(); navigate("/messages?tab=Chats"); }}>
                         <span>Messages</span>
                       </DropdownItem>
                     </li>
