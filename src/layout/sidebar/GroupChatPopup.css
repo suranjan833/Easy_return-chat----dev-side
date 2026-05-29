@@ -34,13 +34,6 @@
   position: relative;
 }
 
-.group-chat-message-actions {
-  display: flex;
-  flex-direction: column;
-  flex: 0 0 32px;
-  align-items: center;
-}
-
 .group-chat-message-bubble {
   min-width: 0;
   overflow-wrap: anywhere;
@@ -75,12 +68,6 @@
   flex-direction: column;
   flex: 0 0 32px;
   align-items: center;
-  opacity: 0;
-  transition: opacity 0.15s ease;
-}
-
-.group-chat-message-item:hover .group-chat-message-actions {
-  opacity: 1;
 }
 
 /* =========================

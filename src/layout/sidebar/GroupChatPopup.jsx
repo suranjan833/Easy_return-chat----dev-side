@@ -1,7 +1,13 @@
 import "bootstrap-icons/font/bootstrap-icons.css";
 import { formatDistanceToNow } from "date-fns";
 import EmojiPicker from "emoji-picker-react";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Button, Form } from "react-bootstrap";
 import { useLocation, useNavigate } from "react-router-dom"; // Import useNavigate and useLocation
 import { toast } from "react-toastify";
@@ -75,7 +81,7 @@ const GroupChatPopup = ({
     useState(88); // Default for input area only
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [isDraggingFiles, setIsDraggingFiles] = useState(false);
-  const [showUnreadDivider, setShowUnreadDivider] = useState(false);
+  const [initialUnreadId, setInitialUnreadId] = useState(null);
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
@@ -96,7 +102,6 @@ const GroupChatPopup = ({
 
   const location = useLocation(); // Initialize useLocation
   const firstUnreadMessageRef = useRef(null);
-  const [hasScrolledToUnread, setHasScrolledToUnread] = useState(false);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   const pendingMentionsRef = useRef([]); // Ref to track pending mentions
   const messageRefs = useRef({}); // Ref to store message elements for navigation
@@ -342,11 +347,12 @@ const GroupChatPopup = ({
     );
   }, [messages]);
 
-  // Detect unread messages, show divider, and scroll to it
+  // Detect first unread message on initial load, scroll to it
   useEffect(() => {
-    if (!initialLoadComplete || hasScrolledToUnread || allMessages.length === 0) return;
+    if (!initialLoadComplete || initialUnreadId || allMessages.length === 0)
+      return;
 
-    const hasUnread = allMessages.some((item) => {
+    const firstUnread = allMessages.find((item) => {
       const isMe =
         item.messageType === "reply"
           ? item?.user?.id === userId
@@ -354,8 +360,8 @@ const GroupChatPopup = ({
       return !isMe && !item.is_read;
     });
 
-    if (hasUnread) {
-      setShowUnreadDivider(true);
+    if (firstUnread) {
+      setInitialUnreadId(firstUnread.id);
       // Defer scroll to let React render the divider first
       const timer = setTimeout(() => {
         if (unreadDividerRef.current) {
@@ -366,14 +372,10 @@ const GroupChatPopup = ({
         } else {
           scrollToBottom();
         }
-        setHasScrolledToUnread(true);
       }, 120);
       return () => clearTimeout(timer);
     } else {
-      setShowUnreadDivider(false);
-      setHasScrolledToUnread(true);
-      // Instant scroll to bottom (no smooth animation) when no unread messages
-      // to avoid the jarring "top to bottom" animation
+      // Instant scroll to bottom when no unread messages
       const messagesArea = chatWindowRef.current?.querySelector(
         ".group-chat-messages",
       );
@@ -381,14 +383,23 @@ const GroupChatPopup = ({
         messagesArea.scrollTop = messagesArea.scrollHeight;
       }
     }
-  }, [initialLoadComplete, allMessages, userId, hasScrolledToUnread]);
+  }, [initialLoadComplete, allMessages, userId]);
 
-  // Auto-hide the unread divider after 10.5 seconds
+  // Clear initialUnreadId when that message becomes read
   useEffect(() => {
-    if (!showUnreadDivider) return;
-    const timer = setTimeout(() => setShowUnreadDivider(false), 10500);
-    return () => clearTimeout(timer);
-  }, [showUnreadDivider]);
+    if (!initialUnreadId) return;
+
+    const item = allMessages.find((m) => m.id === initialUnreadId);
+    if (item) {
+      const isMe =
+        item.messageType === "reply"
+          ? item?.user?.id === userId
+          : item.sender_id === userId;
+      if (isMe || item.is_read) {
+        setInitialUnreadId(null);
+      }
+    }
+  }, [allMessages, initialUnreadId, userId]);
 
   // Subscribe to GroupChatService events
   useEffect(() => {
@@ -401,8 +412,8 @@ const GroupChatPopup = ({
       if (data.groupId !== group.id) return;
 
       const newMsg = {
-        id: data.message.id,
-        group_id: data.message.group_id,
+        id: Number(data.message.id),
+        group_id: Number(data.message.group_id),
         content: data.message.message || data.message.content || "",
         attachment: data.message.attachment || null,
         created_at: data.message.created_at || new Date().toISOString(),
@@ -418,7 +429,7 @@ const GroupChatPopup = ({
             data.message.user?.last_name ||
             "",
         },
-        sender_id: parseInt(data.message.sender_id),
+        sender_id: Number(data.message.sender_id),
         is_read: data.message.is_read || false, // Add is_read property
         read: data.message.read || false, // Add read property
         read_at: data.message.read_at || null, // Add read_at property
@@ -497,7 +508,7 @@ const GroupChatPopup = ({
 
       // Must match the correct group (data.group_id or data.groupId)
       const replyGroupId = replyData.group_id || replyData.groupId;
-      if (replyGroupId && replyGroupId !== group.id) return;
+      if (replyGroupId && Number(replyGroupId) !== Number(group.id)) return;
 
       // Skip invalid events — must have an id and sender
       if (!replyData.id || !(replyData.user_id || replyData.sender_id)) return;
@@ -506,7 +517,8 @@ const GroupChatPopup = ({
       // Support both original_message_id (reply to message) and parent_reply_id (reply-on-reply).
       // For reply-on-reply: if only parent_reply_id is given, we need to find which message
       // contains that parent reply in its replies_mentions array.
-      const rawParentId = replyData.original_message_id || replyData.parent_reply_id;
+      const rawParentId =
+        replyData.original_message_id || replyData.parent_reply_id;
       if (!rawParentId) return;
 
       const parentMsgId = parseInt(rawParentId);
@@ -519,7 +531,7 @@ const GroupChatPopup = ({
           replyData.parent_reply_id && !replyData.original_message_id;
         if (parentIsReply) {
           const containerMsg = prev.find((m) =>
-            m.replies_mentions?.some((r) => r.id === parentMsgId),
+            m.replies_mentions?.some((r) => Number(r.id) === Number(parentMsgId)),
           );
           if (containerMsg) {
             targetMessageId = containerMsg.id;
@@ -528,22 +540,21 @@ const GroupChatPopup = ({
         }
 
         const newMessages = prev.map((msg) => {
-          if (msg.id !== targetMessageId) return msg;
+          if (Number(msg.id) !== Number(targetMessageId)) return msg;
 
           const existingReplies = msg.replies_mentions || [];
-          if (existingReplies.some((reply) => reply.id === replyData.id)) {
+          if (existingReplies.some((reply) => Number(reply.id) === Number(replyData.id))) {
             return msg; // Avoid duplicate replies
           }
 
-          const originalMessage = prev.find(
-            (m) => m.id === targetMessageId,
-          );
+          const originalMessage = prev.find((m) => Number(m.id) === Number(targetMessageId));
           const replySender = group.group_members.find(
-            (member) => member.id === parseInt(replyData.user_id || replyData.sender_id),
+            (member) =>
+              Number(member.id) === parseInt(replyData.user_id || replyData.sender_id),
           );
 
           const newReply = {
-            id: replyData.id,
+            id: Number(replyData.id),
             type: "reply",
             created_at: replyData.created_at,
             updated_at: replyData.updated_at,
@@ -557,26 +568,47 @@ const GroupChatPopup = ({
                     profile_picture: "",
                   }
                 : replySender || {
-                    id: replyData.user?.id || replyData.sender?.id || parseInt(replyData.user_id || replyData.sender_id),
-                    first_name: replyData.user?.first_name || replyData.sender?.first_name || "Unknown",
-                    last_name: replyData.user?.last_name || replyData.sender?.last_name || "",
-                    email: replyData.user?.email || replyData.sender?.email || "",
-                    profile_picture: replyData.user?.profile_picture || replyData.sender?.profile_picture || "",
+                    id:
+                      replyData.user?.id ||
+                      replyData.sender?.id ||
+                      parseInt(replyData.user_id || replyData.sender_id),
+                    first_name:
+                      replyData.user?.first_name ||
+                      replyData.sender?.first_name ||
+                      "Unknown",
+                    last_name:
+                      replyData.user?.last_name ||
+                      replyData.sender?.last_name ||
+                      "",
+                    email:
+                      replyData.user?.email || replyData.sender?.email || "",
+                    profile_picture:
+                      replyData.user?.profile_picture ||
+                      replyData.sender?.profile_picture ||
+                      "",
                   },
             user_id: parseInt(replyData.user_id || replyData.sender_id),
-            original_message_id: targetMessageId,
+            original_message_id: Number(targetMessageId),
             original_message_content: originalMessage
               ? originalMessage.content
               : "Original message not found",
-            reply_message: replyData.reply_message || replyData.content || replyData.message || "",
+            reply_message:
+              replyData.reply_message ||
+              replyData.content ||
+              replyData.message ||
+              "",
           };
 
           // Check for temporary reply to replace
           const tempReplyIndex = existingReplies.findIndex(
             (r) =>
               r.tempId &&
-              r.user_id === parseInt(replyData.user_id || replyData.sender_id) &&
-              r.reply_message === (replyData.reply_message || replyData.content || replyData.message),
+              r.user_id ===
+                parseInt(replyData.user_id || replyData.sender_id) &&
+              r.reply_message ===
+                (replyData.reply_message ||
+                  replyData.content ||
+                  replyData.message),
           );
 
           if (tempReplyIndex !== -1) {
@@ -786,7 +818,10 @@ const GroupChatPopup = ({
       groupChatService.unsubscribe("group_typing", handleTyping);
       groupChatService.unsubscribe("connection", handleConnection);
       groupChatService.unsubscribe("error", handleError);
-      groupChatService.unsubscribe("group_message_read", handleGroupMessageRead);
+      groupChatService.unsubscribe(
+        "group_message_read",
+        handleGroupMessageRead,
+      );
       groupChatService.unsubscribe("group_reply_read", handleGroupReplyRead);
     };
   }, [group, userId]);
@@ -799,8 +834,8 @@ const GroupChatPopup = ({
       const sortedMessages = sortMessages(
         backendMessages.map((msg) => {
           const mappedMsg = {
-            id: msg.id,
-            group_id: msg.group_id,
+            id: Number(msg.id),
+            group_id: Number(msg.group_id),
             // API returns "message" field (not "content") — same normalization as GroupChatContext
             content: msg.message || msg.content || "",
             attachment: msg.attachment || null,
@@ -808,7 +843,7 @@ const GroupChatPopup = ({
             updated_at: msg.updated_at,
             // API returns sender under msg.sender (not msg.user) — align with GroupChatContext
             user: {
-              id: msg.sender?.id || msg.sender_id || 0,
+              id: Number(msg.sender?.id || msg.sender_id || 0),
               first_name:
                 msg.sender?.first_name || msg.user?.first_name || "Unknown",
               last_name: msg.sender?.last_name || msg.user?.last_name || "",
@@ -816,7 +851,7 @@ const GroupChatPopup = ({
               profile_picture:
                 msg.sender?.profile_picture || msg.user?.profile_picture || "",
             },
-            sender_id: msg.sender_id || msg.sender?.id || 0,
+            sender_id: Number(msg.sender_id || msg.sender?.id || 0),
             is_read: msg.is_read || false,
             read: msg.read || false,
             read_at: msg.read_at || null,
@@ -846,7 +881,7 @@ const GroupChatPopup = ({
                       },
                 original_message_content:
                   backendMessages.find(
-                    (m) => m.id === reply.original_message_id,
+                    (m) => Number(m.id) === Number(reply.original_message_id),
                   )?.message || "Original message not found",
                 reply_message: reply.reply_message || "Reply deleted", // Ensure reply_message is set for deleted replies
               };
@@ -921,7 +956,10 @@ const GroupChatPopup = ({
       if (editMessageId) {
         const msgId = parseInt(editMessageId);
         if (isNaN(msgId)) {
-          console.error("[GroupChatPopup] Invalid editMessageId:", editMessageId);
+          console.error(
+            "[GroupChatPopup] Invalid editMessageId:",
+            editMessageId,
+          );
           setSending(false);
           return;
         }
@@ -958,7 +996,10 @@ const GroupChatPopup = ({
       if (editingReply) {
         const editReplyId = parseInt(editingReply.id);
         if (isNaN(editReplyId)) {
-          console.error("[GroupChatPopup] Invalid editingReply.id:", editingReply.id);
+          console.error(
+            "[GroupChatPopup] Invalid editingReply.id:",
+            editingReply.id,
+          );
           setSending(false);
           return;
         }
@@ -1032,9 +1073,8 @@ const GroupChatPopup = ({
               group_id: group.id,
               original_message_id: parentId,
               reply_message: messageText,
+              parent_reply_id: null,
             };
-
-        console.log("[GroupChatPopup] Sending reply payload:", payload);
 
         if (groupChatService.sendMessage(payload)) {
           setReplyingTo(null);
@@ -1173,8 +1213,7 @@ const GroupChatPopup = ({
   const handleForwardToUser = useCallback((message, recipientId) => {
     if (!groupChatService.isInitialized()) return;
 
-    const isReply =
-      message.messageType === "reply" || message.type === "reply";
+    const isReply = message.messageType === "reply" || message.type === "reply";
 
     const payload = {
       type: "forward_to_dm",
@@ -1192,8 +1231,7 @@ const GroupChatPopup = ({
   const handleForwardToGroup = useCallback((message, targetGroupId) => {
     if (!groupChatService.isInitialized()) return;
 
-    const isReply =
-      message.messageType === "reply" || message.type === "reply";
+    const isReply = message.messageType === "reply" || message.type === "reply";
 
     if (isReply) {
       const payload = {
@@ -1201,8 +1239,7 @@ const GroupChatPopup = ({
         source_reply_id: message.id,
         target_group_id: targetGroupId,
         is_reply: true,
-        original_message_id:
-          message.original_message_id || message.message_id,
+        original_message_id: message.original_message_id || message.message_id,
         parent_reply_id: message.parent_reply_id || null,
       };
       groupChatService.sendMessage(payload);
@@ -1245,7 +1282,10 @@ const GroupChatPopup = ({
 
   const deleteMessage = (messageId) => {
     if (isNaN(parseInt(messageId))) {
-      console.error("[GroupChatPopup] Invalid messageId for delete:", messageId);
+      console.error(
+        "[GroupChatPopup] Invalid messageId for delete:",
+        messageId,
+      );
       return;
     }
     const messageToDelete = messages.find((m) => m.id === messageId);
@@ -1288,7 +1328,10 @@ const GroupChatPopup = ({
     if (messageType === "message") {
       const delMsgId = parseInt(messageId);
       if (isNaN(delMsgId)) {
-        console.error("[GroupChatPopup] Invalid messageId for delete:", messageId);
+        console.error(
+          "[GroupChatPopup] Invalid messageId for delete:",
+          messageId,
+        );
         return;
       }
       const payload = {
@@ -1309,7 +1352,10 @@ const GroupChatPopup = ({
     } else if (messageType === "reply") {
       const delReplyId = parseInt(messageId);
       if (isNaN(delReplyId)) {
-        console.error("[GroupChatPopup] Invalid replyId for delete:", messageId);
+        console.error(
+          "[GroupChatPopup] Invalid replyId for delete:",
+          messageId,
+        );
         return;
       }
       const payload = {
@@ -1597,10 +1643,7 @@ const GroupChatPopup = ({
     if (!showSearch) return;
 
     const handleClickOutside = (event) => {
-      if (
-        searchRef.current &&
-        !searchRef.current.contains(event.target)
-      ) {
+      if (searchRef.current && !searchRef.current.contains(event.target)) {
         // Don't close if clicking the search toggle button
         const toggle = chatWindowRef.current?.querySelector(
           '[title="Search messages"]',
@@ -1797,10 +1840,7 @@ const GroupChatPopup = ({
 
       {/* ── Search Bar ── */}
       {showSearch && (
-        <div
-          className="group-chat-popup-search-bar"
-          ref={searchRef}
-        >
+        <div className="group-chat-popup-search-bar" ref={searchRef}>
           <div className="group-chat-popup-search-input-wrap">
             <i className="bi bi-search group-chat-popup-search-icon" />
             <input
@@ -1987,7 +2027,7 @@ const GroupChatPopup = ({
             return (
               <React.Fragment key={`${item.messageType}-${item.id}`}>
                 {/* Unread divider — shown before the first unread message */}
-                {isFirstUnread && showUnreadDivider && (
+                {isFirstUnread && initialUnreadId && (
                   <div
                     ref={unreadDividerRef}
                     className="group-chat-unread-divider"
@@ -1999,428 +2039,351 @@ const GroupChatPopup = ({
                     <div className="group-chat-unread-divider-line" />
                   </div>
                 )}
-              <div
-                id={`msg-${item.messageType}-${item.id}`}
-                className={`group-chat-message-item ${
-                  i === 0 ? "group-chat-message-item-first" : ""
-                }`}
-                ref={(el) => {
-                  if (el) {
-                    // Store ref for both messages and replies
-                    // For messages, use the message ID
-                    // For replies, we still want to be able to scroll to them
-                    if (!isReply) {
-                      messageRefs.current[`message-${item.id}`] = el;
-                    }
-                  }
-                  // Also set firstUnreadMessageRef if needed
-                  if (isFirstUnread) {
-                    firstUnreadMessageRef.current = el;
-                  }
-                }}
-                style={{
-                  marginBottom: "16px",
-                  display: "flex",
-                  flexDirection: "column",
-                  alignItems: isMe ? "flex-end" : "flex-start",
-                  transition: "background-color 0.3s ease",
-                }}
-              >
-                {/* User info header */}
                 <div
-                  className={`group-chat-message-meta ${
-                    isMe ? "group-chat-message-meta-me" : ""
+                  id={`msg-${item.messageType}-${item.id}`}
+                  className={`group-chat-message-item ${
+                    i === 0 ? "group-chat-message-item-first" : ""
                   }`}
+                  ref={(el) => {
+                    if (el) {
+                      // Store ref for both messages and replies
+                      // For messages, use the message ID
+                      // For replies, we still want to be able to scroll to them
+                      if (!isReply) {
+                        messageRefs.current[`message-${item.id}`] = el;
+                      }
+                    }
+                    // Also set firstUnreadMessageRef if needed
+                    if (isFirstUnread) {
+                      firstUnreadMessageRef.current = el;
+                    }
+                  }}
                   style={{
+                    marginBottom: "16px",
                     display: "flex",
-                    alignItems: "center",
-                    gap: "8px",
-                    marginBottom: "4px",
-                    flexDirection: isMe ? "row-reverse" : "row",
+                    flexDirection: "column",
+                    alignItems: isMe ? "flex-end" : "flex-start",
+                    transition: "background-color 0.3s ease",
                   }}
                 >
-                  {item.user?.profile_picture ? (
-                    <img
-                      src={item.user.profile_picture}
-                      alt={`${item.user.first_name} ${item.user.last_name}`}
+                  {/* User info header */}
+                  <div
+                    className={`group-chat-message-meta ${
+                      isMe ? "group-chat-message-meta-me" : ""
+                    }`}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px",
+                      marginBottom: "4px",
+                      flexDirection: isMe ? "row-reverse" : "row",
+                    }}
+                  >
+                    {item.user?.profile_picture ? (
+                      <img
+                        src={item.user.profile_picture}
+                        alt={`${item.user.first_name} ${item.user.last_name}`}
+                        style={{
+                          width: "24px",
+                          height: "24px",
+                          borderRadius: "50%",
+                        }}
+                      />
+                    ) : (
+                      <div
+                        style={{
+                          width: "24px",
+                          height: "24px",
+                          borderRadius: "50%",
+                          background: isMe ? "#007bff" : "#6c757d",
+                          color: "#fff",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: "12px",
+                          fontWeight: "bold",
+                        }}
+                      >
+                        {item.user?.first_name
+                          ? item.user.first_name.slice(0, 1).toUpperCase()
+                          : "U"}
+                      </div>
+                    )}
+                    <span
                       style={{
-                        width: "24px",
-                        height: "24px",
-                        borderRadius: "50%",
-                      }}
-                    />
-                  ) : (
-                    <div
-                      style={{
-                        width: "24px",
-                        height: "24px",
-                        borderRadius: "50%",
-                        background: isMe ? "#007bff" : "#6c757d",
-                        color: "#fff",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: "12px",
-                        fontWeight: "bold",
+                        fontSize: "13px",
+                        fontWeight: "600",
+                        color: isMe ? "#007bff" : "#495057",
                       }}
                     >
-                      {item.user?.first_name
-                        ? item.user.first_name.slice(0, 1).toUpperCase()
-                        : "U"}
-                    </div>
-                  )}
-                  <span
-                    style={{
-                      fontSize: "13px",
-                      fontWeight: "600",
-                      color: isMe ? "#007bff" : "#495057",
-                    }}
-                  >
-                    {isMe
-                      ? "You"
-                      : `${item.user?.first_name || "Unknown"} ${item.user?.last_name || ""}`}
-                  </span>
-                  <span
-                    style={{
-                      fontSize: "11px",
-                      color: "#6c757d",
-                    }}
-                  >
-                    Delivered:{" "}
-                    {formatDistanceToNow(new Date(item.created_at), {
-                      addSuffix: true,
-                    })}
-                    {item.is_read && item.read && (
-                      <span style={{ marginLeft: "8px" }}>
-                        Read:{" "}
-                        {formatDistanceToNow(
-                          new Date(item.read_at || item.updated_at),
-                          { addSuffix: true },
+                      {isMe
+                        ? "You"
+                        : `${item.user?.first_name || "Unknown"} ${item.user?.last_name || ""}`}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: "11px",
+                        color: "#6c757d",
+                      }}
+                    >
+                      Delivered:{" "}
+                      {formatDistanceToNow(new Date(item.created_at), {
+                        addSuffix: true,
+                      })}
+                      {item.is_read && item.read && (
+                        <span style={{ marginLeft: "8px" }}>
+                          Read:{" "}
+                          {formatDistanceToNow(
+                            new Date(item.read_at || item.updated_at),
+                            { addSuffix: true },
+                          )}
+                        </span>
+                      )}
+                      {item.updated_at &&
+                        item.updated_at !== item.created_at &&
+                        !(
+                          item.is_read &&
+                          item.read &&
+                          new Date(item.updated_at).getTime() >
+                            new Date(item.created_at).getTime() + 1000
+                        ) &&
+                        // <span style={{ marginLeft: "4px", fontStyle: "italic" }}>(edited)</span>
+                        ""}
+                    </span>
+                    {item.tempId && (
+                      <span style={{ fontSize: "11px", color: "#ffc107" }}>
+                        Sending...
+                      </span>
+                    )}
+                    {isMe && !isReply && (
+                      <span
+                        style={{
+                          marginLeft: "8px",
+                          fontSize: "11px",
+                          color:
+                            item.is_read && item.read ? "#28a745" : "#6c757d",
+                        }}
+                      >
+                        {item.is_read && item.read ? (
+                          <i className="bi bi-check-all"></i>
+                        ) : item.is_read ? (
+                          <i className="bi bi-check-all"></i>
+                        ) : (
+                          <i className="bi bi-check"></i>
                         )}
                       </span>
                     )}
-                    {item.updated_at &&
-                      item.updated_at !== item.created_at &&
-                      !(
-                        item.is_read &&
-                        item.read &&
-                        new Date(item.updated_at).getTime() >
-                          new Date(item.created_at).getTime() + 1000
-                      ) &&
-                      // <span style={{ marginLeft: "4px", fontStyle: "italic" }}>(edited)</span>
-                      ""}
-                  </span>
-                  {item.tempId && (
-                    <span style={{ fontSize: "11px", color: "#ffc107" }}>
-                      Sending...
-                    </span>
-                  )}
-                  {isMe && !isReply && (
-                    <span
-                      style={{
-                        marginLeft: "8px",
-                        fontSize: "11px",
-                        color:
-                          item.is_read && item.read ? "#28a745" : "#6c757d",
-                      }}
-                    >
-                      {item.is_read && item.read ? (
-                        <i className="bi bi-check-all"></i>
-                      ) : item.is_read ? (
-                        <i className="bi bi-check-all"></i>
-                      ) : (
-                        <i className="bi bi-check"></i>
-                      )}
-                    </span>
-                  )}
-                </div>
-
-                {/* Message/Reply Container */}
-                <div
-                  className={`group-chat-message-row ${
-                    isMe ? "group-chat-message-row-me" : ""
-                  }`}
-                  style={{
-                    display: "flex",
-                    alignItems: "flex-start",
-                    gap: "8px",
-                    width: "100%",
-                    justifyContent: isMe ? "flex-end" : "flex-start",
-                  }}
-                >
-                  {/* Message Actions (three-dot menu + reply + forward) */}
-                  <div className="group-chat-message-actions">
-                    {!isReply && (
-                      <>
-                        <div
-                          className="message-dropdown-wrapper"
-                          ref={(el) => {
-                            if (el) messageDropdownRefs.current[item.id] = el;
-                          }}
-                        >
-                          <button
-                            className="message-dropdown-toggle"
-                            onClick={() =>
-                              setShowDropdownForMessageId(
-                                showDropdownForMessageId === item.id
-                                  ? null
-                                  : item.id,
-                              )
-                            }
-                          >
-                            <i className="bi bi-three-dots-vertical"></i>
-                          </button>
-                          {showDropdownForMessageId === item.id && (
-                            <div className="message-dropdown-menu">
-                              {isMe ? (
-                                <>
-                                  <button
-                                    onClick={() => {
-                                      setMessageInfoModal({
-                                        isOpen: true,
-                                        message: item,
-                                      });
-                                      setShowDropdownForMessageId(null);
-                                    }}
-                                  >
-                                    <i className="bi bi-info-circle"></i>
-                                    Info
-                                  </button>
-                                  <button
-                                    onClick={() => {
-                                      startEditing(item);
-                                      setShowDropdownForMessageId(null);
-                                    }}
-                                  >
-                                    <i className="bi bi-pencil"></i>
-                                    Edit
-                                  </button>
-                                  <div className="dropdown-divider" />
-                                  <button
-                                    className="dropdown-action-danger"
-                                    onClick={() => {
-                                      deleteMessage(item.id);
-                                      setShowDropdownForMessageId(null);
-                                    }}
-                                  >
-                                    <i className="bi bi-trash"></i>
-                                    Delete
-                                  </button>
-                                </>
-                              ) : (
-                                <>
-                                  <button
-                                    onClick={() => {
-                                      setMessageInfoModal({
-                                        isOpen: true,
-                                        message: item,
-                                      });
-                                      setShowDropdownForMessageId(null);
-                                    }}
-                                  >
-                                    <i className="bi bi-info-circle"></i>
-                                    Info
-                                  </button>
-                                </>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                        <button
-                          className="message-reply-btn"
-                          onClick={() => handleReply(item)}
-                        >
-                          <i className="bi bi-reply"></i>
-                        </button>
-                      </>
-                    )}
-                    <button
-                      className="message-forward-btn"
-                      onClick={() => handleForward(item)}
-                    >
-                      <i className="bi bi-forward"></i>
-                    </button>
                   </div>
-
-                  {/* Message/Reply Content Bubble */}
+                  {/* Message/Reply Container */}
                   <div
-                    className="group-chat-message-bubble"
+                    className={`group-chat-message-row ${
+                      isMe ? "group-chat-message-row-me" : ""
+                    }`}
                     style={{
-                      backgroundColor: isMe ? "#007bff" : "#fff",
-                      color: isMe ? "#fff" : "#212529",
-                      padding: "10px 14px",
-                      borderRadius: "18px",
-                      maxWidth: "calc(100% - 56px)",
-                      border: isMe ? "none" : "1px solid #dee2e6",
-                      wordBreak: "break-word",
-                      overflowWrap: "anywhere",
-                      position: "relative",
-                      boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+                      display: "flex",
+                      alignItems: "flex-start",
+                      gap: "8px",
+                      width: "100%",
+                      justifyContent: isMe ? "flex-end" : "flex-start",
                     }}
                   >
-                    {/* For replies, show the "Replying to" context */}
-                    {isReply && item.parentMessageContent && (
-                      <div
-                        onClick={() => scrollToMessage(item.parentMessageId)}
-                        style={{
-                          backgroundColor: "rgba(0,0,0,0.1)",
-                          padding: "6px 8px",
-                          borderRadius: "8px",
-                          marginBottom: "8px",
-                          fontSize: "11px",
-                          borderLeft: "3px solid rgba(0,0,0,0.3)",
-                          cursor: "pointer",
-                          transition: "all 0.2s ease",
-                        }}
-                        onMouseOver={(e) => {
-                          e.currentTarget.style.backgroundColor =
-                            "rgba(0,0,0,0.2)";
-                          e.currentTarget.style.borderLeftColor =
-                            "rgba(0,0,0,0.5)";
-                        }}
-                        onMouseOut={(e) => {
-                          e.currentTarget.style.backgroundColor =
-                            "rgba(0,0,0,0.1)";
-                          e.currentTarget.style.borderLeftColor =
-                            "rgba(0,0,0,0.3)";
-                        }}
+                    {/* Message Actions (three-dot menu + reply + forward) */}
+                    <div className="group-chat-message-actions">
+                      {isMe && (
+                        <>
+                          <div
+                            className="message-dropdown-wrapper"
+                            ref={(el) => {
+                              if (el) messageDropdownRefs.current[item.id] = el;
+                            }}
+                          >
+                            <button
+                              className="message-dropdown-toggle"
+                              onClick={() =>
+                                setShowDropdownForMessageId(
+                                  showDropdownForMessageId === item.id
+                                    ? null
+                                    : item.id,
+                                )
+                              }
+                            >
+                              <i className="bi bi-three-dots-vertical"></i>
+                            </button>
+                            {showDropdownForMessageId === item.id && (
+                              <div className="message-dropdown-menu">
+                                <button
+                                  onClick={() => {
+                                    setMessageInfoModal({
+                                      isOpen: true,
+                                      message: item,
+                                    });
+                                    setShowDropdownForMessageId(null);
+                                  }}
+                                >
+                                  <i className="bi bi-info-circle"></i>
+                                  Info
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    if (isReply) {
+                                      startEditingReply(
+                                        item,
+                                        item.parentMessageId,
+                                      );
+                                    } else {
+                                      startEditing(item);
+                                    }
+                                    setShowDropdownForMessageId(null);
+                                  }}
+                                >
+                                  <i className="bi bi-pencil"></i>
+                                  Edit
+                                </button>
+                                <div className="dropdown-divider" />
+                                <button
+                                  className="dropdown-action-danger"
+                                  onClick={() => {
+                                    if (isReply) {
+                                      deleteReply(item.id);
+                                    } else {
+                                      deleteMessage(item.id);
+                                    }
+                                    setShowDropdownForMessageId(null);
+                                  }}
+                                >
+                                  <i className="bi bi-trash"></i>
+                                  Delete
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </>
+                      )}
+                      <button
+                        className="message-reply-btn"
+                        onClick={() => handleReply(item)}
                       >
+                        <i className="bi bi-reply"></i>
+                      </button>
+                      <button
+                        className="message-forward-btn"
+                        onClick={() => handleForward(item)}
+                      >
+                        <i className="bi bi-forward"></i>
+                      </button>
+                    </div>
+
+                    {/* Message/Reply Content Bubble */}
+                    <div
+                      className="group-chat-message-bubble"
+                      style={{
+                        backgroundColor: isMe ? "#007bff" : "#fff",
+                        color: isMe ? "#fff" : "#212529",
+                        padding: "10px 14px",
+                        borderRadius: "18px",
+                        maxWidth: "calc(100% - 56px)",
+                        border: isMe ? "none" : "1px solid #dee2e6",
+                        wordBreak: "break-word",
+                        overflowWrap: "anywhere",
+                        position: "relative",
+                        boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+                      }}
+                    >
+                      {/* For replies, show the "Replying to" context */}
+                      {isReply && item.parentMessageContent && (
                         <div
+                          onClick={() => scrollToMessage(item.parentMessageId)}
                           style={{
-                            fontWeight: 600,
-                            color: isMe ? "rgba(255,255,255,0.9)" : "#6576ff",
-                            marginBottom: "2px",
+                            backgroundColor: "rgba(0,0,0,0.1)",
+                            padding: "6px 8px",
+                            borderRadius: "8px",
+                            marginBottom: "8px",
+                            fontSize: "11px",
+                            borderLeft: "3px solid rgba(0,0,0,0.3)",
+                            cursor: "pointer",
+                            transition: "all 0.2s ease",
+                          }}
+                          onMouseOver={(e) => {
+                            e.currentTarget.style.backgroundColor =
+                              "rgba(0,0,0,0.2)";
+                            e.currentTarget.style.borderLeftColor =
+                              "rgba(0,0,0,0.5)";
+                          }}
+                          onMouseOut={(e) => {
+                            e.currentTarget.style.backgroundColor =
+                              "rgba(0,0,0,0.1)";
+                            e.currentTarget.style.borderLeftColor =
+                              "rgba(0,0,0,0.3)";
                           }}
                         >
-                          {item.parentMessageSender || "User"}
-                        </div>
-                        <div style={{ fontStyle: "italic", opacity: 0.85 }}>
-                          {item.parentMessageContent}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Main content */}
-                    {(() => {
-                      const text = isReply ? item.reply_message : item.content;
-                      const isEmojiOnly =
-                        !isReply && !item.attachment && isOnlyEmojis(text);
-                      return (
-                        <span
-                          className="group-chat-message-text"
-                          style={{
-                            fontSize: isEmojiOnly ? "40px" : "inherit",
-                            lineHeight: isEmojiOnly ? "1.2" : "inherit",
-                            display: "inline-block",
-                          }}
-                        >
-                          {isEmojiOnly ? text : renderMessageWithLinks(text)}
-                        </span>
-                      );
-                    })()}
-
-                    {!isReply && item.attachment && (
-                      <AttachmentDisplay
-                        attachment={item.attachment}
-                        isMe={isMe}
-                        message={item}
-                      />
-                    )}
-
-                    {/* Edit/Delete buttons for replies */}
-                    {item.reply_message !== "Reply deleted" &&
-                      isReply &&
-                      isMe && (
-                        <div
-                          style={{
-                            display: "flex",
-                            gap: "8px",
-                            marginTop: "10px",
-                            justifyContent: "flex-end",
-                          }}
-                        >
-                          <button
-                            onClick={() =>
-                              startEditingReply(item, item.parentMessageId)
-                            }
+                          <div
                             style={{
-                              padding: "6px 12px",
-                              fontSize: "12px",
-                              backgroundColor: "#ffffff",
-                              color: "#333",
-                              border: "1px solid rgba(0,0,0,0.1)",
-                              borderRadius: "6px",
-                              fontWeight: "500",
-                              cursor: "pointer",
-                              display: "flex",
-                              alignItems: "center",
-                              gap: "4px",
-                              boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-                              transition: "all 0.2s",
-                            }}
-                            onMouseOver={(e) => {
-                              e.target.style.backgroundColor = "#f8f9fa";
-                              e.target.style.transform = "translateY(-1px)";
-                              e.target.style.boxShadow =
-                                "0 3px 6px rgba(0,0,0,0.15)";
-                            }}
-                            onMouseOut={(e) => {
-                              e.target.style.backgroundColor = "#ffffff";
-                              e.target.style.transform = "translateY(0)";
-                              e.target.style.boxShadow =
-                                "0 2px 4px rgba(0,0,0,0.1)";
+                              fontWeight: 600,
+                              color: isMe ? "rgba(255,255,255,0.9)" : "#6576ff",
+                              marginBottom: "2px",
                             }}
                           >
-                            <i
-                              className="bi bi-pencil"
-                              style={{ fontSize: "12px" }}
-                            ></i>
-                            <span>Edit</span>
-                          </button>
-                          <button
-                            onClick={() => deleteReply(item.id)}
-                            style={{
-                              padding: "6px 12px",
-                              fontSize: "12px",
-                              backgroundColor: "#ffffff",
-                              color: "#dc3545",
-                              border: "1px solid rgba(220, 53, 69, 0.2)",
-                              borderRadius: "6px",
-                              fontWeight: "500",
-                              cursor: "pointer",
-                              display: "flex",
-                              alignItems: "center",
-                              gap: "4px",
-                              boxShadow: "0 2px 4px rgba(0,0,0,0.1)",
-                              transition: "all 0.2s",
-                            }}
-                            onMouseOver={(e) => {
-                              e.target.style.backgroundColor = "#dc3545";
-                              e.target.style.color = "#ffffff";
-                              e.target.style.transform = "translateY(-1px)";
-                              e.target.style.boxShadow =
-                                "0 3px 6px rgba(220, 53, 69, 0.3)";
-                            }}
-                            onMouseOut={(e) => {
-                              e.target.style.backgroundColor = "#ffffff";
-                              e.target.style.color = "#dc3545";
-                              e.target.style.transform = "translateY(0)";
-                              e.target.style.boxShadow =
-                                "0 2px 4px rgba(0,0,0,0.1)";
-                            }}
-                          >
-                            <i
-                              className="bi bi-trash"
-                              style={{ fontSize: "12px" }}
-                            ></i>
-                            <span>Delete</span>
-                          </button>
+                            {item.parentMessageSender || "User"}
+                          </div>
+                          <div style={{ fontStyle: "italic", opacity: 0.85 }}>
+                            {item.parentMessageContent}
+                          </div>
                         </div>
                       )}
-                  </div>
 
-                  {/* Reply button is now in actions above */}
-                </div>                </div>
+                      {/* Main content */}
+                      {(() => {
+                        const text = isReply
+                          ? item.reply_message
+                          : item.content;
+                        const isDeleted =
+                          (isReply && item.reply_message === "Reply deleted") ||
+                          (!isReply && item.content === "Message deleted");
+
+                        if (isDeleted) {
+                          return (
+                            <span
+                              style={{
+                                fontSize: "12px",
+                                fontStyle: "italic",
+                                color: isMe ? "rgba(255,255,255,0.6)" : "#aaa",
+                              }}
+                            >
+                              {isMe
+                                ? "You deleted this message"
+                                : "Message deleted"}
+                            </span>
+                          );
+                        }
+
+                        const isEmojiOnly =
+                          !isReply && !item.attachment && isOnlyEmojis(text);
+                        return (
+                          <span
+                            className="group-chat-message-text"
+                            style={{
+                              fontSize: isEmojiOnly ? "40px" : "inherit",
+                              lineHeight: isEmojiOnly ? "1.2" : "inherit",
+                              display: "inline-block",
+                            }}
+                          >
+                            {isEmojiOnly ? text : renderMessageWithLinks(text)}
+                          </span>
+                        );
+                      })()}
+
+                      {!isReply && item.attachment && (
+                        <AttachmentDisplay
+                          attachment={item.attachment}
+                          isMe={isMe}
+                          message={item}
+                        />
+                      )}
+                    </div>
+
+                    {/* Reply button is now in actions above */}
+                  </div>{" "}
+                </div>
               </React.Fragment>
             );
           })

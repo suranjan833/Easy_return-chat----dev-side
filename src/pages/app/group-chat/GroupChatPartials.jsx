@@ -26,29 +26,17 @@ export const GroupMeChat = ({
   const [showDropdownForMessageId, setShowDropdownForMessageId] =
     useState(null);
 
-  // Calculate read status — works for both root messages (read_receipts array)
-  // and replies (is_read / read_at fields, no read_receipts array)
+  // Calculate read status — uses read_receipts array for all message types
+  // (messages, replies, reply-on-reply) since handleGroupReplyRead accumulates them
   const readReceipts = message.read_receipts || [];
   const totalMembers = groupMembers?.length || 0;
   const otherMembersCount = Math.max(0, totalMembers - 1);
 
-  const isReplyType =
-    message.type === "group_message_reply" || message.type === "reply";
-
-  let isReadByAll, isReadBySome;
-
-  if (isReplyType) {
-    // Replies: server sends is_read + read_at directly, no read_receipts array
-    isReadBySome = message.is_read === true || !!message.read_at;
-    isReadByAll = isReadBySome; // For replies there's only one "read" state
-  } else {
-    // Root messages: use read_receipts array
-    const readByCount = readReceipts.filter(
-      (r) => r.reader_id !== currentUserId && r.user_id !== currentUserId,
-    ).length;
-    isReadByAll = otherMembersCount > 0 && readByCount >= otherMembersCount;
-    isReadBySome = readByCount > 0;
-  }
+  const readByCount = readReceipts.filter(
+    (r) => r.reader_id !== currentUserId && r.user_id !== currentUserId,
+  ).length;
+  const isReadByAll = otherMembersCount > 0 && readByCount >= otherMembersCount;
+  const isReadBySome = readByCount > 0;
   React.useEffect(() => {
     const handleClickOutside = (event) => {
       const currentDropdown =
@@ -578,9 +566,7 @@ export const GroupMeChat = ({
                             <i
                               className="bi bi-check2-all"
                               style={{ color: "#1ee0ac", fontSize: "13px" }}
-                              title={
-                                isReplyType ? "Read" : `Read by all members`
-                              }
+                              title={otherMembersCount > 0 ? `Read by all ${otherMembersCount} member${otherMembersCount !== 1 ? "s" : ""}` : "Read"}
                             />
                           ) : isReadBySome ? (
                             <i
@@ -589,9 +575,7 @@ export const GroupMeChat = ({
                                 color: "rgba(255,255,255,0.6)",
                                 fontSize: "13px",
                               }}
-                              title={
-                                isReplyType ? "Read" : `Read by some members`
-                              }
+                              title={otherMembersCount > 0 ? `Read by ${readByCount} of ${otherMembersCount} member${otherMembersCount !== 1 ? "s" : ""}` : "Read"}
                             />
                           ) : (
                             <i

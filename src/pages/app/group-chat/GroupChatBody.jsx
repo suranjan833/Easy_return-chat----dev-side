@@ -250,6 +250,23 @@ export default function GroupChatBody() {
   //   );
   // };
   const isMessageReadByCurrentUser = (message) => {
+    if (message?.id === 621) {
+      console.log("READ CHECK", {
+        id: message.id,
+
+        type: message.type,
+
+        sender_id: message.sender_id,
+
+        currentUserId,
+
+        is_read: message.is_read,
+
+        read_at: message.read_at,
+
+        read_receipts: message.read_receipts,
+      });
+    }
     if (!message) return true;
 
     const senderId = Number(message.sender_id || message.user?.id || -1);
@@ -286,30 +303,10 @@ export default function GroupChatBody() {
     [messages],
   );
 
-  const firstUnreadMessageIndex = useMemo(() => {
-    return orderedMessages.findIndex(
-      (item) => item && !item.meta && !isMessageReadByCurrentUser(item),
-    );
-  }, [orderedMessages, currentUserId]);
-
-  const messagesWithUnreadDivider = useMemo(() => {
-    const unreadIndex = orderedMessages.findIndex(
-      (item) => item && !item.meta && !isMessageReadByCurrentUser(item),
-    );
-
-    if (unreadIndex === -1) return orderedMessages;
-
-    return [
-      ...orderedMessages.slice(0, unreadIndex),
-      {
-        meta: true,
-        metaText: "Unread Messages",
-        unreadDivider: true,
-        id: "unread-divider",
-      },
-      ...orderedMessages.slice(unreadIndex),
-    ];
-  }, [orderedMessages, currentUserId]);
+  const messagesWithUnreadDivider = useMemo(
+    () => orderedMessages,
+    [orderedMessages],
+  );
 
   useEffect(() => {
     hasAutoScrolledToUnread.current = false;
@@ -324,12 +321,8 @@ export default function GroupChatBody() {
     const el = scrollRef.current;
     if (!el) return;
 
-    const hasUnreadDivider = messagesWithUnreadDivider.some(
-      (m) => m?.unreadDivider,
-    );
-
     // If any unread message exists, do not auto-scroll to bottom.
-    if (initialUnreadId || firstUnreadMessageId || hasUnreadDivider) {
+    if (initialUnreadId || firstUnreadMessageId) {
       hasPreventedBottomScrollAfterUnread.current = true;
       return;
     }
@@ -344,6 +337,38 @@ export default function GroupChatBody() {
     messagesWithUnreadDivider,
   ]);
 
+  //mera log
+  useEffect(() => {
+    if (!initialUnreadId) return;
+
+    const unreadStillExists = messages.some(
+      (msg) => msg.id === initialUnreadId && !isMessageReadByCurrentUser(msg),
+    );
+
+    console.log({
+      initialUnreadId,
+      unreadStillExists,
+    });
+
+    if (!unreadStillExists) {
+      setInitialUnreadId(null);
+    }
+  }, [messages, initialUnreadId]);
+  useEffect(() => {
+    if (!initialUnreadId) return;
+
+    const targetMessage = messages.find((msg) => msg.id === initialUnreadId);
+
+    console.log("TARGET MESSAGE", {
+      id: targetMessage?.id,
+      type: targetMessage?.type,
+      is_read: targetMessage?.is_read,
+      read_at: targetMessage?.read_at,
+      read_receipts: targetMessage?.read_receipts,
+      sender_id: targetMessage?.sender_id,
+    });
+  }, [messages, initialUnreadId]);
+  //
   useEffect(() => {
     if (!initialUnreadId || hasAutoScrolledToUnread.current) return;
 
@@ -370,11 +395,10 @@ export default function GroupChatBody() {
     );
 
     let removeTimer = null;
-    if (!unreadStillExists) {
-      // Delay removal so user sees the divider disappear smoothly after message marked read
-      removeTimer = setTimeout(() => setInitialUnreadId(null), 2500);
-    }
 
+    if (!unreadStillExists) {
+      setInitialUnreadId(null);
+    }
     return () => {
       if (removeTimer) clearTimeout(removeTimer);
     };
@@ -559,10 +583,7 @@ export default function GroupChatBody() {
     if (!showSearch) return;
 
     const handleClickOutside = (event) => {
-      if (
-        searchRef.current &&
-        !searchRef.current.contains(event.target)
-      ) {
+      if (searchRef.current && !searchRef.current.contains(event.target)) {
         const toggle = document.querySelector(".group-chat-search-toggle");
         if (toggle && toggle.contains(event.target)) return;
         setShowSearch(false);
