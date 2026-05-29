@@ -104,7 +104,7 @@ const GroupChatPopup = ({
   const firstUnreadMessageRef = useRef(null);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   const pendingMentionsRef = useRef([]); // Ref to track pending mentions
-  const messageRefs = useRef({}); // Ref to store message elements for navigation
+  // Ref to store message elements for navigation
 
   // Helper function to apply styling to mentions
   const renderStyledMessage = (text, members) => {
@@ -311,40 +311,36 @@ const GroupChatPopup = ({
     );
   };
 
-  // Flatten messages and replies into a single chronological list (WhatsApp-like behavior)
   const allMessages = useMemo(() => {
-    const flattened = [];
+    return [...messages]
+      .map((item) => {
+        const isReply =
+          item.type === "reply" || item.type === "group_message_reply";
 
-    messages.forEach((message) => {
-      // Add the main message
-      flattened.push({
-        ...message,
-        type: "message",
-        messageType: "message",
-      });
+        return {
+          ...item,
+          messageType: isReply ? "reply" : "message",
 
-      // Add all replies as separate items
-      if (message.replies_mentions && message.replies_mentions.length > 0) {
-        message.replies_mentions.forEach((reply) => {
-          flattened.push({
-            ...reply,
-            type: "reply",
-            messageType: "reply",
-            parentMessageId: message.id,
-            parentMessageContent: message.content,
-            parentMessageSender: message.user
-              ? `${message.user.first_name || ""} ${message.user.last_name || ""}`.trim()
+          parentMessageId: item.parent_reply_id || item.original_message_id,
+
+          parentMessageContent:
+            item.parentMsg?.reply_message ||
+            item.parentMsg?.content ||
+            item.parentMsg?.message ||
+            item.original_message_content ||
+            "",
+
+          parentMessageSender: item.parentMsg?.sender
+            ? `${item.parentMsg.sender.first_name || ""} ${item.parentMsg.sender.last_name || ""}`.trim()
+            : item.parentMsg?.user
+              ? `${item.parentMsg.user.first_name || ""} ${item.parentMsg.user.last_name || ""}`.trim()
               : "User",
-          });
-        });
-      }
-    });
-
-    // Sort all items by created_at
-    return flattened.sort(
-      (a, b) =>
-        new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
-    );
+        };
+      })
+      .sort(
+        (a, b) =>
+          new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+      );
   }, [messages]);
 
   // Detect first unread message on initial load, scroll to it
@@ -497,200 +493,128 @@ const GroupChatPopup = ({
         ),
       );
     };
-
     const handleMessageReply = (data) => {
-      if (!data) return;
-
-      // Backend sends reply data in two possible formats:
-      // 1. With .reply wrapper: { reply: { id, original_message_id, ... } }
-      // 2. Flat/top-level: { id, original_message_id, ... }
       const replyData = data.reply || data;
 
-      // Must match the correct group (data.group_id or data.groupId)
       const replyGroupId = replyData.group_id || replyData.groupId;
-      if (replyGroupId && Number(replyGroupId) !== Number(group.id)) return;
 
-      // Skip invalid events — must have an id and sender
-      if (!replyData.id || !(replyData.user_id || replyData.sender_id)) return;
+      if (Number(replyGroupId) !== Number(group.id)) return;
 
-      // Determine the target parent to attach this reply under.
-      // Support both original_message_id (reply to message) and parent_reply_id (reply-on-reply).
-      // For reply-on-reply: if only parent_reply_id is given, we need to find which message
-      // contains that parent reply in its replies_mentions array.
-      const rawParentId =
-        replyData.original_message_id || replyData.parent_reply_id;
-      if (!rawParentId) return;
+      const replySender =
+        group.group_members.find(
+          (member) =>
+            Number(member.id) ===
+            Number(replyData.user_id || replyData.sender_id),
+        ) || replyData.sender;
 
-      const parentMsgId = parseInt(rawParentId);
+      const parentId =
+        replyData.parent_reply_id || replyData.original_message_id;
+
+      const parentMsg =
+        replyData.parentMsg ||
+        messages.find((m) => Number(m.id) === Number(parentId)) ||
+        null;
+
+      const newReply = {
+        ...replyData,
+
+        type: "group_message_reply",
+
+        // IMPORTANT
+        reply_message:
+          replyData.reply_message ||
+          replyData.content ||
+          replyData.message ||
+          "",
+
+        content:
+          replyData.content ||
+          replyData.reply_message ||
+          replyData.message ||
+          "",
+
+        parentMsg,
+
+        user: {
+          id: Number(
+            replySender?.id || replyData.user_id || replyData.sender_id,
+          ),
+          first_name:
+            replySender?.first_name ||
+            replyData.user?.first_name ||
+            replyData.sender?.first_name ||
+            "Unknown",
+          last_name:
+            replySender?.last_name ||
+            replyData.user?.last_name ||
+            replyData.sender?.last_name ||
+            "",
+          profile_picture:
+            replySender?.profile_picture ||
+            replyData.sender?.profile_picture ||
+            null,
+        },
+
+        sender_id: Number(
+          replyData.sender_id || replyData.user_id || replySender?.id,
+        ),
+
+        is_read: replyData.is_read || false,
+        read: replyData.read || false,
+        read_at: replyData.read_at || null,
+      };
 
       setMessages((prev) => {
-        // Determine the actual parent message ID: if the parent is itself a reply,
-        // find which top-level message holds that reply.
-        let targetMessageId = parentMsgId;
-        const parentIsReply =
-          replyData.parent_reply_id && !replyData.original_message_id;
-        if (parentIsReply) {
-          const containerMsg = prev.find((m) =>
-            m.replies_mentions?.some((r) => Number(r.id) === Number(parentMsgId)),
-          );
-          if (containerMsg) {
-            targetMessageId = containerMsg.id;
-          }
-          // If container not found, fall back to using parentMsgId (might be a top-level msg id)
+        if (prev.some((m) => Number(m.id) === Number(newReply.id))) {
+          return prev;
         }
 
-        const newMessages = prev.map((msg) => {
-          if (Number(msg.id) !== Number(targetMessageId)) return msg;
-
-          const existingReplies = msg.replies_mentions || [];
-          if (existingReplies.some((reply) => Number(reply.id) === Number(replyData.id))) {
-            return msg; // Avoid duplicate replies
-          }
-
-          const originalMessage = prev.find((m) => Number(m.id) === Number(targetMessageId));
-          const replySender = group.group_members.find(
-            (member) =>
-              Number(member.id) === parseInt(replyData.user_id || replyData.sender_id),
-          );
-
-          const newReply = {
-            id: Number(replyData.id),
-            type: "reply",
-            created_at: replyData.created_at,
-            updated_at: replyData.updated_at,
-            user:
-              parseInt(replyData.user_id || replyData.sender_id) === userId
-                ? {
-                    id: userId,
-                    first_name: "You",
-                    last_name: "",
-                    email: "",
-                    profile_picture: "",
-                  }
-                : replySender || {
-                    id:
-                      replyData.user?.id ||
-                      replyData.sender?.id ||
-                      parseInt(replyData.user_id || replyData.sender_id),
-                    first_name:
-                      replyData.user?.first_name ||
-                      replyData.sender?.first_name ||
-                      "Unknown",
-                    last_name:
-                      replyData.user?.last_name ||
-                      replyData.sender?.last_name ||
-                      "",
-                    email:
-                      replyData.user?.email || replyData.sender?.email || "",
-                    profile_picture:
-                      replyData.user?.profile_picture ||
-                      replyData.sender?.profile_picture ||
-                      "",
-                  },
-            user_id: parseInt(replyData.user_id || replyData.sender_id),
-            original_message_id: Number(targetMessageId),
-            original_message_content: originalMessage
-              ? originalMessage.content
-              : "Original message not found",
-            reply_message:
-              replyData.reply_message ||
-              replyData.content ||
-              replyData.message ||
-              "",
-          };
-
-          // Check for temporary reply to replace
-          const tempReplyIndex = existingReplies.findIndex(
-            (r) =>
-              r.tempId &&
-              r.user_id ===
-                parseInt(replyData.user_id || replyData.sender_id) &&
-              r.reply_message ===
-                (replyData.reply_message ||
-                  replyData.content ||
-                  replyData.message),
-          );
-
-          if (tempReplyIndex !== -1) {
-            const updatedReplies = [...existingReplies];
-            updatedReplies[tempReplyIndex] = newReply;
-            return {
-              ...msg,
-              replies_mentions: updatedReplies.sort(
-                (a, b) => new Date(a.created_at) - new Date(b.created_at),
-              ),
-            };
-          }
-
-          return {
-            ...msg,
-            replies_mentions: [...existingReplies, newReply].sort(
-              (a, b) => new Date(a.created_at) - new Date(b.created_at),
-            ),
-          };
-        });
-        return newMessages;
+        return [...prev, newReply].sort(
+          (a, b) =>
+            new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+        );
       });
+
       scrollToBottom();
     };
-
     const handleReplyEdit = (data) => {
-      if (!data || !data.reply) return;
-      // Support both data.groupId and data.reply.group_id
+      if (!data?.reply) return;
+
       const editGroupId = data.groupId || data.reply?.group_id;
-      if (editGroupId && editGroupId !== group.id) return;
+      if (editGroupId && Number(editGroupId) !== Number(group.id)) return;
 
-      setMessages((prev) => {
-        const updatedMessages = prev.map((msg) => {
-          if (
-            msg.replies_mentions.some((reply) => reply.id === data.reply.id)
-          ) {
-            return {
-              ...msg,
-              replies_mentions: msg.replies_mentions
-                .map((reply) =>
-                  reply.id === data.reply.id
-                    ? {
-                        ...reply,
-                        reply_message: data.reply.reply_message,
-                        updated_at: data.reply.updated_at,
-                      }
-                    : reply,
-                )
-                .sort(
-                  (a, b) => new Date(a.created_at) - new Date(b.created_at),
-                ),
-            };
-          }
-          return msg;
-        });
-        return updatedMessages;
-      });
+      setMessages((prev) =>
+        prev.map((msg) =>
+          Number(msg.id) === Number(data.reply.id)
+            ? {
+                ...msg,
+                reply_message: data.reply.reply_message,
+                updated_at: data.reply.updated_at,
+              }
+            : msg,
+        ),
+      );
     };
-
     const handleReplyDelete = (data) => {
-      if (data.groupId && data.groupId !== group.id) return;
+      const deleteGroupId = data.groupId || data.group_id;
 
-      setMessages((prev) => {
-        const updatedMessages = prev.map((msg) => {
-          if (msg.replies_mentions.some((reply) => reply.id === data.replyId)) {
-            return {
-              ...msg,
-              replies_mentions: msg.replies_mentions.map((reply) =>
-                reply.id === data.replyId
-                  ? {
-                      ...reply,
-                      reply_message: "Reply deleted",
-                      attachment: null,
-                    }
-                  : reply,
-              ),
-            };
-          }
-          return msg;
-        });
-        return updatedMessages;
-      });
+      if (deleteGroupId && Number(deleteGroupId) !== Number(group.id)) {
+        return;
+      }
+
+      const replyId = data.replyId || data.reply_id;
+
+      setMessages((prev) =>
+        prev.map((msg) =>
+          Number(msg.id) === Number(replyId)
+            ? {
+                ...msg,
+                reply_message: "Reply deleted",
+                attachment: null,
+              }
+            : msg,
+        ),
+      );
     };
 
     const handleMention = (data) => {
@@ -767,23 +691,21 @@ const GroupChatPopup = ({
 
     // Handle read receipts for replies
     const handleGroupReplyRead = (data) => {
-      if (data.group_id !== group.id) return;
+      if (Number(data.group_id) !== Number(group.id)) return;
+
+      const replyId = data.reply_id || data.replyId;
+
       setMessages((prev) =>
-        prev.map((m) => {
-          if (!m.replies_mentions) return m;
-          const hasReply = m.replies_mentions.some(
-            (r) => r.id === data.reply_id,
-          );
-          if (!hasReply) return m;
-          return {
-            ...m,
-            replies_mentions: m.replies_mentions.map((r) =>
-              r.id === data.reply_id
-                ? { ...r, is_read: true, read_at: data.read_at || r.read_at }
-                : r,
-            ),
-          };
-        }),
+        prev.map((msg) =>
+          Number(msg.id) === Number(replyId)
+            ? {
+                ...msg,
+                is_read: true,
+                read: true,
+                read_at: data.read_at || msg.read_at,
+              }
+            : msg,
+        ),
       );
     };
 
@@ -828,108 +750,97 @@ const GroupChatPopup = ({
 
   const fetchInitialMessages = async () => {
     setLoading(true);
+
     try {
       const backendMessages = await getGroupMessages(group.id);
 
+      console.log(
+        "GROUP API RESPONSE",
+        JSON.parse(JSON.stringify(backendMessages)),
+      );
+
       const sortedMessages = sortMessages(
         backendMessages.map((msg) => {
-          const mappedMsg = {
+          const sender = msg.sender || msg.user || {};
+
+          const parentId =
+            msg.parent_reply_id || msg.original_message_id || null;
+
+          const parentMessage =
+            msg.parentMsg ||
+            backendMessages.find((m) => Number(m.id) === Number(parentId)) ||
+            null;
+
+          return {
+            ...msg,
+
             id: Number(msg.id),
             group_id: Number(msg.group_id),
-            // API returns "message" field (not "content") — same normalization as GroupChatContext
+
             content: msg.message || msg.content || "",
+            message: msg.message || msg.content || "",
+
             attachment: msg.attachment || null,
+
             created_at: msg.created_at,
             updated_at: msg.updated_at,
-            // API returns sender under msg.sender (not msg.user) — align with GroupChatContext
+
+            sender_id: Number(msg.sender_id || sender.id || msg.user_id || 0),
+
             user: {
-              id: Number(msg.sender?.id || msg.sender_id || 0),
-              first_name:
-                msg.sender?.first_name || msg.user?.first_name || "Unknown",
-              last_name: msg.sender?.last_name || msg.user?.last_name || "",
-              email: msg.sender?.email || msg.user?.email || "",
-              profile_picture:
-                msg.sender?.profile_picture || msg.user?.profile_picture || "",
+              id: Number(sender.id || msg.sender_id || msg.user_id || 0),
+              first_name: sender.first_name || "Unknown",
+              last_name: sender.last_name || "",
+              email: sender.email || "",
+              profile_picture: sender.profile_picture || "",
             },
-            sender_id: Number(msg.sender_id || msg.sender?.id || 0),
+
             is_read: msg.is_read || false,
             read: msg.read || false,
             read_at: msg.read_at || null,
-            replies_mentions: (msg.replies_mentions || []).map((reply) => {
-              const replySender = group.group_members.find(
-                (member) => member.id === reply.user_id,
-              );
 
-              return {
-                ...reply,
-                user_id: parseInt(reply.user_id), // Ensure user_id is an integer
-                user:
-                  reply.user_id === userId
-                    ? {
-                        id: userId,
-                        first_name: "You",
-                        last_name: "",
-                        email: "",
-                        profile_picture: "",
-                      }
-                    : replySender || {
-                        id: reply.user?.id || reply.user_id,
-                        first_name: reply.user?.first_name || "Unknown",
-                        last_name: reply.user?.last_name || "",
-                        email: reply.user?.email || "",
-                        profile_picture: reply.user?.profile_picture || "",
-                      },
-                original_message_content:
-                  backendMessages.find(
-                    (m) => Number(m.id) === Number(reply.original_message_id),
-                  )?.message || "Original message not found",
-                reply_message: reply.reply_message || "Reply deleted", // Ensure reply_message is set for deleted replies
-              };
-            }), // Include replies_mentions and original message content
+            // Reply fields
+            type: msg.type || "message",
+
+            original_message_id: msg.original_message_id || null,
+            parent_reply_id: msg.parent_reply_id || null,
+
+            // IMPORTANT
+            parentMsg: parentMessage,
+
+            reply_message:
+              msg.reply_message || msg.message || msg.content || "",
+
+            original_message_content:
+              msg.original_message_content ||
+              parentMessage?.reply_message ||
+              parentMessage?.content ||
+              parentMessage?.message ||
+              null,
           };
-
-          return mappedMsg;
         }),
       );
+
       setMessages(sortedMessages);
+
       setInitialLoadComplete(true);
 
-      // Mark all unread messages and replies from other users as read
       const unreadMessages = sortedMessages.filter(
         (msg) => msg.sender_id !== userId && !msg.is_read,
-      );
-      const unreadReplies = sortedMessages.flatMap((msg) =>
-        (msg.replies_mentions || []).filter(
-          (r) => parseInt(r.user_id) !== userId && !r.is_read,
-        ),
       );
 
       const markAll = () => {
         unreadMessages.forEach((msg) => {
-          groupChatService.markMessageRead(group.id, msg.id);
+          if (msg.type === "reply" || msg.type === "group_message_reply") {
+            groupChatService.markReplyRead(group.id, msg.id);
+          } else {
+            groupChatService.markMessageRead(group.id, msg.id);
+          }
         });
-        unreadReplies.forEach((reply) => {
-          groupChatService.markReplyRead(group.id, reply.id);
-        });
-        if (unreadMessages.length + unreadReplies.length > 0) {
-          console.log(
-            `[ReadReceipt] Popup: marked ${unreadMessages.length} messages + ${unreadReplies.length} replies as read`,
-          );
-        }
       };
 
       if (groupChatService.ws?.readyState === WebSocket.OPEN) {
         markAll();
-      } else {
-        let attempts = 0;
-        const intervalId = setInterval(() => {
-          if (groupChatService.ws?.readyState === WebSocket.OPEN) {
-            clearInterval(intervalId);
-            markAll();
-          } else if (++attempts >= 10) {
-            clearInterval(intervalId);
-          }
-        }, 300);
       }
     } catch (err) {
       console.error("Error fetching group messages:", err);
@@ -1010,29 +921,26 @@ const GroupChatPopup = ({
         };
 
         if (groupChatService.sendMessage(payload)) {
-          setMessages((prev) => {
-            const newMessages = prev.map((msg) => {
-              if (msg.id === editingReply.original_message_id) {
-                return {
-                  ...msg,
-                  replies_mentions: msg.replies_mentions.map((reply) =>
-                    reply.id === editingReply.id
-                      ? {
-                          ...reply,
-                          reply_message: messageText,
-                          updated_at: new Date().toISOString(),
-                        }
-                      : reply,
-                  ),
-                };
-              }
-              return msg;
-            });
-            return newMessages;
-          });
+          setMessages((prev) =>
+            prev.map((msg) =>
+              Number(msg.id) === Number(editingReply.id)
+                ? {
+                    ...msg,
+
+                    reply_message: messageText,
+
+                    updated_at: new Date().toISOString(),
+                  }
+                : msg,
+            ),
+          );
+
           setEditingReply(null);
+
           setMessageText("");
+
           setAttachment(null);
+
           setAttachmentPreview(null);
         } else {
           setError("Failed to edit reply");
@@ -1048,9 +956,7 @@ const GroupChatPopup = ({
           replyingTo.type === "reply" ||
           replyingTo.type === "group_message_reply";
 
-        const parentId = replyingTo.isOptimistic
-          ? Number(replyingTo.original_message_id)
-          : Number(replyingTo.id);
+        const parentId = Number(replyingTo.id);
         if (isNaN(parentId)) {
           console.error(
             "[GroupChatPopup] Invalid parent ID:",
@@ -1213,7 +1119,10 @@ const GroupChatPopup = ({
   const handleForwardToUser = useCallback((message, recipientId) => {
     if (!groupChatService.isInitialized()) return;
 
-    const isReply = message.messageType === "reply" || message.type === "reply";
+    const isReply =
+      item.parent_reply_id !== undefined ||
+      item.original_message_id !== undefined ||
+      item.type === "group_message_reply";
 
     const payload = {
       type: "forward_to_dm",
@@ -1260,15 +1169,23 @@ const GroupChatPopup = ({
 
   // Function to scroll to original message when clicking on reply context
   const scrollToMessage = (messageId) => {
-    const messageElement = messageRefs.current[`message-${messageId}`];
-    if (messageElement) {
-      messageElement.scrollIntoView({ behavior: "smooth", block: "center" });
-      // Add highlight effect
-      messageElement.style.backgroundColor = "rgba(255, 193, 7, 0.3)";
-      setTimeout(() => {
-        messageElement.style.backgroundColor = "";
-      }, 2000);
+    const element = document.getElementById(`message-${messageId}`);
+
+    if (!element) {
+      console.log("MESSAGE NOT FOUND", messageId);
+      return;
     }
+
+    element.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+
+    element.style.backgroundColor = "rgba(255,193,7,0.3)";
+
+    setTimeout(() => {
+      element.style.backgroundColor = "";
+    }, 2000);
   };
 
   const cancelReply = () => {
@@ -1298,28 +1215,26 @@ const GroupChatPopup = ({
   };
 
   const deleteReply = (replyId) => {
-    if (isNaN(parseInt(replyId))) {
+    const parsedReplyId = Number(replyId);
+
+    if (isNaN(parsedReplyId)) {
       console.error("[GroupChatPopup] Invalid replyId:", replyId);
       return;
     }
 
-    // Find the reply in the messages
-    let replyToDelete = null;
-    messages.forEach((msg) => {
-      if (msg.replies_mentions) {
-        const found = msg.replies_mentions.find((r) => r.id === replyId);
-        if (found) replyToDelete = found;
-      }
-    });
+    const replyToDelete = messages.find(
+      (msg) =>
+        Number(msg.id) === parsedReplyId &&
+        (msg.type === "reply" || msg.type === "group_message_reply"),
+    );
 
     setDeleteModal({
       isOpen: true,
-      messageId: replyId,
+      messageId: parsedReplyId,
       messageType: "reply",
-      content: replyToDelete ? replyToDelete.reply_message : "this reply",
+      content: replyToDelete?.reply_message || "this reply",
     });
   };
-
   const confirmDelete = () => {
     if (!groupChatService.isInitialized()) return;
 
@@ -1364,30 +1279,18 @@ const GroupChatPopup = ({
       };
 
       if (groupChatService.sendMessage(payload)) {
-        setMessages((prev) => {
-          const newMessages = prev.map((msg) => {
-            if (
-              msg.replies_mentions.some(
-                (reply) => reply.id === parseInt(messageId),
-              )
-            ) {
-              return {
-                ...msg,
-                replies_mentions: msg.replies_mentions.map((reply) =>
-                  reply.id === parseInt(messageId)
-                    ? {
-                        ...reply,
-                        reply_message: "Reply deleted",
-                        attachment: null,
-                      }
-                    : reply,
-                ),
-              };
-            }
-            return msg;
-          });
-          return newMessages;
-        });
+        setMessages((prev) =>
+          prev.map((msg) =>
+            Number(msg.id) === Number(messageId)
+              ? {
+                  ...msg,
+                  reply_message: "Reply deleted",
+                  attachment: null,
+                }
+              : msg,
+          ),
+        );
+
         toast.success("Reply deleted successfully");
       }
     }
@@ -2040,20 +1943,11 @@ const GroupChatPopup = ({
                   </div>
                 )}
                 <div
-                  id={`msg-${item.messageType}-${item.id}`}
+                  id={`message-${item.id}`}
                   className={`group-chat-message-item ${
                     i === 0 ? "group-chat-message-item-first" : ""
                   }`}
                   ref={(el) => {
-                    if (el) {
-                      // Store ref for both messages and replies
-                      // For messages, use the message ID
-                      // For replies, we still want to be able to scroll to them
-                      if (!isReply) {
-                        messageRefs.current[`message-${item.id}`] = el;
-                      }
-                    }
-                    // Also set firstUnreadMessageRef if needed
                     if (isFirstUnread) {
                       firstUnreadMessageRef.current = el;
                     }
