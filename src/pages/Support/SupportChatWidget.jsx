@@ -104,10 +104,12 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
   // const joinAttemptedRef = useRef(null);
   const isConnectingRef = useRef(false);
   const handleFilterChange = (filter) => {
+    setIsFetching(true);
     setDateFilter(filter);
     if (mobileView) {
       setSelectedTicket(null);
       setTicketNumber(null);
+      navigate("/messages?tab=Support-Ticket", { replace: true });
     }
   };
   const selectedTicketRef = useRef(selectedTicket);
@@ -1402,7 +1404,8 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
   // Modified handleJoinOrRequestHuman to enforce single agent connection
 
   useEffect(() => {
-    if (showFilterPanel) return; // Do not filter client-side when panel is open
+    if (showFilterPanel) return;
+    if (isFetching) return; // Skip client-side filtering while fetching fresh data
     const filterTickets = () => {
       let result = tickets;
 
@@ -1490,6 +1493,7 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
     dateFilter,
     datessFilter,
     currentPage,
+    isFetching,
   ]);
 
   const handleBlockUser = async () => {
