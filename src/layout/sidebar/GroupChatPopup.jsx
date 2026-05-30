@@ -777,6 +777,9 @@ const GroupChatPopup = ({
             id: Number(msg.id),
             group_id: Number(msg.group_id),
 
+            // 👇 add this
+            is_deleted: msg.is_deleted || !!msg.deleted_at,
+
             content: msg.message || msg.content || "",
             message: msg.message || msg.content || "",
 
@@ -784,6 +787,7 @@ const GroupChatPopup = ({
 
             created_at: msg.created_at,
             updated_at: msg.updated_at,
+            deleted_at: msg.deleted_at || null,
 
             sender_id: Number(msg.sender_id || sender.id || msg.user_id || 0),
 
@@ -799,13 +803,11 @@ const GroupChatPopup = ({
             read: msg.read || false,
             read_at: msg.read_at || null,
 
-            // Reply fields
             type: msg.type || "message",
 
             original_message_id: msg.original_message_id || null,
             parent_reply_id: msg.parent_reply_id || null,
 
-            // IMPORTANT
             parentMsg: parentMessage,
 
             reply_message:
@@ -1924,6 +1926,10 @@ const GroupChatPopup = ({
                     : m.sender_id === userId;
                 return mIsMe || m.is_read;
               });
+            const isDeleted =
+              item.is_deleted ||
+              (isReply && item.reply_message === "Reply deleted") ||
+              (!isReply && item.content === "Message deleted");
 
             // Skip deleted messages
 
@@ -2083,7 +2089,7 @@ const GroupChatPopup = ({
                   >
                     {/* Message Actions (three-dot menu + reply + forward) */}
                     <div className="group-chat-message-actions">
-                      {isMe && (
+                      {isMe && !isDeleted && (
                         <>
                           <div
                             className="message-dropdown-wrapper"
@@ -2153,38 +2159,57 @@ const GroupChatPopup = ({
                           </div>
                         </>
                       )}
-                      <button
-                        className="message-reply-btn"
-                        onClick={() => handleReply(item)}
-                      >
-                        <i className="bi bi-reply"></i>
-                      </button>
-                      <button
-                        className="message-forward-btn"
-                        onClick={() => handleForward(item)}
-                      >
-                        <i className="bi bi-forward"></i>
-                      </button>
-                    </div>
+                      {!isDeleted && (
+                        <>
+                          <button
+                            className="message-reply-btn"
+                            onClick={() => handleReply(item)}
+                          >
+                            <i className="bi bi-reply"></i>
+                          </button>
 
+                          <button
+                            className="message-forward-btn"
+                            onClick={() => handleForward(item)}
+                          >
+                            <i className="bi bi-forward"></i>
+                          </button>
+                        </>
+                      )}
+                    </div>
                     {/* Message/Reply Content Bubble */}
+
                     <div
                       className="group-chat-message-bubble"
                       style={{
-                        backgroundColor: isMe ? "#007bff" : "#fff",
-                        color: isMe ? "#fff" : "#212529",
+                        backgroundColor: isDeleted
+                          ? "#f5f6f6"
+                          : isMe
+                            ? "#007bff"
+                            : "#fff",
+
+                        color: isDeleted
+                          ? "#667781"
+                          : isMe
+                            ? "#fff"
+                            : "#212529",
+
                         padding: "10px 14px",
                         borderRadius: "18px",
-                        maxWidth: "calc(100% - 56px)",
-                        border: isMe ? "none" : "1px solid #dee2e6",
-                        wordBreak: "break-word",
-                        overflowWrap: "anywhere",
-                        position: "relative",
-                        boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+
+                        border: isDeleted
+                          ? "1px solid #e9edef"
+                          : isMe
+                            ? "none"
+                            : "1px solid #dee2e6",
+
+                        boxShadow: isDeleted
+                          ? "none"
+                          : "0 1px 2px rgba(0,0,0,0.05)",
                       }}
                     >
-                      {/* For replies, show the "Replying to" context */}
-                      {isReply && item.parentMessageContent && (
+                      {/* Reply Preview */}
+                      {isReply && !isDeleted && item.parentMessageContent && (
                         <div
                           onClick={() => scrollToMessage(item.parentMessageId)}
                           style={{
@@ -2197,18 +2222,6 @@ const GroupChatPopup = ({
                             cursor: "pointer",
                             transition: "all 0.2s ease",
                           }}
-                          onMouseOver={(e) => {
-                            e.currentTarget.style.backgroundColor =
-                              "rgba(0,0,0,0.2)";
-                            e.currentTarget.style.borderLeftColor =
-                              "rgba(0,0,0,0.5)";
-                          }}
-                          onMouseOut={(e) => {
-                            e.currentTarget.style.backgroundColor =
-                              "rgba(0,0,0,0.1)";
-                            e.currentTarget.style.borderLeftColor =
-                              "rgba(0,0,0,0.3)";
-                          }}
                         >
                           <div
                             style={{
@@ -2219,54 +2232,52 @@ const GroupChatPopup = ({
                           >
                             {item.parentMessageSender || "User"}
                           </div>
+
                           <div style={{ fontStyle: "italic", opacity: 0.85 }}>
                             {item.parentMessageContent}
                           </div>
                         </div>
                       )}
 
-                      {/* Main content */}
-                      {(() => {
-                        const text = isReply
-                          ? item.reply_message
-                          : item.content;
-                        const isDeleted =
-                          (isReply && item.reply_message === "Reply deleted") ||
-                          (!isReply && item.content === "Message deleted");
+                      {/* Main Content */}
+                      {isDeleted ? (
+                        <div
+                          style={{
+                            fontSize: "14px",
+                            fontStyle: "italic",
+                            color: "#7a869a",
+                            textAlign: "center",
+                          }}
+                        >
+                          Message has been deleted
+                        </div>
+                      ) : (
+                        (() => {
+                          const text = isReply
+                            ? item.reply_message
+                            : item.content;
 
-                        if (isDeleted) {
+                          const isEmojiOnly =
+                            !isReply && !item.attachment && isOnlyEmojis(text);
+
                           return (
                             <span
+                              className="group-chat-message-text"
                               style={{
-                                fontSize: "12px",
-                                fontStyle: "italic",
-                                color: isMe ? "rgba(255,255,255,0.6)" : "#aaa",
+                                fontSize: isEmojiOnly ? "40px" : "inherit",
+                                lineHeight: isEmojiOnly ? "1.2" : "inherit",
+                                display: "inline-block",
                               }}
                             >
-                              {isMe
-                                ? "You deleted this message"
-                                : "Message deleted"}
+                              {isEmojiOnly
+                                ? text
+                                : renderMessageWithLinks(text)}
                             </span>
                           );
-                        }
+                        })()
+                      )}
 
-                        const isEmojiOnly =
-                          !isReply && !item.attachment && isOnlyEmojis(text);
-                        return (
-                          <span
-                            className="group-chat-message-text"
-                            style={{
-                              fontSize: isEmojiOnly ? "40px" : "inherit",
-                              lineHeight: isEmojiOnly ? "1.2" : "inherit",
-                              display: "inline-block",
-                            }}
-                          >
-                            {isEmojiOnly ? text : renderMessageWithLinks(text)}
-                          </span>
-                        );
-                      })()}
-
-                      {!isReply && item.attachment && (
+                      {!isReply && item.attachment && !isDeleted && (
                         <AttachmentDisplay
                           attachment={item.attachment}
                           isMe={isMe}
@@ -2274,7 +2285,6 @@ const GroupChatPopup = ({
                         />
                       )}
                     </div>
-
                     {/* Reply button is now in actions above */}
                   </div>{" "}
                 </div>
