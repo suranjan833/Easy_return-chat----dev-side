@@ -209,10 +209,10 @@ useEffect(() => {
   };
 
   return (
-    <div className="historical-tickets-container d-flex">
-      <div className="historical-tickets-list p-3" style={{ width: '40%', borderRight: '1px solid #dee2e6', marginTop: '10px' }}>
-        <h6 className="mb-3" style={{ fontSize: '1rem' }}>
-          Historical Tickets for <span className="text-primary">{userEmail || 'User'}</span>
+    <div className="historical-tickets-container">
+      <div className="historical-tickets-list">
+        <h6 className="historical-tickets-heading">
+          History for <span className="text-primary">{userEmail || 'User'}</span>
         </h6>
         {loading ? (
           <div className="text-center py-3">
@@ -223,14 +223,14 @@ useEffect(() => {
         ) : historicalTickets.length === 0 ? (
           <p className="text-muted text-center py-3">No historical tickets found.</p>
         ) : (
-          <div className="ticket-list" style={{ maxHeight: '250px', overflowY: 'auto' }}>
+          <div className="ticket-list">
             {historicalTickets.map((ticket) => (
               <div
                 key={ticket.ticket_number}
-                className={`ticket-card mb-2 p-3 border rounded shadow-sm ${
+                className={`ticket-card ${
                   selectedHistoricalTicket?.ticket_number === ticket.ticket_number
-                    ? 'active border-primary border-2'
-                    : 'border-light'
+                    ? 'active'
+                    : ''
                 } ${
                   ticket.status.toLowerCase() === 'initiated'
                     ? 'bg-info bg-opacity-10'
@@ -249,10 +249,9 @@ useEffect(() => {
                   }
                 }}
                 aria-label={`Select historical ticket ${ticket.ticket_number}`}
-                style={{ cursor: 'pointer' }}
               >
-                <div className="ticket-header d-flex justify-content-between align-items-center mb-1">
-                  <strong className="text-dark">{ticket.name || 'N/A'}</strong>
+                <div className="ticket-header">
+                  <strong>{ticket.name || 'N/A'}</strong>
                   <span
                     className={`badge ${
                       ticket.status.toLowerCase() === 'initiated'
@@ -262,15 +261,15 @@ useEffect(() => {
                         : ticket.status.toLowerCase() === 'resolved'
                         ? 'bg-primary'
                         : 'bg-danger'
-                    } text-white`}
+                    }`}
                   >
                     {ticket.status.charAt(0).toUpperCase() + ticket.status.slice(1)}
                   </span>
                 </div>
-                <p className="ticket-issue text-muted mb-1" style={{ fontSize: '0.875rem' }}>
+                <p className="ticket-issue">
                   {ticket.issue_description || 'No description'}
                 </p>
-                <small className="text-secondary d-block mt-2" style={{ fontSize: '0.75rem' }}>
+                <small className="text-muted d-block">
                   Created: {new Date(ticket.created_at || Date.now()).toLocaleDateString('en-US', {
                     month: 'short',
                     day: 'numeric',
@@ -285,7 +284,7 @@ useEffect(() => {
           </div>
         )}
       </div>
-      <div className="historical-tickets-chat" style={{ width: '60%', paddingLeft: '10px' }}>
+      <div className="historical-tickets-chat">
         {selectedHistoricalTicket ? (
           <div className="card chat-card">
             <div className="card-header d-flex justify-content-between align-items-center">
@@ -309,7 +308,7 @@ useEffect(() => {
                 <strong>Issue: </strong>{selectedHistoricalTicket.issue_description || 'No description available'}
               </p>
             </div>
-            <div className="card-body chat-body p-3" ref={chatBodyRef} style={{ maxHeight: '250px', overflowY: 'auto', backgroundColor: '#f8f9fa' }}>
+            <div className="chat-body" ref={chatBodyRef}>
               {loadingMessages ? (
                 <div className="text-center py-2">
                   <div className="spinner-border spinner-border-sm text-primary" role="status">
@@ -347,7 +346,7 @@ useEffect(() => {
                       messageAlign = 'align-self-end';
                       messageBg = 'bg-primary';
                       messageTextColor = 'text-white';
-                      senderLabelColor = 'text-dark'; // Changed to text-dark for better visibility against primary background
+                      senderLabelColor = 'text-dark';
                     } else if (isSystem) {
                       messageClass = 'message-system';
                       messageAlign = 'align-self-center';

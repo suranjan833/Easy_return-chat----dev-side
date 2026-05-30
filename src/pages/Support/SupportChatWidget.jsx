@@ -1989,9 +1989,24 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
                 )}
               </>
             )}
-          </div>
-          <div className={`chat-panel ${mobileView && !selectedTicket ? "d-none" : ""}`}>
-            {!selectedTicket && !isAgent ? (
+          </div>          <div className={`chat-panel ${mobileView && !selectedTicket ? "d-none" : ""}`}>
+            {showHistoricalTickets ? (
+              <div className="historical-tickets-section">
+                <div className="historical-tickets-header">
+                  <button
+                    className="btn btn-sm btn-outline-secondary"
+                    onClick={() => setShowHistoricalTickets(false)}
+                    aria-label="Back to current ticket"
+                  >
+                    <i className="bi bi-arrow-left me-1" /> Back
+                  </button>
+                </div>
+                <HistoricalTickets
+                  userEmail={selectedTicket?.email}
+                  currentTicketNumber={selectedTicket?.ticket_number}
+                />
+              </div>
+            ) : !selectedTicket && !isAgent ? (
               <div className="card new-ticket-card">
                 <div className="card-body text-center py-5">
                   <h5 className="text-muted">
@@ -2208,6 +2223,17 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
                       ticketNumber={ticketNumber}
                       selectedTicket={selectedTicket}
                     />
+                    {/* Block button — in left group on mobile for better spacing */}
+                    {mobileView && selectedTicket && (
+                      <button
+                        className="btn btn-sm btn-outline-danger"
+                        onClick={() => setBlockModal(true)}
+                        title="Block user"
+                        aria-label="Block this user"
+                      >
+                        <i className="bi bi-slash-circle" />
+                      </button>
+                    )}
                     <StatusCheckModal
                       isOpen={showStatusModal}
                       toggle={() => setShowStatusModal(false)}
@@ -2219,20 +2245,6 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
                       socket={socket}
                       setMessages={setMessages}
                     />
-                    {/* <button
-        className="btn btn-primary"
-        onClick={() => setShowHistoricalTickets((prev) => !prev)}
-        aria-label={
-          showHistoricalTickets
-            ? <BsTicketPerforated />
-            : <BsTicketDetailed />
-        }
-      >
-        {showHistoricalTickets
-          ? <BsTicketPerforated />
-          : <BsTicketDetailed />
-        }
-      </button> */}
                     <OverlayTrigger
                       placement="top"
                       overlay={
@@ -2271,7 +2283,7 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
                   <div className="d-flex align-items-center gap-2">
                     {/* Section navigation buttons */}
                     <button
-                      className="btn btn-sm btn-outline-primary"
+                      className="btn btn-sm btn-outline-primary header-nav-btn"
                       onClick={() => navigate("/messages")}
                       title="Go to Chats"
                       aria-label="Navigate to Chats"
@@ -2280,7 +2292,7 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
                       <i className="bi bi-chat-dots" />
                     </button>
                     <button
-                      className="btn btn-sm btn-outline-primary"
+                      className="btn btn-sm btn-outline-primary header-groups-btn"
                       onClick={() => navigate("/app-group-chat")}
                       title="Go to Groups"
                       aria-label="Navigate to Groups"
@@ -2298,7 +2310,7 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
                         <i className="bi bi-dash-lg" />
                       </button>
                     )}
-                    {selectedTicket && (
+                    {!mobileView && selectedTicket && (
                       <button
                         className="btn btn-sm btn-outline-danger"
                         onClick={() => setBlockModal(true)}
@@ -2307,7 +2319,8 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
                       >
                         <i className="bi bi-slash-circle" />
                       </button>
-                    )}                    <span
+                    )}
+                    <span
                       className={`badge ${
                         selectedTicket?.status === "initiated"
                           ? "bg-info"
@@ -2523,13 +2536,6 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
                       This ticket is {selectedTicket?.status || "closed"}. You
                       can only view the chat history.
                     </div>
-                  )}
-
-                  {showHistoricalTickets && (
-                    <HistoricalTickets
-                      userEmail={selectedTicket?.email}
-                      currentTicketNumber={selectedTicket?.ticket_number}
-                    />
                   )}
                 </div>
               </div>
