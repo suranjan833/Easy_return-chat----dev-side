@@ -66,6 +66,20 @@ function GroupChatInner() {
                         </a>
                       </li>
                     </ul>
+                    <ul className="link-list-opt no-bdr">
+                      <li>
+                        <a
+                          href="#support"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            navigate("/messages?tab=Support-Ticket");
+                          }}
+                          className="dropdown-item"
+                        >
+                          Support Ticket
+                        </a>
+                      </li>
+                    </ul>
                   </DropdownMenu>
                 </UncontrolledDropdown>
               </div>

@@ -70,7 +70,7 @@ const NotificationItem = ({
       id={id}
       onClick={(e) => {
         if (ticket_number && !e.target.closest(".mark-read-icon")) {
-          navigate(`/support-chat/${ticket_number}`);
+          navigate(`/messages?tab=Support-Ticket&ticket=${ticket_number}`);
         }
       }}
       style={{

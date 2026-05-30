@@ -22,7 +22,7 @@ const menu = [
       {
         icon: 'bi bi-headset',
         text: 'Support Chat',
-        link: '/support-chat',
+        link: '/messages?tab=Support-Ticket',
         allowedRoles: [2, 1, 3],
       },
     ],

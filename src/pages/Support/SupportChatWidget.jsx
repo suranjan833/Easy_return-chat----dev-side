@@ -103,6 +103,13 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
 
   // const joinAttemptedRef = useRef(null);
   const isConnectingRef = useRef(false);
+  const handleFilterChange = (filter) => {
+    setDateFilter(filter);
+    if (mobileView) {
+      setSelectedTicket(null);
+      setTicketNumber(null);
+    }
+  };
   const selectedTicketRef = useRef(selectedTicket);
   useEffect(() => { selectedTicketRef.current = selectedTicket; }, [selectedTicket]);
   const memoizedSelectedTicket = useMemo(
@@ -1545,7 +1552,7 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
       if (fetchTicketsRef.current) {
         setTimeout(() => fetchTicketsRef.current(), 1000);
       }
-      navigate("/support-chat", { replace: true });
+      navigate("/messages?tab=Support-Ticket", { replace: true });
     } catch (err) {
       console.error("[SupportChatWidget] Close conversation error:", {
         message: err.message,
@@ -1618,7 +1625,33 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
       <div className="support-chat-wrapper">
         <div className={`support-chat-container ${mobileView && selectedTicket ? "mobile-chat-open" : ""}`}>
           <div className={`sidebar ${mobileView && selectedTicket ? "d-none" : ""}`}>
-            <h4 className="sidebar-title">Your Tickets</h4>
+            {/* Visible section navigation — always visible in sidebar */}
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: "10px"
+            }}>
+              <h4 className="sidebar-title mb-0">Your Tickets</h4>
+              <div style={{ display: "flex", gap: "4px" }}>
+                <button
+                  className="btn btn-sm btn-outline-primary"
+                  onClick={() => navigate("/messages")}
+                  title="Go to Chats"
+                  style={{ fontSize: "0.75rem", padding: "2px 8px" }}
+                >
+                  <i className="bi bi-chat-dots" /> <span className="d-none d-md-inline">Chats</span>
+                </button>
+                <button
+                  className="btn btn-sm btn-outline-primary"
+                  onClick={() => navigate("/app-group-chat")}
+                  title="Go to Groups"
+                  style={{ fontSize: "0.75rem", padding: "2px 8px" }}
+                >
+                  <i className="bi bi-people" /> <span className="d-none d-md-inline">Groups</span>
+                </button>
+              </div>
+            </div>
             <button
               className={`btn ${
                 showFilterPanel ? "btn-secondary" : "btn-primary"
@@ -1680,7 +1713,7 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
                   <button
                     type="button"
                     className={`btn ${dateFilter === "active" ? "btn-primary" : "btn-outline-primary"} p-1`}
-                    onClick={() => setDateFilter("active")}
+                    onClick={() => handleFilterChange("active")}
                     aria-pressed={dateFilter === "active"}
                   >
                     Active{" "}
@@ -1698,7 +1731,7 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
                   <button
                     type="button"
                     className={`btn ${dateFilter === "history" ? "btn-primary" : "btn-outline-primary"}`}
-                    onClick={() => setDateFilter("history")}
+                    onClick={() => handleFilterChange("history")}
                     aria-pressed={dateFilter === "history"}
                   >
                     History
@@ -1706,7 +1739,7 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
                   <button
                     type="button"
                     className={`btn ${dateFilter === "transferred" ? "btn-primary" : "btn-outline-primary"} p-1`}
-                    onClick={() => setDateFilter("transferred")}
+                    onClick={() => handleFilterChange("transferred")}
                     aria-pressed={dateFilter === "transferred"}
                   >
                     Transferred{" "}
@@ -2232,6 +2265,25 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
                     </OverlayTrigger>
                   </div>
                   <div className="d-flex align-items-center gap-2">
+                    {/* Section navigation buttons */}
+                    <button
+                      className="btn btn-sm btn-outline-primary"
+                      onClick={() => navigate("/messages")}
+                      title="Go to Chats"
+                      aria-label="Navigate to Chats"
+                      style={{ fontSize: "0.75rem", padding: "2px 6px" }}
+                    >
+                      <i className="bi bi-chat-dots" />
+                    </button>
+                    <button
+                      className="btn btn-sm btn-outline-primary"
+                      onClick={() => navigate("/app-group-chat")}
+                      title="Go to Groups"
+                      aria-label="Navigate to Groups"
+                      style={{ fontSize: "0.75rem", padding: "2px 6px" }}
+                    >
+                      <i className="bi bi-people" />
+                    </button>
                     {!mobileView && selectedTicket && (
                       <button
                         className="btn btn-sm btn-outline-secondary"

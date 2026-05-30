@@ -194,7 +194,7 @@ const NotificationsPage = () => {
                         className={`hover:bg-gray-50 ${notification.isRead ? 'bg-gray-100' : ''}`}
                         onClick={() => {
                           if (notification.ticket_number) {
-                            navigate(`/support-chat/${notification.ticket_number}`);
+                            navigate(`/messages?tab=Support-Ticket&ticket=${notification.ticket_number}`);
                           }
                         }}
                       >

@@ -229,7 +229,7 @@ const handleTransfer = async () => {
         setWebsocketUrl(null);
         setToken(null);
         setIsHumanHandoff(false);
-        navigate("/support-chat", { replace: true });
+        navigate("/messages?tab=Support-Ticket", { replace: true });
 
         setShowModal(false);
         setTransferType("department");

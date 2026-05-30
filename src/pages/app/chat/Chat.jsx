@@ -67,6 +67,11 @@ const Chat = () => {
 
     if (tab) {
       setMainTab(tab);
+      setFilterTab(tab === "Support-Ticket" ? "Support-Ticket" : "messages");
+    } else {
+      // Reset to Chats tab when no tab parameter (e.g., navigating from /messages?tab=Support-Ticket to /messages)
+      setMainTab("Chats");
+      setFilterTab("messages");
     }
 
     if (ticket) {
@@ -183,6 +188,7 @@ const Chat = () => {
                             onClick={(ev) => {
                               ev.preventDefault();
                               setMainTab("Chats");
+                              navigate("/messages");
                             }}
                           >
                             <span>Messagessss</span>
@@ -219,6 +225,7 @@ const Chat = () => {
                             onClick={(ev) => {
                               ev.preventDefault();
                               setMainTab("Support-Ticket");
+                              navigate("/messages?tab=Support-Ticket");
                             }}
                           >
                             <span>Support Ticket</span>

@@ -1185,7 +1185,7 @@ const Sidebar = ({
                                     onClick={() => {
                                       setSelectedTicket(ticket.ticket_number);
                                       navigate(
-                                        `/support-chat/${ticket.ticket_number}`,
+                                        `/messages?tab=Support-Ticket&ticket=${ticket.ticket_number}`,
                                       );
                                     }}
                                     role="button"
