@@ -172,10 +172,6 @@
 ========================= */
 
 .message-dropdown-menu {
-  position: absolute;
-
-  top: 0;
-
   min-width: 160px;
 
   background: #ffffff;
@@ -192,18 +188,6 @@
   animation: dropdownFade 0.15s ease;
 
   border: 1px solid rgba(0, 0, 0, 0.06);
-}
-
-/* For "me" messages (right-aligned) — dropdown opens to the LEFT of the button, toward center */
-.group-chat-message-row-me .message-dropdown-menu {
-  right: calc(100% + 4px);
-  left: auto;
-}
-
-/* For messages from others (left-aligned) — dropdown opens to the RIGHT of the button, toward center */
-.group-chat-message-row:not(.group-chat-message-row-me) .message-dropdown-menu {
-  left: calc(100% + 4px);
-  right: auto;
 }
 
 /* =========================

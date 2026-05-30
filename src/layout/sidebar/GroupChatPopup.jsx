@@ -66,6 +66,7 @@ const GroupChatPopup = ({
   const [showMentionDropdown, setShowMentionDropdown] = useState(false);
   const [showDropdownForMessageId, setShowDropdownForMessageId] =
     useState(null); // New state for message dropdown
+  const [dropdownMenuPos, setDropdownMenuPos] = useState(null); // Viewport-relative position for the fixed dropdown
   const [messageInfoModal, setMessageInfoModal] = useState({
     isOpen: false,
     message: null,
@@ -1058,6 +1059,7 @@ const GroupChatPopup = ({
         )
       ) {
         setShowDropdownForMessageId(null);
+        setDropdownMenuPos(null);
       }
     };
 
@@ -1542,6 +1544,25 @@ const GroupChatPopup = ({
         .includes(forwardSearch.toLowerCase()),
     );
   }, [groupMemberForwardUsers, forwardSearch]);
+
+  // Close dropdown on scroll
+  useEffect(() => {
+    if (!showDropdownForMessageId) return;
+    const handleScroll = () => {
+      setShowDropdownForMessageId(null);
+      setDropdownMenuPos(null);
+    };
+    // Close on any scroll event in the popup
+    const messagesEl = chatWindowRef.current?.querySelector(".group-chat-messages");
+    if (messagesEl) {
+      messagesEl.addEventListener("scroll", handleScroll, { passive: true });
+    }
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => {
+      if (messagesEl) messagesEl.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("scroll", handleScroll);
+    };
+  }, [showDropdownForMessageId]);
 
   // Click outside search bar to close
   useEffect(() => {
@@ -2099,18 +2120,39 @@ const GroupChatPopup = ({
                           >
                             <button
                               className="message-dropdown-toggle"
-                              onClick={() =>
+                              onClick={(e) => {
+                                const willOpen = showDropdownForMessageId !== item.id;
+                                if (willOpen) {
+                                  const rect = e.currentTarget.getBoundingClientRect();
+                                  const dropdownWidth = 160;
+                                  const gap = 4;
+                                  // Open to the left of the button (right edge of dropdown near button's left edge)
+                                  let left = rect.left + rect.width - dropdownWidth - gap;
+                                  // Clamp to keep within viewport
+                                  left = Math.max(8, Math.min(left, window.innerWidth - dropdownWidth - 8));
+                                  setDropdownMenuPos({
+                                    top: rect.bottom + gap,
+                                    left,
+                                  });
+                                } else {
+                                  setDropdownMenuPos(null);
+                                }
                                 setShowDropdownForMessageId(
-                                  showDropdownForMessageId === item.id
-                                    ? null
-                                    : item.id,
-                                )
-                              }
+                                  willOpen ? item.id : null,
+                                );
+                              }}
                             >
                               <i className="bi bi-three-dots-vertical"></i>
                             </button>
-                            {showDropdownForMessageId === item.id && (
-                              <div className="message-dropdown-menu">
+                            {showDropdownForMessageId === item.id && dropdownMenuPos && (
+                              <div
+                                className="message-dropdown-menu"
+                                style={{
+                                  position: "fixed",
+                                  top: dropdownMenuPos.top,
+                                  left: dropdownMenuPos.left,
+                                }}
+                              >
                                 <button
                                   onClick={() => {
                                     setMessageInfoModal({
