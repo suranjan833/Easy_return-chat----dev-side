@@ -209,7 +209,7 @@
 
 /* Right side of header — compact gap */
 .chat-card .card-header.support-chat-header .d-flex.align-items-center.gap-2 {
-  gap: 4px !important;
+  gap: 6px !important;
   flex-shrink: 0;
 }
 
@@ -630,8 +630,12 @@ z-index: 1000;
   .support-chat-container.mobile-chat-open .chat-panel {
     display: flex !important;
     flex: 1;
-    min-height: 100%;
     padding: 6px;
+    height: 100%;
+  }
+
+  .support-chat-container.mobile-chat-open .chat-card {
+    flex: 1;
   }
 
   .sidebar {
@@ -682,55 +686,72 @@ z-index: 1000;
   }
 
   .chat-card .card-header.support-chat-header {
-    padding: 8px 10px;
+    padding: 8px 12px;
     border-radius: 12px 12px 0 0;
     flex-wrap: wrap;
-    gap: 4px;
+    gap: 6px;
+    min-height: 48px;
   }
 
   .support-header-left {
     flex: 1 1 auto;
     min-width: 0;
-    gap: 4px;
+    gap: 6px;
+    flex-wrap: wrap;
   }
 
   .support-back-btn {
-    padding: 2px 8px;
-    font-size: 0.8rem;
+    padding: 8px 14px;
+    font-size: 0.85rem;
     line-height: 1.4;
+    min-width: 38px;
+    min-height: 38px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border-radius: 8px;
   }
 
   .chat-card .card-header b {
-    font-size: 0.75rem;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 80px;
+    font-size: 0.85rem;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    max-width: none;
+    line-height: 1.4;
+    padding: 2px 0;
   }
 
   .chat-card .card-header b.ms-3 {
-    margin-left: 4px !important;
+    margin-left: 6px !important;
   }
 
   .chat-card .card-header .dropdown {
-    margin-left: 2px !important;
+    margin-left: 4px !important;
   }
 
   .chat-card .card-header .btn-success {
-    font-size: 0.7rem;
-    padding: 2px 6px;
+    font-size: 0.8rem;
+    padding: 8px 14px;
+    min-height: 38px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border-radius: 8px;
   }
 
   .support-subheader {
-    padding: 6px 10px !important;
+    padding: 8px 12px !important;
   }
 
   .support-subheader .ticket-issue {
-    font-size: 0.7rem;
+    font-size: 0.8rem;
+    line-height: 1.5;
   }
 
   .support-subheader .ticket-issue strong {
-    font-size: 0.75rem;
+    font-size: 0.8rem;
   }
 
   .chat-body {
@@ -808,16 +829,50 @@ z-index: 1000;
 
   .chat-card .card-header .btn-outline-secondary,
   .chat-card .card-header .btn-outline-danger {
-    padding: 2px 6px;
-    font-size: 0.7rem;
+    padding: 8px 14px;
+    font-size: 0.85rem;
+    min-height: 38px;
+    min-width: 38px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border-radius: 8px;
   }
 
   .chat-card .card-header .badge {
-    font-size: 0.65rem;
+    font-size: 0.7rem;
+    padding: 3px 7px;
+    white-space: nowrap;
+    border-radius: 6px;
   }
 
   .chat-card .card-header .btn-sm {
-    padding: 2px 6px;
+    padding: 8px 14px;
+    min-height: 38px;
+    display: inline-flex;
+    align-items: center;
+    border-radius: 8px;
+  }
+
+  /* Larger icon sizes in header on mobile */
+  .chat-card .card-header i {
+    font-size: 1.1rem;
+  }
+
+  .chat-card .card-header .bi-info-circle {
+    font-size: 1.2rem;
+  }
+
+  /* Historical tickets button in header */
+  .chat-card .card-header button.mx-1.px-2.py-1 {
+    padding: 8px 12px !important;
+    min-height: 38px;
+    min-width: 38px;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px !important;
   }
 }
 
@@ -839,20 +894,23 @@ z-index: 1000;
   }
 
   .chat-card .card-header.support-chat-header {
-    padding: 6px 8px;
+    padding: 6px 10px;
+    gap: 5px;
+    min-height: 44px;
   }
 
   .chat-card .card-header b {
-    font-size: 0.65rem;
-    max-width: 60px;
+    font-size: 0.8rem;
+    max-width: none;
+    white-space: normal;
   }
 
   .support-subheader {
-    padding: 4px 8px !important;
+    padding: 6px 10px !important;
   }
 
   .support-subheader .ticket-issue {
-    font-size: 0.65rem;
+    font-size: 0.75rem;
   }
 
   .chat-body {
@@ -889,22 +947,55 @@ z-index: 1000;
 
   .chat-card .card-header .btn-outline-secondary,
   .chat-card .card-header .btn-outline-danger {
-    padding: 1px 4px;
-    font-size: 0.65rem;
+    padding: 7px 12px;
+    font-size: 0.85rem;
+    min-height: 36px;
+    min-width: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    border-radius: 8px;
   }
 
   .chat-card .card-header .badge {
-    font-size: 0.6rem;
-    padding: 2px 6px;
+    font-size: 0.7rem;
+    padding: 3px 7px;
   }
 
   .chat-card .card-header .btn-sm {
-    padding: 1px 4px;
+    padding: 7px 12px;
+    min-height: 36px;
+    display: inline-flex;
+    align-items: center;
+    border-radius: 8px;
+  }
+
+  .chat-card .card-header i {
+    font-size: 1rem;
+  }
+
+  .chat-card .card-header .bi-info-circle {
+    font-size: 1.1rem;
+  }
+
+  .chat-card .card-header button.mx-1.px-2.py-1 {
+    padding: 7px 12px !important;
+    min-height: 36px;
+    min-width: 36px;
+    border-radius: 8px !important;
   }
 
   .support-back-btn {
-    padding: 1px 6px;
-    font-size: 0.7rem;
+    padding: 7px 12px;
+    font-size: 0.85rem;
+    min-height: 36px;
+    min-width: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    border-radius: 8px;
   }
 
   .btn-group.mb-2.w-100 .btn {

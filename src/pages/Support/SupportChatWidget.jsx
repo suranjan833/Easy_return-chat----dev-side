@@ -8,8 +8,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { v4 as uuidv4 } from "uuid";
-import { DropdownItem, DropdownMenu, DropdownToggle, UncontrolledDropdown } from "reactstrap";
-import { Icon } from "@/components/Component";
+
 import { useTickets } from "../../Global/TicketsContext";
 import Head from "../../layout/head/Head.jsx";
 import { joinChat, leaveChat } from "../../redux/slices/chatConnectionSlice";
@@ -1619,33 +1618,6 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
       <div className="support-chat-wrapper">
         <div className={`support-chat-container ${mobileView && selectedTicket ? "mobile-chat-open" : ""}`}>
           <div className={`sidebar ${mobileView && selectedTicket ? "d-none" : ""}`}>
-            {/* Gear icon switcher — switch between Chats, Groups, Support */}
-            <div style={{ display: "flex", alignItems: "center", marginBottom: "12px" }}>
-              <UncontrolledDropdown>
-                <DropdownToggle tag="a" className="modern-chat-sidebar-tool-btn" style={{ cursor: "pointer" }}>
-                  <Icon name="setting-alt-fill" />
-                </DropdownToggle>
-                <DropdownMenu end>
-                  <ul className="link-list-opt no-bdr">
-                    <li>
-                      <DropdownItem tag="a" href="#" onClick={(e) => { e.preventDefault(); navigate("/messages?tab=Chats"); }}>
-                        <span>Messages</span>
-                      </DropdownItem>
-                    </li>
-                    <li>
-                      <DropdownItem tag="a" href="#" onClick={(e) => { e.preventDefault(); navigate("/app-group-chat"); }}>
-                        <span>Group Chats</span>
-                      </DropdownItem>
-                    </li>
-                    <li>
-                      <DropdownItem tag="a" href="#" onClick={(e) => { e.preventDefault(); navigate("/support-chat"); }}>
-                        <span>Support Ticket</span>
-                      </DropdownItem>
-                    </li>
-                  </ul>
-                </DropdownMenu>
-              </UncontrolledDropdown>
-            </div>
             <h4 className="sidebar-title">Your Tickets</h4>
             <button
               className={`btn ${
@@ -2026,13 +1998,20 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
                         {selectedTicket.name.substring(0, 2).toUpperCase()}
                       </div>
                     )}
+                    {!mobileView && (
                     <b>Name: {selectedTicket?.name || "N/A"}</b>
+                    )}
+                    {!mobileView && (
                     <b className="ms-3">
                       Email: {selectedTicket?.email || "N/A"}
                     </b>
+                    )}
+                    {!mobileView && (
                     <b className="ms-3">
                       Mobile: {selectedTicket?.mobile || "N/A"}
                     </b>
+                    )}
+                    {!mobileView && (
                     <div className="dropdown ms-2 mx-2">
                       <button
                         className="btn btn-link text-decoration-none p-0"
@@ -2145,6 +2124,7 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
                         </li>
                       </ul>
                     </div>
+                    )}
                     {isAgentWithFallback &&
                       !hasJoined &&
                       selectedTicket?.status !== "closed" &&
@@ -2252,7 +2232,7 @@ const SupportChatWidget = ({ isAgent, agentEmail }) => {
                     </OverlayTrigger>
                   </div>
                   <div className="d-flex align-items-center gap-2">
-                    {selectedTicket && (
+                    {!mobileView && selectedTicket && (
                       <button
                         className="btn btn-sm btn-outline-secondary"
                         onClick={handleMinimize}
