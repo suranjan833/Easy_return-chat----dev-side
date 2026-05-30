@@ -47,6 +47,17 @@ const Menu = ({ data = [] }) => {
   const themeUpdate = useThemeUpdate();
   const location = useLocation();
 
+  // ✅ Search-param-aware active matching for NavLinks
+  const isSearchAwareActive = (isActive, link, currentSearch) => {
+    if (!isActive) return false;
+    const linkHasSearch = link.includes("?");
+    const currentHasSearch = !!currentSearch;
+    // Only active if search-params match (or both are absent)
+    if (!linkHasSearch && !currentHasSearch) return true;
+    if (linkHasSearch && currentHasSearch && currentSearch === "?" + link.split("?")[1]) return true;
+    return false;
+  };
+
   // ✅ Filter menu ONCE (memoized)
   const filteredData = useMemo(
     () => filterMenuByRole(data, ROLE_ID),
@@ -117,7 +128,7 @@ const Menu = ({ data = [] }) => {
   useLayoutEffect(() => {
     currentLink(`.nk-menu-link`);
     themeUpdate.sidebarHide();
-  }, [location.pathname]);
+  }, [location.pathname, location.search]);
 
   useEffect(() => {
     currentLink(`.nk-menu-link`);
@@ -147,7 +158,9 @@ const Menu = ({ data = [] }) => {
               {!item.subMenu ? (
                 <NavLink
                   to={item.link}
-                  className="nk-menu-link"
+                  className={({ isActive }) =>
+                    `nk-menu-link${isSearchAwareActive(isActive, item.link, location.search) ? " active" : ""}`
+                  }
                   target={item.newTab ? "_blank" : undefined}
                 >
                   {item.icon && (
@@ -190,7 +203,9 @@ const Menu = ({ data = [] }) => {
                           {!sItem.subMenu ? (
                             <NavLink
                               to={sItem.link}
-                              className="nk-menu-link"
+                              className={({ isActive }) =>
+                                `nk-menu-link${isSearchAwareActive(isActive, sItem.link, location.search) ? " active" : ""}`
+                              }
                             >
                               <span className="nk-menu-text">
                                 {sItem.text}
@@ -221,7 +236,9 @@ const Menu = ({ data = [] }) => {
                                     >
                                       <NavLink
                                         to={s2.link}
-                                        className="nk-menu-link"
+                                        className={({ isActive }) =>
+                                          `nk-menu-link${isSearchAwareActive(isActive, s2.link, location.search) ? " active" : ""}`
+                                        }
                                       >
                                         <span className="nk-menu-text">
                                           {s2.text}

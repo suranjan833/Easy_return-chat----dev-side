@@ -1473,7 +1473,7 @@ const GroupChatPopup = ({
       ".group-chat-messages",
     );
     if (!container) return;
-    const messageEls = container.querySelectorAll('[id^="msg-"]');
+    const messageEls = container.querySelectorAll('[id^="message-"]');
     const matches = Array.from(messageEls).filter((el) =>
       el.textContent.toLowerCase().includes(query),
     );
